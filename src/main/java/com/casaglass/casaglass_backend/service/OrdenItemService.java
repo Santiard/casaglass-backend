@@ -1,0 +1,149 @@
+package com.casaglass.casaglass_backend.service;
+
+import com.casaglass.casaglass_backend.model.Orden;
+import com.casaglass.casaglass_backend.model.OrdenItem;
+import com.casaglass.casaglass_backend.model.Producto;
+import com.casaglass.casaglass_backend.repository.OrdenItemRepository;
+import com.casaglass.casaglass_backend.repository.OrdenRepository;
+import jakarta.persistence.EntityManager;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+@Service
+public class OrdenItemService {
+
+    private final OrdenItemRepository itemRepo;
+    private final OrdenRepository ordenRepo;
+    private final EntityManager em;
+
+    private static final RoundingMode RM = RoundingMode.HALF_UP;
+
+    public OrdenItemService(OrdenItemRepository itemRepo,
+                            OrdenRepository ordenRepo,
+                            EntityManager em) {
+        this.itemRepo = itemRepo;
+        this.ordenRepo = ordenRepo;
+        this.em = em;
+    }
+
+    public List<OrdenItem> listarPorOrden(Long ordenId) {
+        return itemRepo.findByOrdenId(ordenId);
+    }
+
+    public Optional<OrdenItem> obtener(Long itemId) {
+        return itemRepo.findById(itemId);
+    }
+
+    @Transactional
+    public OrdenItem crear(Long ordenId, OrdenItem payload) {
+        Orden orden = ordenRepo.findById(ordenId)
+                .orElseThrow(() -> new RuntimeException("Orden no encontrada: " + ordenId));
+
+        if (payload.getCantidad() == null || payload.getCantidad() < 1) {
+            throw new IllegalArgumentException("La cantidad debe ser >= 1");
+        }
+        if (payload.getPrecioUnitario() == null) {
+            throw new IllegalArgumentException("El precioUnitario es obligatorio");
+        }
+
+        OrdenItem item = new OrdenItem();
+        item.setOrden(orden);
+
+        // Producto opcional
+        if (payload.getProducto() != null && payload.getProducto().getId() != null) {
+            Producto prodRef = em.getReference(Producto.class, payload.getProducto().getId());
+            item.setProducto(prodRef);
+            if (payload.getDescripcion() == null || payload.getDescripcion().isBlank()) {
+                // Carga perezosa: si 'nombre' no está, Hibernate lo traerá cuando haga falta.
+                item.setDescripcion(prodRef.getNombre());
+            } else {
+                item.setDescripcion(payload.getDescripcion());
+            }
+        } else {
+            item.setDescripcion(payload.getDescripcion()); // puede ser null/blank
+        }
+
+        // Normalizar dinero
+        BigDecimal precio = normalize(payload.getPrecioUnitario());
+        item.setPrecioUnitario(precio);
+
+        item.setCantidad(payload.getCantidad());
+        item.setTotalLinea(precio
+                .multiply(BigDecimal.valueOf(item.getCantidad()))
+                .setScale(2, RM));
+
+        OrdenItem guardado = itemRepo.save(item);
+        recalcularTotales(orden);
+        return guardado;
+    }
+
+    @Transactional
+    public OrdenItem actualizar(Long ordenId, Long itemId, OrdenItem payload) {
+        OrdenItem item = itemRepo.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("OrdenItem no encontrado: " + itemId));
+
+        if (!Objects.equals(item.getOrden().getId(), ordenId)) {
+            throw new IllegalArgumentException("El ítem no pertenece a la orden indicada");
+        }
+
+        if (payload.getProducto() != null && payload.getProducto().getId() != null) {
+            Producto prodRef = em.getReference(Producto.class, payload.getProducto().getId());
+            item.setProducto(prodRef);
+        }
+        if (payload.getDescripcion() != null) {
+            item.setDescripcion(payload.getDescripcion());
+        }
+        if (payload.getCantidad() != null) {
+            if (payload.getCantidad() < 1) throw new IllegalArgumentException("La cantidad debe ser >= 1");
+            item.setCantidad(payload.getCantidad());
+        }
+        if (payload.getPrecioUnitario() != null) {
+            item.setPrecioUnitario(normalize(payload.getPrecioUnitario()));
+        }
+
+        // Recalcular total de línea con valores actuales
+        item.setTotalLinea(item.getPrecioUnitario()
+                .multiply(BigDecimal.valueOf(item.getCantidad()))
+                .setScale(2, RM));
+
+        OrdenItem guardado = itemRepo.save(item);
+        recalcularTotales(item.getOrden());
+        return guardado;
+    }
+
+    @Transactional
+    public void eliminar(Long ordenId, Long itemId) {
+        OrdenItem item = itemRepo.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("OrdenItem no encontrado: " + itemId));
+        if (!Objects.equals(item.getOrden().getId(), ordenId)) {
+            throw new IllegalArgumentException("El ítem no pertenece a la orden indicada");
+        }
+        Orden orden = item.getOrden();
+        itemRepo.delete(item);
+        recalcularTotales(orden);
+    }
+
+    /* ----------------- Helpers ----------------- */
+
+    private BigDecimal normalize(BigDecimal v) {
+        return v.setScale(2, RM);
+    }
+
+    private void recalcularTotales(Orden orden) {
+        List<OrdenItem> items = itemRepo.findByOrdenId(orden.getId());
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (OrdenItem it : items) {
+            subtotal = subtotal.add(it.getTotalLinea() != null ? it.getTotalLinea() : BigDecimal.ZERO);
+        }
+        subtotal = subtotal.setScale(2, RM);
+        orden.setSubtotal(subtotal);
+        orden.setTotal(subtotal); // impuestos/desc. podrían sumarse aquí más adelante
+        ordenRepo.save(orden);
+    }
+}
