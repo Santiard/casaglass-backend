@@ -20,6 +20,9 @@ public class Producto {
     @EqualsAndHashCode.Include
     private Long id;
 
+    @Version
+    private Long version;
+
     private String posicion;
 
     private String categoria; // Vidrio, Aluminio, Accesorio
