@@ -1,0 +1,56 @@
+package com.casaglass.casaglass_backend.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+import java.math.BigDecimal;
+
+@Entity
+@Table(name = "ingreso_detalles", indexes = {
+    @Index(name = "idx_ingreso_detalle_ingreso", columnList = "ingreso_id"),
+    @Index(name = "idx_ingreso_detalle_producto", columnList = "producto_id")
+})
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+public class IngresoDetalle {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
+    private Long id;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "ingreso_id", nullable = false)
+    @ToString.Exclude
+    private Ingreso ingreso;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "producto_id", nullable = false)
+    @ToString.Exclude
+    private Producto producto;
+
+    @NotNull
+    @Min(1)
+    @Column(nullable = false)
+    private Integer cantidad;
+
+    @NotNull
+    @Column(precision = 12, scale = 2, nullable = false)
+    private BigDecimal costoUnitario;
+
+    @Column(precision = 12, scale = 2, nullable = false)
+    private BigDecimal totalLinea;
+
+    // Método para calcular el total de la línea
+    @PrePersist
+    @PreUpdate
+    public void calcularTotalLinea() {
+        if (cantidad != null && costoUnitario != null) {
+            this.totalLinea = costoUnitario.multiply(BigDecimal.valueOf(cantidad));
+        }
+    }
+}
