@@ -70,34 +70,5 @@ public class OrdenService {
         return repo.findByFechaBetween(desde, hasta);
     }
 
-     public List<Orden> buscar(Long clienteId,
-                              Boolean venta,
-                              Boolean credito,
-                              LocalDate desdeDia,
-                              LocalDate hastaDia,
-                              String obra) {
-
-        Specification<Orden> spec = Specification.where(null);
-
-        if (clienteId != null) {
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("cliente").get("id"), clienteId));
-        }
-        if (venta != null) {
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("venta"), venta));
-        }
-        if (credito != null) {
-            spec = spec.and((root, q, cb) -> cb.equal(root.get("credito"), credito));
-        }
-        if (desdeDia != null || hastaDia != null) {
-            LocalDateTime desde = (desdeDia != null) ? desdeDia.atStartOfDay() : LocalDate.MIN.atStartOfDay();
-            LocalDateTime hasta = (hastaDia != null) ? hastaDia.atTime(LocalTime.MAX) : LocalDate.MAX.atTime(LocalTime.MAX);
-            spec = spec.and((root, q, cb) -> cb.between(root.get("fecha"), desde, hasta));
-        }
-        if (obra != null && !obra.isBlank()) {
-            String like = "%" + obra.toLowerCase() + "%";
-            spec = spec.and((root, q, cb) -> cb.like(cb.lower(root.get("obra")), like));
-        }
-
-        return repo.findAll(spec);
-    }
+     
 }

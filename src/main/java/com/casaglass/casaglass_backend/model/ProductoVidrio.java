@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.model;
 
+import java.math.BigDecimal;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,10 +16,10 @@ import lombok.EqualsAndHashCode;
 public class ProductoVidrio extends Producto {
 
     @Column(precision = 5, scale = 2)
-    private Double mm;   // espesor en milímetros
+    private BigDecimal  mm;   // espesor en milímetros
 
     @Column(precision = 10, scale = 2)
-    private Double m1m2; // medida o m²
+    private BigDecimal  m1m2; // medida o m²
 
     private Integer laminas;
 }

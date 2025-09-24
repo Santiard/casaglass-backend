@@ -36,19 +36,14 @@ public class Producto {
 
     private Integer cantidad;
 
-    @Column(precision = 10, scale = 2)
     private Double costo;
 
-    @Column(precision = 10, scale = 2)
     private Double precio1;
 
-    @Column(precision = 10, scale = 2)
     private Double precio2;
 
-    @Column(precision = 10, scale = 2)
     private Double precio3;
 
-    @Column(precision = 10, scale = 2)
     private Double precioEspecial;
 
     @Lob

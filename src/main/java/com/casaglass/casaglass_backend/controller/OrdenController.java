@@ -74,15 +74,4 @@ public class OrdenController {
         return service.listarPorCredito(credito);
     }
 
-    /** 🔎 Búsqueda combinada: clienteId, venta, credito, desde, hasta, obra */
-    @GetMapping("/buscar")
-    public List<Orden> buscar(
-            @RequestParam(required = false) Long clienteId,
-            @RequestParam(required = false) Boolean venta,
-            @RequestParam(required = false) Boolean credito,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
-            @RequestParam(required = false) String obra) {
-        return service.buscar(clienteId, venta, credito, desde, hasta, obra);
-    }
 }
