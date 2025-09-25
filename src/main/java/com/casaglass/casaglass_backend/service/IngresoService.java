@@ -163,8 +163,10 @@ public class IngresoService {
             }
 
             // Actualizar el costo del producto si es diferente
-            if (!producto.getCosto().equals(detalle.getCostoUnitario())) {
-                producto.setCosto(detalle.getCostoUnitario());
+            Double costoActual = producto.getCosto();
+            Double nuevoCosto = detalle.getCostoUnitario().doubleValue();
+            if (costoActual == null || !costoActual.equals(nuevoCosto)) {
+                producto.setCosto(nuevoCosto);
                 productoRepository.save(producto);
             }
         }

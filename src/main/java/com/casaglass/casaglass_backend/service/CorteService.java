@@ -1,0 +1,125 @@
+package com.casaglass.casaglass_backend.service;
+
+import com.casaglass.casaglass_backend.model.Corte;
+import com.casaglass.casaglass_backend.repository.CorteRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class CorteService {
+
+    private final CorteRepository repository;
+
+    public CorteService(CorteRepository repository) {
+        this.repository = repository;
+    }
+
+    // Operaciones básicas CRUD
+    public List<Corte> listar() {
+        return repository.findAll();
+    }
+
+    public Optional<Corte> obtenerPorId(Long id) {
+        return repository.findById(id);
+    }
+
+    public Optional<Corte> obtenerPorCodigo(String codigo) {
+        return repository.findByCodigo(codigo);
+    }
+
+    @Transactional
+    public Corte guardar(Corte corte) {
+        // Validaciones básicas
+        if (corte.getCodigo() == null || corte.getCodigo().trim().isEmpty()) {
+            throw new IllegalArgumentException("El código del corte es obligatorio");
+        }
+        if (corte.getLargoCm() == null || corte.getLargoCm().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El largo debe ser mayor que 0");
+        }
+        if (corte.getPrecio() == null || corte.getPrecio().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El precio debe ser mayor que 0");
+        }
+
+        return repository.save(corte);
+    }
+
+    @Transactional
+    public Corte actualizar(Long id, Corte corteActualizado) {
+        return repository.findById(id)
+                .map(corteExistente -> {
+                    // Campos heredados de Producto
+                    corteExistente.setCodigo(corteActualizado.getCodigo());
+                    corteExistente.setNombre(corteActualizado.getNombre());
+                    corteExistente.setCategoria(corteActualizado.getCategoria());
+                    corteExistente.setColor(corteActualizado.getColor());
+                    corteExistente.setDescripcion(corteActualizado.getDescripcion());
+                    corteExistente.setCantidad(corteActualizado.getCantidad());
+                    
+                    // Convertir BigDecimal a Double para campos heredados si es necesario
+                    if (corteActualizado.getCosto() != null) {
+                        corteExistente.setCosto(corteActualizado.getCosto());
+                    }
+                    if (corteActualizado.getPrecio1() != null) {
+                        corteExistente.setPrecio1(corteActualizado.getPrecio1());
+                    }
+                    if (corteActualizado.getPrecio2() != null) {
+                        corteExistente.setPrecio2(corteActualizado.getPrecio2());
+                    }
+                    if (corteActualizado.getPrecio3() != null) {
+                        corteExistente.setPrecio3(corteActualizado.getPrecio3());
+                    }
+                    if (corteActualizado.getPrecioEspecial() != null) {
+                        corteExistente.setPrecioEspecial(corteActualizado.getPrecioEspecial());
+                    }
+                    
+                    // Campos específicos de Corte
+                    corteExistente.setLargoCm(corteActualizado.getLargoCm());
+                    corteExistente.setPrecio(corteActualizado.getPrecio());
+                    corteExistente.setObservacion(corteActualizado.getObservacion());
+                    
+                    return repository.save(corteExistente);
+                })
+                .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + id));
+    }
+
+    @Transactional
+    public void eliminar(Long id) {
+        if (!repository.existsById(id)) {
+            throw new RuntimeException("Corte no encontrado con ID: " + id);
+        }
+        repository.deleteById(id);
+    }
+
+    // Búsquedas especializadas
+    public List<Corte> listarPorCategoria(String categoria) {
+        return repository.findByCategoriaIgnoreCase(categoria);
+    }
+
+    public List<Corte> buscar(String query) {
+        return repository.findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(query, query);
+    }
+
+    public List<Corte> listarPorRangoLargo(BigDecimal largoMin, BigDecimal largoMax) {
+        return repository.findByLargoRange(largoMin, largoMax);
+    }
+
+    public List<Corte> listarPorRangoPrecio(BigDecimal precioMin, BigDecimal precioMax) {
+        return repository.findByPrecioRange(precioMin, precioMax);
+    }
+
+    public List<Corte> listarPorLargoMinimo(BigDecimal largoMinimo) {
+        return repository.findByLargoCmGreaterThanEqual(largoMinimo);
+    }
+
+    public List<Corte> listarPorPrecioMaximo(BigDecimal precioMaximo) {
+        return repository.findByPrecioLessThanEqual(precioMaximo);
+    }
+
+    public List<Corte> listarConObservaciones() {
+        return repository.findCortesWithObservaciones();
+    }
+}

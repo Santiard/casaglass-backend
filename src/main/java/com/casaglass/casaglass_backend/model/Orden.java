@@ -29,6 +29,10 @@ public class Orden {
   @JoinColumn(name = "cliente_id", nullable = false)
   private Cliente cliente;
 
+  @ManyToOne(optional = false, fetch = FetchType.LAZY)
+  @JoinColumn(name = "sede_id", nullable = false)
+  private Sede sede;
+
   @Column(length = 150)
   private String obra;
 
