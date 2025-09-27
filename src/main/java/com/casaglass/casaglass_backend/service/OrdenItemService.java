@@ -9,8 +9,6 @@ import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -21,8 +19,6 @@ public class OrdenItemService {
     private final OrdenItemRepository itemRepo;
     private final OrdenRepository ordenRepo;
     private final EntityManager em;
-
-    private static final RoundingMode RM = RoundingMode.HALF_UP;
 
     public OrdenItemService(OrdenItemRepository itemRepo,
                             OrdenRepository ordenRepo,
@@ -70,13 +66,11 @@ public class OrdenItemService {
         }
 
         // Normalizar dinero
-        BigDecimal precio = normalize(payload.getPrecioUnitario());
+        Double precio = normalize(payload.getPrecioUnitario());
         item.setPrecioUnitario(precio);
 
         item.setCantidad(payload.getCantidad());
-        item.setTotalLinea(precio
-                .multiply(BigDecimal.valueOf(item.getCantidad()))
-                .setScale(2, RM));
+        item.setTotalLinea(Math.round(precio * item.getCantidad() * 100.0) / 100.0);
 
         OrdenItem guardado = itemRepo.save(item);
         recalcularTotales(orden);
@@ -108,9 +102,7 @@ public class OrdenItemService {
         }
 
         // Recalcular total de línea con valores actuales
-        item.setTotalLinea(item.getPrecioUnitario()
-                .multiply(BigDecimal.valueOf(item.getCantidad()))
-                .setScale(2, RM));
+        item.setTotalLinea(Math.round(item.getPrecioUnitario() * item.getCantidad() * 100.0) / 100.0);
 
         OrdenItem guardado = itemRepo.save(item);
         recalcularTotales(item.getOrden());
@@ -131,17 +123,17 @@ public class OrdenItemService {
 
     /* ----------------- Helpers ----------------- */
 
-    private BigDecimal normalize(BigDecimal v) {
-        return v.setScale(2, RM);
+    private Double normalize(Double v) {
+        return v == null ? 0.0 : Math.round(v * 100.0) / 100.0;
     }
 
     private void recalcularTotales(Orden orden) {
         List<OrdenItem> items = itemRepo.findByOrdenId(orden.getId());
-        BigDecimal subtotal = BigDecimal.ZERO;
+        double subtotal = 0.0;
         for (OrdenItem it : items) {
-            subtotal = subtotal.add(it.getTotalLinea() != null ? it.getTotalLinea() : BigDecimal.ZERO);
+            subtotal += it.getTotalLinea() != null ? it.getTotalLinea() : 0.0;
         }
-        subtotal = subtotal.setScale(2, RM);
+        subtotal = Math.round(subtotal * 100.0) / 100.0;
         orden.setSubtotal(subtotal);
         orden.setTotal(subtotal); // impuestos/desc. podrían sumarse aquí más adelante
         ordenRepo.save(orden);

@@ -9,8 +9,6 @@ import com.casaglass.casaglass_backend.repository.AbonoRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.*;
 
 @Service
@@ -28,22 +26,20 @@ public class CreditoService {
         this.abonoRepo = abonoRepo;
     }
 
-    /* ---------- Helpers de dinero (2 decimales, HALF_UP) ---------- */
+    /* ---------- Helpers de dinero (redondeado a 2 decimales) ---------- */
 
-    private static final RoundingMode RM = RoundingMode.HALF_UP;
-
-    private BigDecimal nz(BigDecimal v) {
-        return v == null ? BigDecimal.ZERO.setScale(2, RM) : v.setScale(2, RM);
+    private Double nz(Double v) {
+        return v == null ? 0.0 : Math.round(v * 100.0) / 100.0;
     }
 
-    private BigDecimal normalize(BigDecimal v) {
-        return v == null ? BigDecimal.ZERO.setScale(2, RM) : v.setScale(2, RM);
+    private Double normalize(Double v) {
+        return v == null ? 0.0 : Math.round(v * 100.0) / 100.0;
     }
 
-    private BigDecimal sumMoney(Collection<BigDecimal> values) {
-        BigDecimal acc = BigDecimal.ZERO;
-        for (BigDecimal v : values) acc = acc.add(v == null ? BigDecimal.ZERO : v);
-        return acc.setScale(2, RM);
+    private Double sumMoney(Collection<Double> values) {
+        double acc = 0.0;
+        for (Double v : values) acc += v == null ? 0.0 : v;
+        return Math.round(acc * 100.0) / 100.0;
     }
 
     /* --------------------- Operaciones de negocio --------------------- */
@@ -62,7 +58,7 @@ public class CreditoService {
             throw new IllegalArgumentException("Debe especificar cliente.id");
         }
         // Normaliza totalDeuda (si viene en el body, lo ignoramos y partimos en 0; se recalcula al agregar órdenes/abonos)
-        payload.setTotalDeuda(normalize(BigDecimal.ZERO));
+        payload.setTotalDeuda(normalize(0.0));
         // Asegura lista de órdenes y abonos no nulas
         if (payload.getOrdenes() == null) payload.setOrdenes(new ArrayList<>());
         if (payload.getAbonos() == null) payload.setAbonos(new ArrayList<>());
@@ -120,17 +116,17 @@ public class CreditoService {
                 .orElseThrow(() -> new RuntimeException("Crédito no encontrado"));
 
         // Suma órdenes (normalizadas)
-        BigDecimal totalOrdenes = sumMoney(
+        Double totalOrdenes = sumMoney(
                 credito.getOrdenes().stream().map(Orden::getTotal).toList()
         );
 
         // Suma abonos (normalizados)
-        BigDecimal totalAbonos = sumMoney(
+        Double totalAbonos = sumMoney(
                 abonoRepo.findByCreditoId(creditoId).stream().map(Abono::getTotal).toList()
         );
 
-        BigDecimal deuda = totalOrdenes.subtract(totalAbonos).setScale(2, RM);
-        if (deuda.signum() < 0) deuda = BigDecimal.ZERO.setScale(2, RM); // evita negativos
+        Double deuda = normalize(totalOrdenes - totalAbonos);
+        if (deuda < 0) deuda = 0.0; // evita negativos
         credito.setTotalDeuda(deuda);
         return creditoRepo.save(credito);
     }

@@ -37,10 +37,10 @@ public class CorteService {
         if (corte.getCodigo() == null || corte.getCodigo().trim().isEmpty()) {
             throw new IllegalArgumentException("El código del corte es obligatorio");
         }
-        if (corte.getLargoCm() == null || corte.getLargoCm().compareTo(BigDecimal.ZERO) <= 0) {
+        if (corte.getLargoCm() == null || corte.getLargoCm() <= 0) {
             throw new IllegalArgumentException("El largo debe ser mayor que 0");
         }
-        if (corte.getPrecio() == null || corte.getPrecio().compareTo(BigDecimal.ZERO) <= 0) {
+        if (corte.getPrecio() == null || corte.getPrecio() <= 0) {
             throw new IllegalArgumentException("El precio debe ser mayor que 0");
         }
 
@@ -103,19 +103,19 @@ public class CorteService {
         return repository.findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(query, query);
     }
 
-    public List<Corte> listarPorRangoLargo(BigDecimal largoMin, BigDecimal largoMax) {
+    public List<Corte> listarPorRangoLargo(Double largoMin, Double largoMax) {
         return repository.findByLargoRange(largoMin, largoMax);
     }
 
-    public List<Corte> listarPorRangoPrecio(BigDecimal precioMin, BigDecimal precioMax) {
+    public List<Corte> listarPorRangoPrecio(Double precioMin, Double precioMax) {
         return repository.findByPrecioRange(precioMin, precioMax);
     }
 
-    public List<Corte> listarPorLargoMinimo(BigDecimal largoMinimo) {
+    public List<Corte> listarPorLargoMinimo(Double largoMinimo) {
         return repository.findByLargoCmGreaterThanEqual(largoMinimo);
     }
 
-    public List<Corte> listarPorPrecioMaximo(BigDecimal precioMaximo) {
+    public List<Corte> listarPorPrecioMaximo(Double precioMaximo) {
         return repository.findByPrecioLessThanEqual(precioMaximo);
     }
 

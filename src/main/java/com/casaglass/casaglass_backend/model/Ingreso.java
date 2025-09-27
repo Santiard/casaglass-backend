@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,8 +42,8 @@ public class Ingreso {
     @OneToMany(mappedBy = "ingreso", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<IngresoDetalle> detalles = new ArrayList<>();
 
-    @Column(precision = 12, scale = 2, nullable = false)
-    private BigDecimal totalCosto = BigDecimal.ZERO;
+    @Column(nullable = false)
+    private Double totalCosto = 0.0;
 
     @Column(nullable = false)
     private Boolean procesado = false; // Indica si ya se actualizó el inventario
@@ -58,7 +57,7 @@ public class Ingreso {
     // Método para calcular el total
     public void calcularTotal() {
         this.totalCosto = detalles.stream()
-                .map(detalle -> detalle.getCostoUnitario().multiply(BigDecimal.valueOf(detalle.getCantidad())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .mapToDouble(detalle -> detalle.getCostoUnitario() * detalle.getCantidad())
+                .sum();
     }
 }

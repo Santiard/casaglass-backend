@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,8 +40,8 @@ public class Credito {
 
     /** Total de la deuda (puedes mantenerlo sincronizado desde el servicio) */
     @NotNull
-    @Column(precision = 12, scale = 2, nullable = false)
-    private BigDecimal totalDeuda = BigDecimal.ZERO;
+    @Column(nullable = false)
+    private Double totalDeuda = 0.0;
 
     /** Historial de abonos aplicados a este crédito */
     @OneToMany(mappedBy = "credito", cascade = CascadeType.ALL, orphanRemoval = true)

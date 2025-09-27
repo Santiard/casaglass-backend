@@ -5,8 +5,6 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import java.math.BigDecimal;
-
 @Entity
 @Table(name = "ingreso_detalles", indexes = {
     @Index(name = "idx_ingreso_detalle_ingreso", columnList = "ingreso_id"),
@@ -39,18 +37,18 @@ public class IngresoDetalle {
     private Integer cantidad;
 
     @NotNull
-    @Column(precision = 12, scale = 2, nullable = false)
-    private BigDecimal costoUnitario;
+    @Column(nullable = false)
+    private Double costoUnitario;
 
-    @Column(precision = 12, scale = 2, nullable = false)
-    private BigDecimal totalLinea;
+    @Column(nullable = false)
+    private Double totalLinea;
 
     // Método para calcular el total de la línea
     @PrePersist
     @PreUpdate
     public void calcularTotalLinea() {
         if (cantidad != null && costoUnitario != null) {
-            this.totalLinea = costoUnitario.multiply(BigDecimal.valueOf(cantidad));
+            this.totalLinea = costoUnitario * cantidad;
         }
     }
 }

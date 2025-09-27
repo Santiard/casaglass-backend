@@ -5,7 +5,6 @@ import com.casaglass.casaglass_backend.service.CorteService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -23,12 +22,12 @@ public class CorteController {
     @GetMapping
     public List<Corte> listar(@RequestParam(required = false) String categoria,
                               @RequestParam(required = false, name = "q") String query,
-                              @RequestParam(required = false) BigDecimal largoMin,
-                              @RequestParam(required = false) BigDecimal largoMax,
-                              @RequestParam(required = false) BigDecimal precioMin,
-                              @RequestParam(required = false) BigDecimal precioMax,
-                              @RequestParam(required = false) BigDecimal largoMinimo,
-                              @RequestParam(required = false) BigDecimal precioMaximo,
+                              @RequestParam(required = false) Double largoMin,
+                              @RequestParam(required = false) Double largoMax,
+                              @RequestParam(required = false) Double precioMin,
+                              @RequestParam(required = false) Double precioMax,
+                              @RequestParam(required = false) Double largoMinimo,
+                              @RequestParam(required = false) Double precioMaximo,
                               @RequestParam(required = false, defaultValue = "false") boolean conObservaciones) {
         
         // Filtros específicos
@@ -119,12 +118,12 @@ public class CorteController {
     }
 
     @GetMapping("/largo")
-    public List<Corte> listarPorRangoLargo(@RequestParam BigDecimal min, @RequestParam BigDecimal max) {
+    public List<Corte> listarPorRangoLargo(@RequestParam Double min, @RequestParam Double max) {
         return service.listarPorRangoLargo(min, max);
     }
 
     @GetMapping("/precio")
-    public List<Corte> listarPorRangoPrecio(@RequestParam BigDecimal min, @RequestParam BigDecimal max) {
+    public List<Corte> listarPorRangoPrecio(@RequestParam Double min, @RequestParam Double max) {
         return service.listarPorRangoPrecio(min, max);
     }
 

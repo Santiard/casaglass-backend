@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
@@ -58,13 +57,13 @@ public class Abono {
 
     /** Monto del abono */
     @NotNull
-    @Column(precision = 12, scale = 2, nullable = false)
-    private BigDecimal total;
+    @Column(nullable = false)
+    private Double total;
 
     /** Saldo del crédito después de aplicar este abono (snapshot para auditoría) */
     @NotNull
-    @Column(precision = 12, scale = 2, nullable = false)
-    private BigDecimal saldo;
+    @Column(nullable = false)
+    private Double saldo;
 
     public enum MetodoPago {
         EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO

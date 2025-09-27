@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-import java.math.BigDecimal;
-
 
 
 @Entity
@@ -15,11 +13,11 @@ import java.math.BigDecimal;
 public class Corte extends Producto {
 
     @NotNull @Positive
-    @Column(name = "largo", nullable = false, precision = 10, scale = 2)
-    private BigDecimal largoCm;
+    @Column(name = "largo", nullable = false)
+    private Double largoCm;
 
-    @Column(name="precio", precision = 12, scale = 2, nullable = false)
-    private BigDecimal precio;
+    @Column(name="precio", nullable = false)
+    private Double precio;
 
     @Lob
     private String observacion;

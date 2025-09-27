@@ -3,7 +3,6 @@ package com.casaglass.casaglass_backend.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,9 +44,13 @@ public class Orden {
   @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<OrdenItem> items = new ArrayList<>();
 
-  @Column(precision = 12, scale = 2, nullable = false)
-  private BigDecimal subtotal = BigDecimal.ZERO;
+  @Column(nullable = false)
+  private Double subtotal = 0.0;
 
-  @Column(precision = 12, scale = 2, nullable = false)
-  private BigDecimal total = BigDecimal.ZERO;
+  @Column(nullable = false)
+  private Double total = 0.0;
+
+  /** Indica si esta orden ya fue incluida en alguna entrega de dinero */
+  @Column(name = "incluida_entrega", nullable = false)
+  private boolean incluidaEntrega = false;
 }

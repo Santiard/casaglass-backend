@@ -38,14 +38,13 @@ public class OrdenService {
         // Usar referencia ligera para la sede
         orden.setSede(entityManager.getReference(Sede.class, orden.getSede().getId()));
 
-        BigDecimal subtotal = BigDecimal.ZERO;
+        double subtotal = 0.0;
         if (orden.getItems() != null) {
             for (OrdenItem it : orden.getItems()) {
                 it.setOrden(orden); // amarra relación
-                BigDecimal linea = it.getPrecioUnitario()
-                        .multiply(BigDecimal.valueOf(it.getCantidad()));
+                Double linea = it.getPrecioUnitario() * it.getCantidad();
                 it.setTotalLinea(linea);
-                subtotal = subtotal.add(linea);
+                subtotal += linea;
 
                 if ((it.getDescripcion() == null || it.getDescripcion().isBlank())
                         && it.getProducto() != null) {
@@ -53,6 +52,7 @@ public class OrdenService {
                 }
             }
         }
+        subtotal = Math.round(subtotal * 100.0) / 100.0;
         orden.setSubtotal(subtotal);
         orden.setTotal(subtotal); // impuestos/desc. si aplica más adelante
         return repo.save(orden);

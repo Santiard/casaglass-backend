@@ -3,7 +3,6 @@ package com.casaglass.casaglass_backend.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import lombok.*;
-import java.math.BigDecimal;
 
 @Entity
 @Table(name = "orden_items", indexes = {
@@ -30,9 +29,9 @@ public class OrdenItem {
   @Column(nullable = false)
   private Integer cantidad;
 
-  @Column(precision = 12, scale = 2, nullable = false)
-  private BigDecimal precioUnitario;
+  @Column(nullable = false)
+  private Double precioUnitario;
 
-  @Column(precision = 12, scale = 2, nullable = false)
-  private BigDecimal totalLinea;
+  @Column(nullable = false)
+  private Double totalLinea;
 }
