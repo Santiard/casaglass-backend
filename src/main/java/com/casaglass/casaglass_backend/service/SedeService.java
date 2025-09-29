@@ -1,7 +1,9 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.Sede;
+import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
+import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -12,9 +14,11 @@ import java.util.Optional;
 public class SedeService {
 
     private final SedeRepository repo;
+    private final TrabajadorRepository trabajadorRepository;
 
-    public SedeService(SedeRepository repo) {
+    public SedeService(SedeRepository repo, TrabajadorRepository trabajadorRepository) {
         this.repo = repo;
+        this.trabajadorRepository = trabajadorRepository;
     }
 
     public List<Sede> listar() {
@@ -41,6 +45,10 @@ public class SedeService {
         return repo.findByNombreContainingIgnoreCaseOrCiudadContainingIgnoreCase(q, q);
     }
 
+    public List<Trabajador> obtenerTrabajadoresDeSede(Long sedeId) {
+        return trabajadorRepository.findBySedeId(sedeId);
+    }
+
     public Sede crear(Sede s) {
         // nombre es único
         if (repo.existsByNombreIgnoreCase(s.getNombre())) {
@@ -64,6 +72,14 @@ public class SedeService {
     }
 
     public void eliminar(Long id) {
+        // Verificar si hay trabajadores asociados antes de eliminar
+        List<Trabajador> trabajadores = trabajadorRepository.findBySedeId(id);
+        if (!trabajadores.isEmpty()) {
+            throw new DataIntegrityViolationException(
+                "No se puede eliminar la sede porque tiene trabajadores asociados. " +
+                "Primero debe reasignar o eliminar los trabajadores."
+            );
+        }
         repo.deleteById(id);
     }
 }

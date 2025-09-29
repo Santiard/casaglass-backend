@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.model.Sede;
+import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.service.SedeService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,17 @@ public class SedeController {
     public ResponseEntity<Sede> obtenerPorNombre(@PathVariable String nombre) {
         return service.obtenerPorNombre(nombre).map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Endpoint para obtener todos los trabajadores de una sede
+    @GetMapping("/{id}/trabajadores")
+    public ResponseEntity<List<Trabajador>> obtenerTrabajadoresDeSede(@PathVariable Long id) {
+        try {
+            List<Trabajador> trabajadores = service.obtenerTrabajadoresDeSede(id);
+            return ResponseEntity.ok(trabajadores);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
     }
 
     @PostMapping

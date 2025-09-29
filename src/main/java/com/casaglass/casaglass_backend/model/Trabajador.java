@@ -28,4 +28,8 @@ public class Trabajador {
     @Enumerated(EnumType.STRING) // Guarda el nombre del rol como texto en la BD
     @Column(nullable = false, length = 20)
     private Rol rol;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sede_id", nullable = false)
+    private Sede sede;
 }

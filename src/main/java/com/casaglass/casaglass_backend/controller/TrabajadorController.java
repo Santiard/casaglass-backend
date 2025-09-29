@@ -24,11 +24,16 @@ public class TrabajadorController {
     // /api/trabajadores
     // /api/trabajadores?q=texto      (busca en nombre O correo)
     // /api/trabajadores?rol=VENDEDOR
+    // /api/trabajadores?sedeId=1
+    // /api/trabajadores?rol=VENDEDOR&sedeId=1
     @GetMapping
     public List<Trabajador> listar(@RequestParam(required = false) String q,
-                                   @RequestParam(required = false) Rol rol) {
+                                   @RequestParam(required = false) Rol rol,
+                                   @RequestParam(required = false) Long sedeId) {
         if (q != null && !q.isBlank()) return service.buscar(q.trim());
+        if (rol != null && sedeId != null) return service.listarPorRolYSede(rol, sedeId);
         if (rol != null) return service.listarPorRol(rol);
+        if (sedeId != null) return service.listarPorSede(sedeId);
         return service.listar();
     }
 
@@ -45,6 +50,12 @@ public class TrabajadorController {
         return service.obtenerPorCorreo(correo)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Listar trabajadores por sede
+    @GetMapping("/sede/{sedeId}")
+    public List<Trabajador> listarPorSede(@PathVariable Long sedeId) {
+        return service.listarPorSede(sedeId);
     }
 
     @PostMapping

@@ -1,8 +1,10 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.Rol;
+import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
+import com.casaglass.casaglass_backend.repository.SedeRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -13,9 +15,11 @@ import java.util.Optional;
 public class TrabajadorService {
 
     private final TrabajadorRepository repo;
+    private final SedeRepository sedeRepository;
 
-    public TrabajadorService(TrabajadorRepository repo) {
+    public TrabajadorService(TrabajadorRepository repo, SedeRepository sedeRepository) {
         this.repo = repo;
+        this.sedeRepository = sedeRepository;
     }
 
     public List<Trabajador> listar() {
@@ -34,6 +38,14 @@ public class TrabajadorService {
         return repo.findByRol(rol);
     }
 
+    public List<Trabajador> listarPorSede(Long sedeId) {
+        return repo.findBySedeId(sedeId);
+    }
+
+    public List<Trabajador> listarPorRolYSede(Rol rol, Long sedeId) {
+        return repo.findByRolAndSedeId(rol, sedeId);
+    }
+
     public List<Trabajador> buscarPorNombre(String q) {
         return repo.findByNombreContainingIgnoreCase(q);
     }
@@ -46,9 +58,18 @@ public class TrabajadorService {
         if (t.getCorreo() == null || t.getCorreo().isBlank()) {
             throw new IllegalArgumentException("El correo es obligatorio");
         }
+        if (t.getSede() == null || t.getSede().getId() == null) {
+            throw new IllegalArgumentException("La sede es obligatoria");
+        }
         if (repo.existsByCorreoIgnoreCase(t.getCorreo())) {
             throw new DataIntegrityViolationException("Ya existe un trabajador con ese correo");
         }
+        
+        // Verificar que la sede existe
+        Sede sede = sedeRepository.findById(t.getSede().getId())
+                .orElseThrow(() -> new IllegalArgumentException("La sede especificada no existe"));
+        t.setSede(sede);
+        
         return repo.save(t);
     }
 
@@ -62,6 +83,11 @@ public class TrabajadorService {
             }
             if (t.getNombre() != null) actual.setNombre(t.getNombre());
             if (t.getRol() != null) actual.setRol(t.getRol());
+            if (t.getSede() != null && t.getSede().getId() != null) {
+                Sede sede = sedeRepository.findById(t.getSede().getId())
+                        .orElseThrow(() -> new IllegalArgumentException("La sede especificada no existe"));
+                actual.setSede(sede);
+            }
             return repo.save(actual);
         }).orElseThrow(() -> new RuntimeException("Trabajador no encontrado con id " + id));
     }
