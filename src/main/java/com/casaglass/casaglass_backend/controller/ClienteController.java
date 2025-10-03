@@ -2,8 +2,12 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.service.ClienteService;
+import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 
 import java.util.List;
 
@@ -52,8 +56,22 @@ public class ClienteController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarCliente(@PathVariable Long id) {
-        clienteService.eliminarCliente(id);
-        return ResponseEntity.noContent().build();
-    }
+public ResponseEntity<?> eliminarCliente(@PathVariable Long id) {
+  try {
+    clienteService.eliminarCliente(id);
+    return ResponseEntity.noContent().build();
+  } catch (EmptyResultDataAccessException e) {
+    return ResponseEntity.notFound().build();
+  } catch (DataIntegrityViolationException e) {
+    // FK en uso: no se puede eliminar
+    return ResponseEntity.status(409).body(
+      Map.of("message", "No se puede eliminar: el cliente tiene movimientos/órdenes/créditos asociados.")
+    );
+  } catch (RuntimeException e) {
+    // cualquier otra cosa
+    return ResponseEntity.status(500).body(
+      Map.of("message", "Error interno al eliminar el cliente.")
+    );
+  }
+}
 }
