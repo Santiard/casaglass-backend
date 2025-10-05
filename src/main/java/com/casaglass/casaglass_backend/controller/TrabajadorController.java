@@ -3,6 +3,7 @@ package com.casaglass.casaglass_backend.controller;
 import com.casaglass.casaglass_backend.model.Rol;
 import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.service.TrabajadorService;
+import jakarta.validation.Valid;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -52,6 +53,20 @@ public class TrabajadorController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // Búsqueda por texto en nombre, correo o username
+    @GetMapping("/buscar")
+    public List<Trabajador> buscarPorTexto(@RequestParam String q) {
+        return service.buscarPorTexto(q);
+    }
+
+    // Búsqueda exacta por username
+    @GetMapping("/username/{username}")
+    public ResponseEntity<Trabajador> obtenerPorUsername(@PathVariable String username) {
+        return service.obtenerPorUsername(username)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     // Listar trabajadores por sede
     @GetMapping("/sede/{sedeId}")
     public List<Trabajador> listarPorSede(@PathVariable Long sedeId) {
@@ -59,7 +74,7 @@ public class TrabajadorController {
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody Trabajador trabajador) {
+    public ResponseEntity<?> crear(@Valid @RequestBody Trabajador trabajador) {
         try {
             return ResponseEntity.ok(service.crear(trabajador));
         } catch (IllegalArgumentException e) {
@@ -70,7 +85,7 @@ public class TrabajadorController {
     }
 
     @PutMapping("/{id}")
-public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Trabajador t) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @Valid @RequestBody Trabajador t) {
   try {
     return ResponseEntity.ok(service.actualizar(id, t));
   } catch (org.springframework.dao.DataIntegrityViolationException e) {

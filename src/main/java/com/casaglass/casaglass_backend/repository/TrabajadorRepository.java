@@ -28,5 +28,13 @@ public interface TrabajadorRepository extends JpaRepository<Trabajador, Long> {
 
     List<Trabajador> findByNombreContainingIgnoreCase(String nombre);
 
-    List<Trabajador> findByNombreContainingIgnoreCaseOrCorreoContainingIgnoreCase(String nombre, String correo);
+    List<Trabajador> findByNombreContainingIgnoreCaseOrCorreoContainingIgnoreCaseOrUsernameContainingIgnoreCase(String nombre, String correo, String username);
+
+    Optional<Trabajador> findByUsernameAndPassword(String username, String password);
+
+    Optional<Trabajador> findByUsername(String username);
+
+    boolean existsByUsernameIgnoreCase(String username);
+
+    boolean existsByUsernameIgnoreCaseAndIdNot(String username, Long id);
 }

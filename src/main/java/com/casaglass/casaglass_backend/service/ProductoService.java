@@ -63,4 +63,7 @@ public class ProductoService {
     public void eliminar(Long id) {
         repo.deleteById(id);
     }
+    public List<String> listarCategorias() {
+    return repo.findDistinctCategorias();
+    }
 }

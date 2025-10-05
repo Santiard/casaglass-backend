@@ -51,18 +51,38 @@ public class TrabajadorService {
     }
 
     public List<Trabajador> buscar(String q) {
-        return repo.findByNombreContainingIgnoreCaseOrCorreoContainingIgnoreCase(q, q);
+        return repo.findByNombreContainingIgnoreCaseOrCorreoContainingIgnoreCaseOrUsernameContainingIgnoreCase(q, q, q);
+    }
+
+    public List<Trabajador> buscarPorTexto(String q) {
+        return buscar(q);
+    }
+
+    public Optional<Trabajador> obtenerPorUsername(String username) {
+        return repo.findByUsername(username);
     }
 
     public Trabajador crear(Trabajador t) {
+        // Validaciones de campos obligatorios
         if (t.getCorreo() == null || t.getCorreo().isBlank()) {
             throw new IllegalArgumentException("El correo es obligatorio");
+        }
+        if (t.getUsername() == null || t.getUsername().isBlank()) {
+            throw new IllegalArgumentException("El username es obligatorio");
+        }
+        if (t.getPassword() == null || t.getPassword().isBlank()) {
+            throw new IllegalArgumentException("La contraseña es obligatoria");
         }
         if (t.getSede() == null || t.getSede().getId() == null) {
             throw new IllegalArgumentException("La sede es obligatoria");
         }
+        
+        // Validaciones de unicidad
         if (repo.existsByCorreoIgnoreCase(t.getCorreo())) {
             throw new DataIntegrityViolationException("Ya existe un trabajador con ese correo");
+        }
+        if (repo.existsByUsernameIgnoreCase(t.getUsername())) {
+            throw new DataIntegrityViolationException("Ya existe un trabajador con ese username");
         }
         
         // Verificar que la sede existe
@@ -80,6 +100,16 @@ public class TrabajadorService {
                     throw new DataIntegrityViolationException("Ya existe un trabajador con ese correo");
                 }
                 actual.setCorreo(t.getCorreo());
+            }
+            if (t.getUsername() != null) {
+                // Verificar si ya existe otro trabajador con ese username
+                if (repo.existsByUsernameIgnoreCaseAndIdNot(t.getUsername(), id)) {
+                    throw new DataIntegrityViolationException("Ya existe un trabajador con ese username");
+                }
+                actual.setUsername(t.getUsername());
+            }
+            if (t.getPassword() != null && !t.getPassword().isBlank()) {
+                actual.setPassword(t.getPassword());
             }
             if (t.getNombre() != null) actual.setNombre(t.getNombre());
             if (t.getRol() != null) actual.setRol(t.getRol());

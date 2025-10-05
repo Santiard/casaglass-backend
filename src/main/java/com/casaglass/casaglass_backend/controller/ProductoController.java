@@ -67,4 +67,9 @@ public class ProductoController {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }
+    
+    @GetMapping("/categorias")
+    public List<String> categorias() {
+        return service.listarCategorias(); // delega al service
+    }
 }
