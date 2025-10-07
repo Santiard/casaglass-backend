@@ -37,4 +37,5 @@ public interface TrabajadorRepository extends JpaRepository<Trabajador, Long> {
     boolean existsByUsernameIgnoreCase(String username);
 
     boolean existsByUsernameIgnoreCaseAndIdNot(String username, Long id);
+    
 }

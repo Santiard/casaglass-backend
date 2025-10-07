@@ -17,7 +17,6 @@ public class AuthService {
         this.repo = repo;
     }
 
-    // <-- ESTE ES EL MÉTODO QUE ESTÁ PIDIENDO TU CONTROLADOR
     public Optional<LoginResponse> login(LoginRequest req) {
         return repo.findByUsername(req.getUsername())
                 .filter(t -> t.getPassword().equals(req.getPassword()))
@@ -31,9 +30,8 @@ public class AuthService {
                 t.getCorreo(),
                 t.getUsername(),
                 t.getRol().name(),
-                t.getSede().getId(),
-                t.getSede().getNombre()
+                t.getSede() != null ? t.getSede().getId() : null,
+                t.getSede() != null ? t.getSede().getNombre() : null
         );
     }
 }
-

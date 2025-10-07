@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 @Entity
 @Table(name = "ingresos", indexes = {
     @Index(name = "idx_ingreso_fecha", columnList = "fecha"),
@@ -17,6 +19,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})   // 👈 evita ruido de proxies
 public class Ingreso {
 
     @Id
@@ -40,6 +43,7 @@ public class Ingreso {
     private String observaciones;
 
     @OneToMany(mappedBy = "ingreso", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("ingreso-detalles")
     private List<IngresoDetalle> detalles = new ArrayList<>();
 
     @Column(nullable = false)

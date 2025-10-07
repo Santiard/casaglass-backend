@@ -1,5 +1,8 @@
 package com.casaglass.casaglass_backend.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -14,6 +17,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})   
 public class IngresoDetalle {
 
     @Id
@@ -24,6 +28,7 @@ public class IngresoDetalle {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "ingreso_id", nullable = false)
     @ToString.Exclude
+    @JsonBackReference("ingreso-detalles")  
     private Ingreso ingreso;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)

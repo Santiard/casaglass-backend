@@ -1,6 +1,7 @@
 // src/main/java/com/casaglass/casaglass_backend/model/Trabajador.java
 package com.casaglass.casaglass_backend.model;
 
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -44,11 +45,8 @@ public class Trabajador {
     @Column(nullable = false, length = 20)
     private Rol rol;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sede_id", nullable = false)
     private Sede sede;
 
-    public enum Rol {
-        ADMIN, VENDEDOR
-    }
 }

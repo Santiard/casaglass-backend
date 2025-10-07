@@ -26,12 +26,26 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Long> {
     List<Ingreso> findByNumeroFacturaContainingIgnoreCase(String numeroFactura);
 
     // Obtener ingresos con sus detalles (para evitar N+1)
-    @Query("SELECT i FROM Ingreso i LEFT JOIN FETCH i.detalles d LEFT JOIN FETCH d.producto WHERE i.id = :id")
+    @Query("""
+      select i
+      from Ingreso i
+      left join fetch i.proveedor p
+      left join fetch i.detalles d
+      left join fetch d.producto prod
+      where i.id = :id
+    """)
     Ingreso findByIdWithDetalles(@Param("id") Long id);
 
     // Obtener todos los ingresos con sus proveedores
-    @Query("SELECT i FROM Ingreso i JOIN FETCH i.proveedor ORDER BY i.fecha DESC")
-    List<Ingreso> findAllWithProveedores();
+    @Query("""
+      select distinct i
+      from Ingreso i
+      left join fetch i.proveedor p
+      left join fetch i.detalles d
+      left join fetch d.producto prod
+      order by i.fecha desc
+    """)
+    List<Ingreso> findAllWithProveedores(); 
 
     // Contar ingresos por proveedor
     @Query("SELECT COUNT(i) FROM Ingreso i WHERE i.proveedor = :proveedor")
