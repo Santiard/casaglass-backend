@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "entrega_detalles", indexes = {
@@ -44,7 +44,7 @@ public class EntregaDetalle {
 
     /** Fecha de la orden (snapshot) */
     @Column(name = "fecha_orden")
-    private LocalDateTime fechaOrden;
+    private LocalDate fechaOrden;
 
     /** Indica si la venta fue a crédito */
     @Column(name = "venta_credito")

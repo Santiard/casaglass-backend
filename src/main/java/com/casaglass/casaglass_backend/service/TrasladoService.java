@@ -8,8 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+// no LocalDateTime/LocalTime needed
 import java.util.*;
 
 @Service
@@ -38,15 +37,11 @@ public class TrasladoService {
     public List<Traslado> listarPorSedeDestino(Long sedeDestinoId) { return repo.findBySedeDestinoId(sedeDestinoId); }
 
     public List<Traslado> listarPorFecha(LocalDate fecha) {
-        LocalDateTime desde = fecha.atStartOfDay();
-        LocalDateTime hasta = fecha.atTime(LocalTime.MAX);
-        return repo.findByFechaBetween(desde, hasta);
+        return repo.findByFechaBetween(fecha, fecha);
     }
 
     public List<Traslado> listarPorRango(LocalDate desdeDia, LocalDate hastaDia) {
-        LocalDateTime desde = desdeDia.atStartOfDay();
-        LocalDateTime hasta = hastaDia.atTime(LocalTime.MAX);
-        return repo.findByFechaBetween(desde, hasta);
+        return repo.findByFechaBetween(desdeDia, hastaDia);
     }
 
     /* ---------------- Comandos (cabecera) ---------------- */
@@ -64,7 +59,7 @@ public class TrasladoService {
         payload.setSedeOrigen(em.getReference(Sede.class, payload.getSedeOrigen().getId()));
         payload.setSedeDestino(em.getReference(Sede.class, payload.getSedeDestino().getId()));
 
-        if (payload.getFecha() == null) payload.setFecha(LocalDateTime.now());
+    if (payload.getFecha() == null) payload.setFecha(LocalDate.now());
 
         // detalles (si vienen en el payload)
         if (payload.getDetalles() != null) {

@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,20 +57,20 @@ public class EntregaDineroService {
         return entregaDineroRepository.findBySedeIdAndEstado(sedeId, estado);
     }
 
-    public List<EntregaDinero> obtenerPorPeriodo(LocalDateTime desde, LocalDateTime hasta) {
+    public List<EntregaDinero> obtenerPorPeriodo(LocalDate desde, LocalDate hasta) {
         return entregaDineroRepository.findByFechaEntregaBetween(desde, hasta);
     }
 
-    public List<EntregaDinero> obtenerPorSedeYPeriodo(Long sedeId, LocalDateTime desde, LocalDateTime hasta) {
+    public List<EntregaDinero> obtenerPorSedeYPeriodo(Long sedeId, LocalDate desde, LocalDate hasta) {
         return entregaDineroRepository.findBySedeIdAndFechaEntregaBetween(sedeId, desde, hasta);
     }
 
-    public Double obtenerTotalEntregadoPorSedeEnPeriodo(Long sedeId, LocalDateTime desde, LocalDateTime hasta) {
+    public Double obtenerTotalEntregadoPorSedeEnPeriodo(Long sedeId, LocalDate desde, LocalDate hasta) {
         Double total = entregaDineroRepository.getTotalEntregadoBySedeAndPeriodo(sedeId, desde, hasta);
         return total != null ? total : 0.0;
     }
 
-    public Double obtenerTotalGastosPorSedeEnPeriodo(Long sedeId, LocalDateTime desde, LocalDateTime hasta) {
+    public Double obtenerTotalGastosPorSedeEnPeriodo(Long sedeId, LocalDate desde, LocalDate hasta) {
         Double total = entregaDineroRepository.getTotalGastosBySedeAndPeriodo(sedeId, desde, hasta);
         return total != null ? total : 0.0;
     }
@@ -79,7 +79,7 @@ public class EntregaDineroService {
         return entregaDineroRepository.findEntregasWithDifferences();
     }
 
-    public List<Object[]> obtenerResumenPorEmpleado(Long sedeId, LocalDateTime desde, LocalDateTime hasta) {
+    public List<Object[]> obtenerResumenPorEmpleado(Long sedeId, LocalDate desde, LocalDate hasta) {
         return entregaDineroRepository.getResumenByEmpleado(sedeId, desde, hasta);
     }
 
@@ -97,7 +97,7 @@ public class EntregaDineroService {
 
         // Establecer valores por defecto
         if (entrega.getFechaEntrega() == null) {
-            entrega.setFechaEntrega(LocalDateTime.now());
+            entrega.setFechaEntrega(LocalDate.now());
         }
 
         if (entrega.getEstado() == null) {

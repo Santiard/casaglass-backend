@@ -121,4 +121,18 @@ public class OrdenController {
         return service.listarPorSedeYRangoFechas(sedeId, desde, hasta);
     }
 
+    /**
+     * Obtiene el próximo número de orden que se asignará
+     * Útil para mostrar en el frontend como referencia provisional
+     */
+    @GetMapping("/proximo-numero")
+    public ResponseEntity<Long> obtenerProximoNumero() {
+        try {
+            Long proximoNumero = service.obtenerProximoNumero();
+            return ResponseEntity.ok(proximoNumero);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+
 }

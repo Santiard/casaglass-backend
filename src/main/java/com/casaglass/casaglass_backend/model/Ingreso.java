@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,7 +29,7 @@ public class Ingreso {
 
     @NotNull
     @Column(nullable = false)
-    private LocalDateTime fecha;
+    private LocalDate fecha;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "proveedor_id", nullable = false)

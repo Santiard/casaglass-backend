@@ -1,3 +1,4 @@
+// src/main/java/com/casaglass/casaglass_backend/controller/IngresoController.java
 package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.model.Ingreso;
@@ -5,7 +6,7 @@ import com.casaglass.casaglass_backend.service.IngresoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -26,6 +27,7 @@ public class IngresoController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Ingreso> obtenerIngreso(@PathVariable Long id) {
+        // IMPORTANTE: no mezclar tipos en las ramas (no pongas body("...") aquí)
         return ingresoService.obtenerIngresoPorId(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -43,49 +45,49 @@ public class IngresoController {
 
     @GetMapping("/por-fecha")
     public List<Ingreso> obtenerIngresosPorFecha(
-            @RequestParam LocalDateTime fechaInicio,
-            @RequestParam LocalDateTime fechaFin) {
+            @RequestParam LocalDate fechaInicio,
+            @RequestParam LocalDate fechaFin) {
         return ingresoService.obtenerIngresosPorFecha(fechaInicio, fechaFin);
     }
 
     @PostMapping
-    public ResponseEntity<Ingreso> crearIngreso(@RequestBody Ingreso ingreso) {
+    public ResponseEntity<?> crearIngreso(@RequestBody Ingreso ingreso) {
+        // Aquí sí retornamos mensajes (ResponseEntity<?>), y el handler global formatea 400/500
         try {
-            Ingreso ingresoCreado = ingresoService.guardarIngreso(ingreso);
-            return ResponseEntity.ok(ingresoCreado);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.ok(ingresoService.guardarIngreso(ingreso));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(500).body(e.getMessage());
         }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Ingreso> actualizarIngreso(
-            @PathVariable Long id,
-            @RequestBody Ingreso ingreso) {
+    public ResponseEntity<?> actualizarIngreso(@PathVariable Long id, @RequestBody Ingreso ingreso) {
         try {
-            Ingreso ingresoActualizado = ingresoService.actualizarIngreso(id, ingreso);
-            return ResponseEntity.ok(ingresoActualizado);
+            return ResponseEntity.ok(ingresoService.actualizarIngreso(id, ingreso));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(404).body(e.getMessage());
         }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarIngreso(@PathVariable Long id) {
+    public ResponseEntity<?> eliminarIngreso(@PathVariable Long id) {
         try {
             ingresoService.eliminarIngreso(id);
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(404).body(e.getMessage());
         }
     }
 
     @PostMapping("/{id}/procesar")
-    public ResponseEntity<String> procesarInventario(@PathVariable Long id) {
+    public ResponseEntity<?> procesarInventario(@PathVariable Long id) {
         try {
             Ingreso ingreso = ingresoService.obtenerIngresoPorId(id)
                     .orElseThrow(() -> new RuntimeException("Ingreso no encontrado"));
-            
             ingresoService.procesarInventario(ingreso);
             return ResponseEntity.ok("Inventario procesado correctamente");
         } catch (RuntimeException e) {
@@ -94,7 +96,7 @@ public class IngresoController {
     }
 
     @PostMapping("/{id}/reprocesar")
-    public ResponseEntity<String> reprocesarInventario(@PathVariable Long id) {
+    public ResponseEntity<?> reprocesarInventario(@PathVariable Long id) {
         try {
             ingresoService.reprocesarInventario(id);
             return ResponseEntity.ok("Inventario reprocesado correctamente");

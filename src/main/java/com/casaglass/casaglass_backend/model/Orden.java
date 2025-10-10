@@ -3,7 +3,7 @@ package com.casaglass.casaglass_backend.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,7 +22,7 @@ public class Orden {
   private Long numero;                 // numerador compartido
 
   @NotNull
-  private LocalDateTime fecha;
+  private LocalDate fecha;
 
   @ManyToOne(optional = false, fetch = FetchType.LAZY)
   @JoinColumn(name = "cliente_id", nullable = false)

@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "traslados")
@@ -30,7 +30,7 @@ public class Traslado {
     private Sede sedeDestino;
 
     @Column(nullable = false)
-    private LocalDateTime fecha;
+    private LocalDate fecha;
 
     // Trabajador que confirma llegada del traslado
     @ManyToOne

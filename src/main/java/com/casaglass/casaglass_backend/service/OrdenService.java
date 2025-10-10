@@ -9,8 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+// no need for LocalDateTime/LocalTime
 import java.util.List;
 import java.util.Optional;
 
@@ -27,7 +26,7 @@ public class OrdenService {
 
     @Transactional
     public Orden crear(Orden orden) {
-        if (orden.getFecha() == null) orden.setFecha(LocalDateTime.now());
+        if (orden.getFecha() == null) orden.setFecha(LocalDate.now());
 
         // Validar que tenga sede asignada
         if (orden.getSede() == null || orden.getSede().getId() == null) {
@@ -36,6 +35,11 @@ public class OrdenService {
 
         // Usar referencia ligera para la sede
         orden.setSede(entityManager.getReference(Sede.class, orden.getSede().getId()));
+
+        // 🚀 GENERACIÓN AUTOMÁTICA DE NÚMERO (THREAD-SAFE)
+        // El número se ignora si viene del frontend - siempre se genera automáticamente
+        Long numeroGenerado = generarNumeroOrden();
+        orden.setNumero(numeroGenerado);
 
         double subtotal = 0.0;
         if (orden.getItems() != null) {
@@ -57,6 +61,39 @@ public class OrdenService {
         return repo.save(orden);
     }
 
+    /**
+     * Genera el siguiente número de orden de forma thread-safe
+     * Maneja automáticamente la concurrencia entre múltiples usuarios
+     */
+    private Long generarNumeroOrden() {
+        int maxIntentos = 5;
+        int intento = 0;
+        
+        while (intento < maxIntentos) {
+            try {
+                // Obtener el siguiente número disponible
+                Long siguienteNumero = repo.obtenerSiguienteNumero();
+                
+                // Verificar que no exista (por si hubo concurrencia)
+                if (!repo.findByNumero(siguienteNumero).isPresent()) {
+                    return siguienteNumero;
+                }
+                
+                // Si existe, incrementar y volver a intentar
+                intento++;
+                Thread.sleep(10); // Pausa muy breve para evitar colisiones
+                
+            } catch (Exception e) {
+                intento++;
+                if (intento >= maxIntentos) {
+                    throw new RuntimeException("Error generando número de orden después de " + maxIntentos + " intentos", e);
+                }
+            }
+        }
+        
+        throw new RuntimeException("No se pudo generar un número de orden único después de " + maxIntentos + " intentos");
+    }
+
     public Optional<Orden> obtenerPorId(Long id) { return repo.findById(id); }
 
     public Optional<Orden> obtenerPorNumero(Long numero) { return repo.findByNumero(numero); }
@@ -71,16 +108,12 @@ public class OrdenService {
 
     /** Órdenes de un día (00:00:00 a 23:59:59.999999999) */
     public List<Orden> listarPorFecha(LocalDate fecha) {
-        LocalDateTime desde = fecha.atStartOfDay();
-        LocalDateTime hasta = fecha.atTime(LocalTime.MAX);
-        return repo.findByFechaBetween(desde, hasta);
+        return repo.findByFechaBetween(fecha, fecha);
     }
 
     /** Órdenes en rango [desde, hasta] (ambos inclusive por día) */
     public List<Orden> listarPorRangoFechas(LocalDate desdeDia, LocalDate hastaDia) {
-        LocalDateTime desde = desdeDia.atStartOfDay();
-        LocalDateTime hasta = hastaDia.atTime(LocalTime.MAX);
-        return repo.findByFechaBetween(desde, hasta);
+        return repo.findByFechaBetween(desdeDia, hastaDia);
     }
 
     // Métodos nuevos para manejar sede
@@ -102,17 +135,20 @@ public class OrdenService {
 
     /** Órdenes de una sede en un día específico */
     public List<Orden> listarPorSedeYFecha(Long sedeId, LocalDate fecha) {
-        LocalDateTime desde = fecha.atStartOfDay();
-        LocalDateTime hasta = fecha.atTime(LocalTime.MAX);
-        return repo.findBySedeIdAndFechaBetween(sedeId, desde, hasta);
+        return repo.findBySedeIdAndFechaBetween(sedeId, fecha, fecha);
     }
 
     /** Órdenes de una sede en rango [desde, hasta] (ambos inclusive por día) */
     public List<Orden> listarPorSedeYRangoFechas(Long sedeId, LocalDate desdeDia, LocalDate hastaDia) {
-        LocalDateTime desde = desdeDia.atStartOfDay();
-        LocalDateTime hasta = hastaDia.atTime(LocalTime.MAX);
-        return repo.findBySedeIdAndFechaBetween(sedeId, desde, hasta);
+        return repo.findBySedeIdAndFechaBetween(sedeId, desdeDia, hastaDia);
     }
 
-     
+    /**
+     * Obtiene el próximo número de orden que se asignará
+     * Útil para mostrar en el frontend como referencia (número provisional)
+     */
+    @Transactional(readOnly = true)
+    public Long obtenerProximoNumero() {
+        return repo.obtenerSiguienteNumero();
+    }
 }

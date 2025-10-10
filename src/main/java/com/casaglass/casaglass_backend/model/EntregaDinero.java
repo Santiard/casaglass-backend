@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,15 +39,15 @@ public class EntregaDinero {
     /** Fecha y hora de la entrega */
     @Column(name = "fecha_entrega", nullable = false)
     @NotNull
-    private LocalDateTime fechaEntrega;
+    private LocalDate fechaEntrega;
 
     /** Fecha desde la cual se consideran las órdenes para esta entrega */
     @Column(name = "fecha_desde")
-    private LocalDateTime fechaDesde;
+    private LocalDate fechaDesde;
 
     /** Fecha hasta la cual se consideran las órdenes para esta entrega */
     @Column(name = "fecha_hasta")
-    private LocalDateTime fechaHasta;
+    private LocalDate fechaHasta;
 
     /** Monto esperado basado en la suma de órdenes */
     @Column(name = "monto_esperado", nullable = false)

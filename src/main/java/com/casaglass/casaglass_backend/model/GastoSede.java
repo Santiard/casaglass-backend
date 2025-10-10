@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "gastos_sede", indexes = {
@@ -37,7 +37,7 @@ public class GastoSede {
     /** Fecha en que se realizó el gasto */
     @Column(name = "fecha_gasto", nullable = false)
     @NotNull
-    private LocalDateTime fechaGasto;
+    private LocalDate fechaGasto;
 
     /** Monto del gasto */
     @Column(name = "monto", nullable = false)

@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface EntregaDineroRepository extends JpaRepository<EntregaDinero, Long> {
@@ -18,9 +18,9 @@ public interface EntregaDineroRepository extends JpaRepository<EntregaDinero, Lo
 
     List<EntregaDinero> findBySedeIdAndEstado(Long sedeId, EntregaDinero.EstadoEntrega estado);
 
-    List<EntregaDinero> findByFechaEntregaBetween(LocalDateTime desde, LocalDateTime hasta);
+    List<EntregaDinero> findByFechaEntregaBetween(LocalDate desde, LocalDate hasta);
 
-    List<EntregaDinero> findBySedeIdAndFechaEntregaBetween(Long sedeId, LocalDateTime desde, LocalDateTime hasta);
+    List<EntregaDinero> findBySedeIdAndFechaEntregaBetween(Long sedeId, LocalDate desde, LocalDate hasta);
 
     @Query("SELECT e FROM EntregaDinero e WHERE e.diferencia <> 0")
     List<EntregaDinero> findEntregasWithDifferences();
@@ -32,15 +32,15 @@ public interface EntregaDineroRepository extends JpaRepository<EntregaDinero, Lo
     Double getTotalEntregadoBySede(@Param("sedeId") Long sedeId, @Param("estado") EntregaDinero.EstadoEntrega estado);
 
     @Query("SELECT SUM(e.montoEntregado) FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.fechaEntrega BETWEEN :desde AND :hasta")
-    Double getTotalEntregadoBySedeAndPeriodo(@Param("sedeId") Long sedeId, @Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+    Double getTotalEntregadoBySedeAndPeriodo(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
     @Query("SELECT SUM(e.montoGastos) FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.fechaEntrega BETWEEN :desde AND :hasta")
-    Double getTotalGastosBySedeAndPeriodo(@Param("sedeId") Long sedeId, @Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+    Double getTotalGastosBySedeAndPeriodo(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
     @Query("SELECT e.empleado.nombre, COUNT(e), SUM(e.montoEntregado), SUM(e.montoGastos) " +
            "FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.fechaEntrega BETWEEN :desde AND :hasta " +
            "GROUP BY e.empleado.id, e.empleado.nombre")
-    List<Object[]> getResumenByEmpleado(@Param("sedeId") Long sedeId, @Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+    List<Object[]> getResumenByEmpleado(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
     @Query("SELECT e FROM EntregaDinero e WHERE e.sede.id = :sedeId ORDER BY e.fechaEntrega DESC")
     List<EntregaDinero> findUltimasEntregasBySede(@Param("sedeId") Long sedeId);

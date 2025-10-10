@@ -6,7 +6,7 @@ import com.casaglass.casaglass_backend.repository.SedeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,11 +39,11 @@ public class GastoSedeService {
         return gastoSedeRepository.findBySedeIdAndTipo(sedeId, tipo);
     }
 
-    public List<GastoSede> obtenerPorPeriodo(LocalDateTime desde, LocalDateTime hasta) {
+    public List<GastoSede> obtenerPorPeriodo(LocalDate desde, LocalDate hasta) {
         return gastoSedeRepository.findByFechaGastoBetween(desde, hasta);
     }
 
-    public List<GastoSede> obtenerPorSedeYPeriodo(Long sedeId, LocalDateTime desde, LocalDateTime hasta) {
+    public List<GastoSede> obtenerPorSedeYPeriodo(Long sedeId, LocalDate desde, LocalDate hasta) {
         return gastoSedeRepository.findBySedeIdAndFechaGastoBetween(sedeId, desde, hasta);
     }
 
@@ -63,12 +63,12 @@ public class GastoSedeService {
         return gastoSedeRepository.findGastosSinEntregaBySede(sedeId);
     }
 
-    public Double obtenerTotalGastosSedeEnPeriodo(Long sedeId, LocalDateTime desde, LocalDateTime hasta) {
+    public Double obtenerTotalGastosSedeEnPeriodo(Long sedeId, LocalDate desde, LocalDate hasta) {
         Double total = gastoSedeRepository.getTotalGastosBySedeAndPeriodo(sedeId, desde, hasta);
         return total != null ? total : 0.0;
     }
 
-    public Double obtenerTotalGastosSedeYTipoEnPeriodo(Long sedeId, GastoSede.TipoGasto tipo, LocalDateTime desde, LocalDateTime hasta) {
+    public Double obtenerTotalGastosSedeYTipoEnPeriodo(Long sedeId, GastoSede.TipoGasto tipo, LocalDate desde, LocalDate hasta) {
         Double total = gastoSedeRepository.getTotalGastosBySedeAndTipoAndPeriodo(sedeId, tipo, desde, hasta);
         return total != null ? total : 0.0;
     }
@@ -77,7 +77,7 @@ public class GastoSedeService {
         return gastoSedeRepository.findByConceptoContaining(concepto);
     }
 
-    public List<Object[]> obtenerResumenGastosPorConcepto(Long sedeId, LocalDateTime desde, LocalDateTime hasta) {
+    public List<Object[]> obtenerResumenGastosPorConcepto(Long sedeId, LocalDate desde, LocalDate hasta) {
         return gastoSedeRepository.getResumenGastosByConcepto(sedeId, desde, hasta);
     }
 
@@ -89,7 +89,7 @@ public class GastoSedeService {
 
         // Establecer valores por defecto
         if (gasto.getFechaGasto() == null) {
-            gasto.setFechaGasto(LocalDateTime.now());
+            gasto.setFechaGasto(LocalDate.now());
         }
 
         if (gasto.getAprobado() == null) {

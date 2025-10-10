@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -17,7 +17,7 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Long> {
     List<Ingreso> findByProveedorOrderByFechaDesc(Proveedor proveedor);
 
     // Buscar ingresos por rango de fechas
-    List<Ingreso> findByFechaBetweenOrderByFechaDesc(LocalDateTime fechaInicio, LocalDateTime fechaFin);
+  List<Ingreso> findByFechaBetweenOrderByFechaDesc(LocalDate fechaInicio, LocalDate fechaFin);
 
     // Buscar ingresos no procesados
     List<Ingreso> findByProcesadoFalseOrderByFechaAsc();

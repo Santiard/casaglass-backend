@@ -5,8 +5,10 @@ import com.casaglass.casaglass_backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,7 +59,7 @@ public class IngresoService {
     }
 
     @Transactional(readOnly = true)
-    public List<Ingreso> obtenerIngresosPorFecha(LocalDateTime fechaInicio, LocalDateTime fechaFin) {
+    public List<Ingreso> obtenerIngresosPorFecha(LocalDate fechaInicio, LocalDate fechaFin) {
         return ingresoRepository.findByFechaBetweenOrderByFechaDesc(fechaInicio, fechaFin);
     }
 
@@ -69,17 +71,33 @@ public class IngresoService {
     public Ingreso guardarIngreso(Ingreso ingreso) {
         // Establecer fecha si no está definida
         if (ingreso.getFecha() == null) {
-            ingreso.setFecha(LocalDateTime.now());
+            ingreso.setFecha(LocalDate.now());
+        }
+
+        // ARREGLO: Buscar entidad gestionada para proveedor
+        if (ingreso.getProveedor() != null && ingreso.getProveedor().getId() != null) {
+            Proveedor proveedor = proveedorRepository.findById(ingreso.getProveedor().getId())
+                .orElseThrow(() -> new RuntimeException("Proveedor no encontrado con ID: " + ingreso.getProveedor().getId()));
+            ingreso.setProveedor(proveedor);
+        } else {
+            throw new RuntimeException("El proveedor es obligatorio");
+        }
+
+        // ARREGLO: Buscar entidades gestionadas para productos en detalles
+        for (IngresoDetalle detalle : ingreso.getDetalles()) {
+            if (detalle.getProducto() != null && detalle.getProducto().getId() != null) {
+                Producto producto = productoRepository.findById(detalle.getProducto().getId())
+                    .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + detalle.getProducto().getId()));
+                detalle.setProducto(producto);
+            } else {
+                throw new RuntimeException("Todos los detalles deben tener un producto válido");
+            }
+            detalle.setIngreso(ingreso);
         }
 
         // Calcular totales
         ingreso.calcularTotal();
         
-        // Establecer referencias bidireccionales
-        for (IngresoDetalle detalle : ingreso.getDetalles()) {
-            detalle.setIngreso(ingreso);
-        }
-
         // Guardar el ingreso
         Ingreso ingresoGuardado = ingresoRepository.save(ingreso);
 
@@ -137,12 +155,16 @@ public class IngresoService {
 
         // Obtener la sede principal
         Sede sedePrincipal = sedeRepository.findById(SEDE_PRINCIPAL_ID)
-                .orElseThrow(() -> new RuntimeException("Sede principal no encontrada (ID: " + SEDE_PRINCIPAL_ID + ")"));
+                .orElseThrow(() -> new RuntimeException("Sede principal no encontrada (ID: " + SEDE_PRINCIPAL_ID + "). Verifique que exista una sede con ID 1 en la base de datos."));
 
         // Procesar cada detalle del ingreso
         for (IngresoDetalle detalle : ingreso.getDetalles()) {
             Producto producto = detalle.getProducto();
             Integer cantidadIngresada = detalle.getCantidad();
+
+            if (producto == null || producto.getId() == null) {
+                throw new RuntimeException("Detalle de ingreso sin producto válido");
+            }
 
             // Buscar o crear registro de inventario para este producto en la sede principal
             Optional<Inventario> inventarioExistente = inventarioService
