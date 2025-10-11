@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "traslado_detalles")
@@ -12,6 +14,7 @@ import lombok.EqualsAndHashCode;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})
 public class TrasladoDetalle {
 
     @Id
@@ -21,6 +24,7 @@ public class TrasladoDetalle {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "traslado_id", nullable = false)
+    @JsonBackReference("traslado-detalles")
     private Traslado traslado;
 
     @ManyToOne(optional = false)

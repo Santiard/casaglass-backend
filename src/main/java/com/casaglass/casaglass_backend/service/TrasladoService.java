@@ -28,8 +28,11 @@ public class TrasladoService {
 
     /* ---------------- Consultas ---------------- */
 
-    public List<Traslado> listar() { return repo.findAll(); }
+    
 
+    public List<Traslado> listar() {
+        return repo.findAllEager();  // 👈 antes: repo.findAll()
+    }
     public Optional<Traslado> obtener(Long id) { return repo.findById(id); }
 
     public List<Traslado> listarPorSedeOrigen(Long sedeOrigenId) { return repo.findBySedeOrigenId(sedeOrigenId); }

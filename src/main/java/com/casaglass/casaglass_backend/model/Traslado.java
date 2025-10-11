@@ -7,6 +7,9 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import java.time.LocalDate;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 
 @Entity
 @Table(name = "traslados")
@@ -14,6 +17,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})
 public class Traslado {
 
     @Id
@@ -38,5 +42,6 @@ public class Traslado {
     private Trabajador trabajadorConfirmacion;
 
     @OneToMany(mappedBy = "traslado", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("traslado-detalles")   // ⬅️ rompe el ciclo
     private List<TrasladoDetalle> detalles;
 }

@@ -1,7 +1,12 @@
 package com.casaglass.casaglass_backend.api;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import java.util.Map;
 // Comentado temporalmente para evitar conflicto con ApiExceptionHandler
 // @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -17,7 +22,17 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleAny(Exception e) {
-        return ResponseEntity.status(500).body(e.getMessage());
+    public ResponseEntity<Map<String, Object>> handleAny(Exception ex) {
+        StringWriter sw = new StringWriter();
+        ex.printStackTrace(new PrintWriter(sw));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+            Map.of(
+                "error", ex.getClass().getName(),
+                "message", ex.getMessage(),
+                "stacktrace", sw.toString()
+            )
+        );
     }
+
+    
 }
