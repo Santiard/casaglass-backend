@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.dto.InventarioCorteDTO;
 import com.casaglass.casaglass_backend.model.Corte;
 import com.casaglass.casaglass_backend.model.InventarioCorte;
 import com.casaglass.casaglass_backend.model.Sede;
@@ -8,7 +9,10 @@ import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -176,4 +180,28 @@ public class InventarioCorteService {
             throw new RuntimeException("No existe inventario para este corte en esta sede");
         }
     }
+    
+@Transactional
+public List<InventarioCorteDTO> listarInventarioCortesAgrupado() {
+    List<InventarioCorte> inventarios = repository.findAll();
+    Map<Long, InventarioCorteDTO> mapa = new HashMap<>();
+
+    for (InventarioCorte inv : inventarios) {
+        Long corteId = inv.getCorte().getId();
+        String nombre = inv.getCorte().getNombre();
+        Double largoCm = inv.getCorte().getLargoCm();
+        Double precio = inv.getCorte().getPrecio();
+        String sede = inv.getSede().getNombre().toLowerCase();
+
+        InventarioCorteDTO dto = mapa.computeIfAbsent(corteId,
+            id -> new InventarioCorteDTO(id, nombre, largoCm, precio, 0, 0, 0)
+        );
+
+        if (sede.contains("insula")) dto.setCantidadInsula(inv.getCantidad());
+        if (sede.contains("centro")) dto.setCantidadCentro(inv.getCantidad());
+        if (sede.contains("patios")) dto.setCantidadPatios(inv.getCantidad());
+    }
+
+    return new ArrayList<>(mapa.values());
+}
 }

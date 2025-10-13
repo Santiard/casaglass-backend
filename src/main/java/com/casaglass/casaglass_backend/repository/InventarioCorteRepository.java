@@ -40,4 +40,7 @@ public interface InventarioCorteRepository extends JpaRepository<InventarioCorte
 
     @Query("SELECT DISTINCT ic.sede.id FROM InventarioCorte ic WHERE ic.corte.id = :corteId AND ic.cantidad > 0")
     List<Long> findSedesWithStockByCorteId(@Param("corteId") Long corteId);
+
+    // Nuevo: buscar inventarios para una lista de cortes
+    List<InventarioCorte> findByCorteIdIn(List<Long> corteIds);
 }

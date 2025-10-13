@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.dto.InventarioProductoDTO;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Sede;
@@ -7,7 +8,11 @@ import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import com.casaglass.casaglass_backend.dto.InventarioProductoDTO;
 
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -83,5 +88,27 @@ public class InventarioService {
 
     public void eliminar(Long id) {
         repo.deleteById(id);
+    }
+
+    @Transactional
+    public List<InventarioProductoDTO> listarInventarioAgrupado() {
+        List<Inventario> inventarios = repo.findAll();
+        Map<Long, InventarioProductoDTO> mapa = new HashMap<>();
+
+        for (Inventario inv : inventarios) {
+            Long productoId = inv.getProducto().getId();
+            String productoNombre = inv.getProducto().getNombre();
+            String sedeNombre = inv.getSede().getNombre().toLowerCase();
+
+            InventarioProductoDTO dto = mapa.computeIfAbsent(productoId,
+                id -> new InventarioProductoDTO(id, productoNombre, 0, 0, 0)
+            );
+
+            if (sedeNombre.contains("insula")) dto.setCantidadInsula(inv.getCantidad());
+            if (sedeNombre.contains("centro")) dto.setCantidadCentro(inv.getCantidad());
+            if (sedeNombre.contains("patios")) dto.setCantidadPatios(inv.getCantidad());
+        }
+
+        return new ArrayList<>(mapa.values());
     }
 }

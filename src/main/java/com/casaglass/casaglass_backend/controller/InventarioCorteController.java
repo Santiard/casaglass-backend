@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.dto.InventarioCorteDTO;
 import com.casaglass.casaglass_backend.model.InventarioCorte;
 import com.casaglass.casaglass_backend.service.InventarioCorteService;
 import org.springframework.http.ResponseEntity;
@@ -185,4 +186,9 @@ public class InventarioCorteController {
             return ResponseEntity.notFound().build();
         }
     }
+    @GetMapping("/agrupado")
+public ResponseEntity<List<InventarioCorteDTO>> listarAgrupado() {
+    return ResponseEntity.ok(service.listarInventarioCortesAgrupado());
+}
+
 }

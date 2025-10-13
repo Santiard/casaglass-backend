@@ -34,4 +34,7 @@ public interface CorteRepository extends JpaRepository<Corte, Long> {
 
     @Query("SELECT c FROM Corte c WHERE c.observacion IS NOT NULL AND c.observacion != ''")
     List<Corte> findCortesWithObservaciones();
+
+    // Nuevo: buscar por rango de largo usando método Spring Data JPA
+    List<Corte> findByLargoCmBetween(Double largoMin, Double largoMax);
 }

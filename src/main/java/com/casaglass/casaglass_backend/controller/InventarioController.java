@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.dto.InventarioProductoDTO;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.service.InventarioService;
 import org.springframework.http.ResponseEntity;
@@ -67,5 +68,10 @@ public class InventarioController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/agrupado")
+    public ResponseEntity<List<InventarioProductoDTO>> listarAgrupado() {
+       return ResponseEntity.ok(service.listarInventarioAgrupado());
     }
 }
