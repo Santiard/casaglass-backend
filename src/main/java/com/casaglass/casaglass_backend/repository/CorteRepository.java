@@ -12,7 +12,9 @@ public interface CorteRepository extends JpaRepository<Corte, Long> {
 
     Optional<Corte> findByCodigo(String codigo);
 
-    List<Corte> findByCategoriaIgnoreCase(String categoria);
+    // 🔁 Actualizado para usar Categoria como entidad
+    List<Corte> findByCategoria_Id(Long categoriaId);
+    List<Corte> findByCategoria_NombreIgnoreCase(String categoriaNombre);
 
     List<Corte> findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(
             String nombre, String codigo

@@ -18,18 +18,15 @@ public class ProductoController {
         this.service = service;
     }
 
-    // Listado general, con filtros opcionales sin paginación
-    // /api/productos
-    // /api/productos?categoria=Vidrio
-    // /api/productos?q=VID-001
+    // GET /api/productos
     @GetMapping
-    public List<Producto> listar(@RequestParam(required = false) String categoria,
+    public List<Producto> listar(@RequestParam(required = false) Long categoriaId,
                                  @RequestParam(required = false, name = "q") String query) {
         if (query != null && !query.isBlank()) {
             return service.buscar(query);
         }
-        if (categoria != null && !categoria.isBlank()) {
-            return service.listarPorCategoria(categoria);
+        if (categoriaId != null) {
+            return service.listarPorCategoriaId(categoriaId);
         }
         return service.listar();
     }
@@ -49,16 +46,20 @@ public class ProductoController {
     }
 
     @PostMapping
-    public Producto crear(@RequestBody Producto producto) {
-        return service.guardar(producto);
+    public ResponseEntity<?> crear(@RequestBody Producto producto) {
+        try {
+            return ResponseEntity.ok(service.guardar(producto));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Producto> actualizar(@PathVariable Long id, @RequestBody Producto producto) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Producto producto) {
         try {
             return ResponseEntity.ok(service.actualizar(id, producto));
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
@@ -67,9 +68,9 @@ public class ProductoController {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }
-    
-    @GetMapping("/categorias")
-    public List<String> categorias() {
-        return service.listarCategorias(); // delega al service
+
+    @GetMapping("/categorias-texto")
+    public List<String> categoriasTexto() {
+        return service.listarCategoriasTexto();
     }
 }

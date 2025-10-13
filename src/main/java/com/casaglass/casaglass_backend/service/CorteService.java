@@ -1,6 +1,8 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.model.Categoria;
 import com.casaglass.casaglass_backend.model.Corte;
+import com.casaglass.casaglass_backend.repository.CategoriaRepository;
 import com.casaglass.casaglass_backend.repository.CorteRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -9,12 +11,15 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@Transactional
 public class CorteService {
 
     private final CorteRepository repository;
+    private final CategoriaRepository categoriaRepository;
 
-    public CorteService(CorteRepository repository) {
+    public CorteService(CorteRepository repository, CategoriaRepository categoriaRepository) {
         this.repository = repository;
+        this.categoriaRepository = categoriaRepository;
     }
 
     // Operaciones básicas CRUD
@@ -43,6 +48,15 @@ public class CorteService {
             throw new IllegalArgumentException("El precio debe ser mayor que 0");
         }
 
+        // Validar categoría si viene con ID
+        if (corte.getCategoria() != null && corte.getCategoria().getId() != null) {
+            Categoria cat = categoriaRepository.findById(corte.getCategoria().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
+            corte.setCategoria(cat);
+        } else {
+            corte.setCategoria(null);
+        }
+
         return repository.save(corte);
     }
 
@@ -53,10 +67,18 @@ public class CorteService {
                     // Campos heredados de Producto
                     corteExistente.setCodigo(corteActualizado.getCodigo());
                     corteExistente.setNombre(corteActualizado.getNombre());
-                    corteExistente.setCategoria(corteActualizado.getCategoria());
                     corteExistente.setColor(corteActualizado.getColor());
                     corteExistente.setDescripcion(corteActualizado.getDescripcion());
                     corteExistente.setCantidad(corteActualizado.getCantidad());
+                    
+                    // Actualizar categoría si se envía
+                    if (corteActualizado.getCategoria() != null && corteActualizado.getCategoria().getId() != null) {
+                        Categoria cat = categoriaRepository.findById(corteActualizado.getCategoria().getId())
+                                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
+                        corteExistente.setCategoria(cat);
+                    } else {
+                        corteExistente.setCategoria(null);
+                    }
                     
                     // Convertir BigDecimal a Double para campos heredados si es necesario
                     if (corteActualizado.getCosto() != null) {
@@ -94,8 +116,12 @@ public class CorteService {
     }
 
     // Búsquedas especializadas
-    public List<Corte> listarPorCategoria(String categoria) {
-        return repository.findByCategoriaIgnoreCase(categoria);
+    public List<Corte> listarPorCategoriaId(Long categoriaId) {
+        return repository.findByCategoria_Id(categoriaId);
+    }
+
+    public List<Corte> listarPorCategoria(String categoriaNombre) {
+        return repository.findByCategoria_NombreIgnoreCase(categoriaNombre);
     }
 
     public List<Corte> buscar(String query) {

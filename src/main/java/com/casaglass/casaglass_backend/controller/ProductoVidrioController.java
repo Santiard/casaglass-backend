@@ -23,12 +23,17 @@ public class ProductoVidrioController {
     // /api/productos-vidrio?q=templado
     // /api/productos-vidrio?mm=6.0
     // /api/productos-vidrio?laminas=2
+    // /api/productos-vidrio?categoriaId=1
     @GetMapping
     public List<ProductoVidrio> listar(@RequestParam(required = false, name = "q") String query,
                                        @RequestParam(required = false) Double mm,
-                                       @RequestParam(required = false) Integer laminas) {
+                                       @RequestParam(required = false) Integer laminas,
+                                       @RequestParam(required = false) Long categoriaId) {
         if (query != null && !query.isBlank()) {
             return service.buscar(query);
+        }
+        if (categoriaId != null) {
+            return service.listarPorCategoriaId(categoriaId);
         }
         if (mm != null) {
             return service.listarPorMm(mm);
@@ -54,16 +59,20 @@ public class ProductoVidrioController {
     }
 
     @PostMapping
-    public ProductoVidrio crear(@RequestBody ProductoVidrio producto) {
-        return service.guardar(producto);
+    public ResponseEntity<?> crear(@RequestBody ProductoVidrio producto) {
+        try {
+            return ResponseEntity.ok(service.guardar(producto));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductoVidrio> actualizar(@PathVariable Long id, @RequestBody ProductoVidrio producto) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody ProductoVidrio producto) {
         try {
             return ResponseEntity.ok(service.actualizar(id, producto));
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

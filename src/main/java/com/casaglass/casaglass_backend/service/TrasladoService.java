@@ -28,11 +28,10 @@ public class TrasladoService {
 
     /* ---------------- Consultas ---------------- */
 
-    
-
-    public List<Traslado> listar() {
-        return repo.findAllEager();  // 👈 antes: repo.findAll()
+    public List<Traslado> listar() { 
+        return repo.findAllWithDetails(); // 🔁 Usar query optimizada con JOIN FETCH
     }
+
     public Optional<Traslado> obtener(Long id) { return repo.findById(id); }
 
     public List<Traslado> listarPorSedeOrigen(Long sedeOrigenId) { return repo.findBySedeOrigenId(sedeOrigenId); }

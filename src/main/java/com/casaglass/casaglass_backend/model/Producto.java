@@ -1,12 +1,8 @@
 package com.casaglass.casaglass_backend.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "productos")
@@ -15,7 +11,7 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Inheritance(strategy = InheritanceType.JOINED)
-@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Producto {
 
     @Id
@@ -28,28 +24,24 @@ public class Producto {
 
     private String posicion;
 
-    private String categoria; // Vidrio, Aluminio, Accesorio
+    // 🔁 Nueva relación con Categoria
+    @ManyToOne(fetch = FetchType.EAGER) // EAGER para evitar problemas de carga perezosa
+    @JoinColumn(name = "categoria_id", nullable = true)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Categoria categoria;
 
     @Column(unique = true, nullable = false)
     private String codigo;
 
     private String nombre;
-
     private String color;
-
     private Integer cantidad;
-
     private Double costo;
-
     private Double precio1;
-
     private Double precio2;
-
     private Double precio3;
-
     private Double precioEspecial;
 
     @Lob
     private String descripcion;
 }
- ;

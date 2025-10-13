@@ -21,6 +21,7 @@ public class CorteController {
     // Listado general con filtros opcionales
     @GetMapping
     public List<Corte> listar(@RequestParam(required = false) String categoria,
+                              @RequestParam(required = false) Long categoriaId,
                               @RequestParam(required = false, name = "q") String query,
                               @RequestParam(required = false) Double largoMin,
                               @RequestParam(required = false) Double largoMax,
@@ -55,6 +56,12 @@ public class CorteController {
             return service.buscar(query);
         }
         
+        // 🔁 Nuevo filtro por ID de categoría (recomendado)
+        if (categoriaId != null) {
+            return service.listarPorCategoriaId(categoriaId);
+        }
+        
+        // 🔁 Mantener compatibilidad con filtro por nombre de categoría
         if (categoria != null && !categoria.isBlank()) {
             return service.listarPorCategoria(categoria);
         }
@@ -77,22 +84,20 @@ public class CorteController {
     }
 
     @PostMapping
-    public ResponseEntity<Corte> crear(@RequestBody Corte corte) {
+    public ResponseEntity<?> crear(@RequestBody Corte corte) {
         try {
             return ResponseEntity.ok(service.guardar(corte));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Corte> actualizar(@PathVariable Long id, @RequestBody Corte corte) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Corte corte) {
         try {
             return ResponseEntity.ok(service.actualizar(id, corte));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

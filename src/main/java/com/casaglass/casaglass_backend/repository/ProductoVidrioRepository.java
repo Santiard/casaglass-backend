@@ -17,4 +17,8 @@ public interface ProductoVidrioRepository extends JpaRepository<ProductoVidrio, 
     // Filtros específicos
     List<ProductoVidrio> findByMm(Double mm);
     List<ProductoVidrio> findByLaminas(Integer laminas);
+    
+    // 🔁 Métodos para filtrar por Categoria (heredada de Producto)
+    List<ProductoVidrio> findByCategoria_Id(Long categoriaId);
+    List<ProductoVidrio> findByCategoria_NombreIgnoreCase(String nombre);
 }
