@@ -9,11 +9,13 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class ProductoInventarioCompletoDTO {
     
-    // === Datos básicos del producto ===
+    // Datos básicos del Producto
     private Long id;
     private String codigo;
     private String nombre;
     private String categoria;
+    private String tipo; // Campo tipo
+    private String color; // Campo color
     
     // === Datos específicos para vidrios ===
     private Boolean esVidrio;
@@ -35,15 +37,17 @@ public class ProductoInventarioCompletoDTO {
     // === Campos calculados ===
     private Integer cantidadTotal; // suma de las 3 sedes
     
-    // === Constructor con cálculo automático del total ===
-    public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria,
-                                       Boolean esVidrio, Double mm, Double m1m2, Integer laminas,
-                                       Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
-                                       Double precio1, Double precio2, Double precio3, Double precioEspecial) {
+    // Constructor principal con cálculo automático de total
+    public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria, String tipo, String color,
+                                        Boolean esVidrio, Double mm, Double m1m2, Integer laminas,
+                                        Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
+                                        Double precio1, Double precio2, Double precio3, Double precioEspecial) {
         this.id = id;
         this.codigo = codigo;
         this.nombre = nombre;
         this.categoria = categoria;
+        this.tipo = tipo;
+        this.color = color;
         this.esVidrio = esVidrio;
         this.mm = mm;
         this.m1m2 = m1m2;

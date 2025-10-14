@@ -14,6 +14,8 @@ public class CorteInventarioCompletoDTO {
     private String codigo;
     private String nombre;
     private String categoria;
+    private String tipo; // Campo tipo
+    private String color; // Campo color
     
     // Datos específicos de Corte
     private Double largoCm;
@@ -33,7 +35,7 @@ public class CorteInventarioCompletoDTO {
     private Double precioEspecial;
     
     // Constructor principal con cálculo automático de total
-    public CorteInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria,
+    public CorteInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria, String tipo, String color,
                                      Double largoCm, Double precio, String observacion,
                                      Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
                                      Double precio1, Double precio2, Double precio3, Double precioEspecial) {
@@ -41,6 +43,8 @@ public class CorteInventarioCompletoDTO {
         this.codigo = codigo;
         this.nombre = nombre;
         this.categoria = categoria;
+        this.tipo = tipo;
+        this.color = color;
         this.largoCm = largoCm;
         this.precio = precio;
         this.observacion = observacion;

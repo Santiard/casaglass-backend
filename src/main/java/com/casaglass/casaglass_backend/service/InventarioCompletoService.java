@@ -5,6 +5,8 @@ import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.ProductoVidrio;
 import com.casaglass.casaglass_backend.model.Sede;
+import com.casaglass.casaglass_backend.model.TipoProducto;
+import com.casaglass.casaglass_backend.model.ColorProducto;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
@@ -115,6 +117,96 @@ public class InventarioCompletoService {
             .collect(Collectors.toList());
     }
 
+    public List<ProductoInventarioCompletoDTO> obtenerInventarioCompletoPorTipo(String tipoStr) {
+        // Convertir String a enum
+        TipoProducto tipo;
+        try {
+            tipo = TipoProducto.valueOf(tipoStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Tipo de producto inválido: " + tipoStr);
+        }
+
+        // Obtener productos de un tipo específico
+        List<Producto> productos = productoRepository.findByTipo(tipo);
+        
+        // Obtener inventarios para esos productos
+        List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
+        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+            inventarioRepository.findByProductoIdIn(productosIds).stream()
+                .collect(Collectors.groupingBy(
+                    inv -> inv.getProducto().getId(),
+                    Collectors.toMap(
+                        inv -> inv.getSede().getId(),
+                        Inventario::getCantidad,
+                        Integer::sum
+                    )
+                ));
+
+        return productos.stream()
+            .map(producto -> convertirADTO(producto, inventariosPorProductoYSede.get(producto.getId())))
+            .collect(Collectors.toList());
+    }
+
+    public List<ProductoInventarioCompletoDTO> obtenerInventarioCompletoPorColor(String colorStr) {
+        // Convertir String a enum
+        ColorProducto color;
+        try {
+            color = ColorProducto.valueOf(colorStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Color de producto inválido: " + colorStr);
+        }
+
+        // Obtener productos de un color específico
+        List<Producto> productos = productoRepository.findByColor(color);
+        
+        // Obtener inventarios para esos productos
+        List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
+        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+            inventarioRepository.findByProductoIdIn(productosIds).stream()
+                .collect(Collectors.groupingBy(
+                    inv -> inv.getProducto().getId(),
+                    Collectors.toMap(
+                        inv -> inv.getSede().getId(),
+                        Inventario::getCantidad,
+                        Integer::sum
+                    )
+                ));
+
+        return productos.stream()
+            .map(producto -> convertirADTO(producto, inventariosPorProductoYSede.get(producto.getId())))
+            .collect(Collectors.toList());
+    }
+
+    public List<ProductoInventarioCompletoDTO> obtenerInventarioCompletoPorSede(Long sedeId) {
+        // Obtener inventarios de una sede específica
+        List<Inventario> inventariosSede = inventarioRepository.findBySedeId(sedeId);
+        
+        // Obtener los productos únicos
+        List<Long> productosIds = inventariosSede.stream()
+            .map(inv -> inv.getProducto().getId())
+            .distinct()
+            .collect(Collectors.toList());
+        
+        // Obtener productos
+        List<Producto> productos = productoRepository.findByIdIn(productosIds);
+        
+        // Crear mapa de inventarios por producto y sede (solo para esta sede)
+        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+            inventariosSede.stream()
+                .collect(Collectors.groupingBy(
+                    inv -> inv.getProducto().getId(),
+                    Collectors.toMap(
+                        inv -> inv.getSede().getId(),
+                        Inventario::getCantidad,
+                        Integer::sum
+                    )
+                ));
+
+        return productos.stream()
+            .map(producto -> convertirADTO(producto, inventariosPorProductoYSede.get(producto.getId())))
+            .collect(Collectors.toList());
+    }
+
     private ProductoInventarioCompletoDTO convertirADTO(Producto producto, Map<Long, Integer> inventariosPorSede) {
         // Obtener cantidades por sede (0 si no existe)
         Long insulaId = obtenerSedeId("insula");
@@ -138,14 +230,18 @@ public class InventarioCompletoService {
             laminas = vidrio.getLaminas();
         }
 
-        // Obtener nombre de la categoría
+        // Obtener nombre de la categoría, tipo y color
         String categoriaNombre = producto.getCategoria() != null ? producto.getCategoria().getNombre() : null;
+        String tipoProducto = producto.getTipo() != null ? producto.getTipo().name() : null;
+        String colorProducto = producto.getColor() != null ? producto.getColor().name() : null;
 
         return new ProductoInventarioCompletoDTO(
             producto.getId(),
             producto.getCodigo(),
             producto.getNombre(),
             categoriaNombre,
+            tipoProducto,
+            colorProducto,
             esVidrio,
             mm,
             m1m2,

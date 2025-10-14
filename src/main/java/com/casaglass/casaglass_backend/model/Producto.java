@@ -30,11 +30,21 @@ public class Producto {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Categoria categoria;
 
+    // 🆕 Nuevo campo tipo como enum
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo")
+    private TipoProducto tipo;
+
     @Column(unique = true, nullable = false)
     private String codigo;
 
     private String nombre;
-    private String color;
+    
+    // 🆕 Campo color como enum
+    @Enumerated(EnumType.STRING)
+    @Column(name = "color")
+    private ColorProducto color;
+    
     private Integer cantidad;
     private Double costo;
     private Double precio1;

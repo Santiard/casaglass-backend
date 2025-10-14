@@ -29,6 +29,18 @@ public class InventarioCompletoController {
     }
 
     /**
+     * GET /api/inventario-completo/sede/{sedeId}
+     * Obtiene productos de una sede específica con información completa
+     */
+    @GetMapping("/sede/{sedeId}")
+    public ResponseEntity<List<ProductoInventarioCompletoDTO>> obtenerInventarioPorSede(
+            @PathVariable Long sedeId) {
+        List<ProductoInventarioCompletoDTO> inventario = 
+            inventarioCompletoService.obtenerInventarioCompletoPorSede(sedeId);
+        return ResponseEntity.ok(inventario);
+    }
+
+    /**
      * GET /api/inventario-completo/categoria/{categoriaId}
      * Obtiene productos de una categoría específica con información completa
      */
@@ -54,5 +66,37 @@ public class InventarioCompletoController {
         List<ProductoInventarioCompletoDTO> inventario = 
             inventarioCompletoService.buscarInventarioCompleto(query.trim());
         return ResponseEntity.ok(inventario);
+    }
+
+    /**
+     * GET /api/inventario-completo/tipo/{tipo}
+     * Obtiene productos de un tipo específico con información completa
+     */
+    @GetMapping("/tipo/{tipo}")
+    public ResponseEntity<List<ProductoInventarioCompletoDTO>> obtenerInventarioPorTipo(
+            @PathVariable String tipo) {
+        try {
+            List<ProductoInventarioCompletoDTO> inventario = 
+                inventarioCompletoService.obtenerInventarioCompletoPorTipo(tipo.toUpperCase());
+            return ResponseEntity.ok(inventario);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * GET /api/inventario-completo/color/{color}
+     * Obtiene productos de un color específico con información completa
+     */
+    @GetMapping("/color/{color}")
+    public ResponseEntity<List<ProductoInventarioCompletoDTO>> obtenerInventarioPorColor(
+            @PathVariable String color) {
+        try {
+            List<ProductoInventarioCompletoDTO> inventario = 
+                inventarioCompletoService.obtenerInventarioCompletoPorColor(color.toUpperCase());
+            return ResponseEntity.ok(inventario);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 }

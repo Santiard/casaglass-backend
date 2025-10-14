@@ -37,4 +37,17 @@ public interface CorteRepository extends JpaRepository<Corte, Long> {
 
     // Nuevo: buscar por rango de largo usando método Spring Data JPA
     List<Corte> findByLargoCmBetween(Double largoMin, Double largoMax);
+
+    // 🆕 Nuevos métodos para filtrar por tipo
+    List<Corte> findByTipo(com.casaglass.casaglass_backend.model.TipoProducto tipo);
+
+    List<Corte> findByCategoria_IdAndTipo(Long categoriaId, com.casaglass.casaglass_backend.model.TipoProducto tipo);
+
+    // 🆕 Nuevos métodos para filtrar por color
+    List<Corte> findByColor(com.casaglass.casaglass_backend.model.ColorProducto color);
+
+    List<Corte> findByCategoria_IdAndColor(Long categoriaId, com.casaglass.casaglass_backend.model.ColorProducto color);
+
+    // 🆕 Método para buscar por lista de IDs
+    List<Corte> findByIdIn(List<Long> ids);
 }

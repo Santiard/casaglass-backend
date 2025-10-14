@@ -26,4 +26,17 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     // 🔁 Mantener compatibilidad con el método listarCategoriasTexto() del servicio
     @Query("SELECT DISTINCT c.nombre FROM Producto p JOIN p.categoria c WHERE c.nombre IS NOT NULL ORDER BY c.nombre")
     List<String> findDistinctCategorias();
+
+    // 🆕 Nuevos métodos para filtrar por tipo
+    List<Producto> findByTipo(com.casaglass.casaglass_backend.model.TipoProducto tipo);
+
+    List<Producto> findByCategoria_IdAndTipo(Long categoriaId, com.casaglass.casaglass_backend.model.TipoProducto tipo);
+
+    // 🆕 Nuevos métodos para filtrar por color
+    List<Producto> findByColor(com.casaglass.casaglass_backend.model.ColorProducto color);
+
+    List<Producto> findByCategoria_IdAndColor(Long categoriaId, com.casaglass.casaglass_backend.model.ColorProducto color);
+
+    // 🆕 Método para buscar por lista de IDs
+    List<Producto> findByIdIn(List<Long> ids);
 }

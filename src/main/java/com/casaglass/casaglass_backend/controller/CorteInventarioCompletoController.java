@@ -29,6 +29,18 @@ public class CorteInventarioCompletoController {
     }
 
     /**
+     * GET /api/cortes-inventario-completo/sede/{sedeId}
+     * Obtiene cortes de una sede específica con información completa
+     */
+    @GetMapping("/sede/{sedeId}")
+    public ResponseEntity<List<CorteInventarioCompletoDTO>> obtenerInventarioPorSede(
+            @PathVariable Long sedeId) {
+        List<CorteInventarioCompletoDTO> inventario = 
+            corteInventarioCompletoService.obtenerInventarioCompletoPorSede(sedeId);
+        return ResponseEntity.ok(inventario);
+    }
+
+    /**
      * GET /api/cortes-inventario-completo/categoria/{categoriaId}
      * Obtiene cortes de una categoría específica con información completa
      */
@@ -72,5 +84,37 @@ public class CorteInventarioCompletoController {
         List<CorteInventarioCompletoDTO> inventario = 
             corteInventarioCompletoService.obtenerInventarioCompletoPorRangoLargo(largoMin, largoMax);
         return ResponseEntity.ok(inventario);
+    }
+
+    /**
+     * GET /api/cortes-inventario-completo/tipo/{tipo}
+     * Obtiene cortes de un tipo específico con información completa
+     */
+    @GetMapping("/tipo/{tipo}")
+    public ResponseEntity<List<CorteInventarioCompletoDTO>> obtenerInventarioPorTipo(
+            @PathVariable String tipo) {
+        try {
+            List<CorteInventarioCompletoDTO> inventario = 
+                corteInventarioCompletoService.obtenerInventarioCompletoPorTipo(tipo.toUpperCase());
+            return ResponseEntity.ok(inventario);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * GET /api/cortes-inventario-completo/color/{color}
+     * Obtiene cortes de un color específico con información completa
+     */
+    @GetMapping("/color/{color}")
+    public ResponseEntity<List<CorteInventarioCompletoDTO>> obtenerInventarioPorColor(
+            @PathVariable String color) {
+        try {
+            List<CorteInventarioCompletoDTO> inventario = 
+                corteInventarioCompletoService.obtenerInventarioCompletoPorColor(color.toUpperCase());
+            return ResponseEntity.ok(inventario);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 }
