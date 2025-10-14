@@ -42,6 +42,10 @@ public class Traslado {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Trabajador trabajadorConfirmacion;
 
+    // Fecha y hora de confirmación del traslado
+    @Column(name = "fecha_confirmacion")
+    private LocalDate fechaConfirmacion;
+
     @OneToMany(mappedBy = "traslado", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private List<TrasladoDetalle> detalles;

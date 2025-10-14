@@ -95,6 +95,9 @@ public class TrasladoService {
             if (cambios.getTrabajadorConfirmacion() != null && cambios.getTrabajadorConfirmacion().getId() != null) {
                 t.setTrabajadorConfirmacion(em.getReference(Trabajador.class, cambios.getTrabajadorConfirmacion().getId()));
             }
+            if (cambios.getFechaConfirmacion() != null) {
+                t.setFechaConfirmacion(cambios.getFechaConfirmacion());
+            }
             return repo.save(t);
         }).orElseThrow(() -> new RuntimeException("Traslado no encontrado con id " + id));
     }
@@ -104,6 +107,7 @@ public class TrasladoService {
         Traslado t = repo.findById(trasladoId)
                 .orElseThrow(() -> new RuntimeException("Traslado no encontrado"));
         t.setTrabajadorConfirmacion(em.getReference(Trabajador.class, trabajadorId));
+        t.setFechaConfirmacion(LocalDate.now()); // ⚡ Establecer fecha de confirmación automáticamente
         return repo.save(t);
     }
 

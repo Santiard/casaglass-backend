@@ -29,4 +29,11 @@ public interface TrasladoRepository extends JpaRepository<Traslado, Long> {
         ORDER BY t.fecha DESC, t.id DESC
         """)
     List<Traslado> findAllWithDetails();
+
+    // 🆕 Métodos adicionales para el servicio de movimientos
+    List<Traslado> findBySedeOrigenIdOrSedeDestinoId(Long sedeOrigenId, Long sedeDestinoId);
+
+    List<Traslado> findByTrabajadorConfirmacionIsNull();
+
+    List<Traslado> findByTrabajadorConfirmacionIsNotNull();
 }
