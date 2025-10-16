@@ -3,6 +3,8 @@ package com.casaglass.casaglass_backend.service;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.OrdenItem;
 import com.casaglass.casaglass_backend.model.Sede;
+import com.casaglass.casaglass_backend.model.Trabajador;
+import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,7 @@ import java.time.LocalDate;
 // no need for LocalDateTime/LocalTime
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class OrdenService {
@@ -35,6 +38,11 @@ public class OrdenService {
 
         // Usar referencia ligera para la sede
         orden.setSede(entityManager.getReference(Sede.class, orden.getSede().getId()));
+
+        // 🆕 Manejar trabajador encargado (opcional)
+        if (orden.getTrabajador() != null && orden.getTrabajador().getId() != null) {
+            orden.setTrabajador(entityManager.getReference(Trabajador.class, orden.getTrabajador().getId()));
+        }
 
         // 🚀 GENERACIÓN AUTOMÁTICA DE NÚMERO (THREAD-SAFE)
         // El número se ignora si viene del frontend - siempre se genera automáticamente
@@ -94,53 +102,101 @@ public class OrdenService {
         throw new RuntimeException("No se pudo generar un número de orden único después de " + maxIntentos + " intentos");
     }
 
+    @Transactional(readOnly = true)
     public Optional<Orden> obtenerPorId(Long id) { return repo.findById(id); }
 
+    @Transactional(readOnly = true)
     public Optional<Orden> obtenerPorNumero(Long numero) { return repo.findByNumero(numero); }
 
-    public List<Orden> listar() { return repo.findAll(); }
+    @Transactional(readOnly = true)
+    public List<Orden> listar() {
+        // Usar findAll() simple ya que las relaciones son EAGER
+        return repo.findAll();
+    }
 
+    @Transactional(readOnly = true)
     public List<Orden> listarPorCliente(Long clienteId) { return repo.findByClienteId(clienteId); }
 
+    @Transactional(readOnly = true)
     public List<Orden> listarPorVenta(boolean venta) { return repo.findByVenta(venta); }
 
+    @Transactional(readOnly = true)
     public List<Orden> listarPorCredito(boolean credito) { return repo.findByCredito(credito); }
 
     /** Órdenes de un día (00:00:00 a 23:59:59.999999999) */
+    @Transactional(readOnly = true)
     public List<Orden> listarPorFecha(LocalDate fecha) {
         return repo.findByFechaBetween(fecha, fecha);
     }
 
     /** Órdenes en rango [desde, hasta] (ambos inclusive por día) */
+    @Transactional(readOnly = true)
     public List<Orden> listarPorRangoFechas(LocalDate desdeDia, LocalDate hastaDia) {
         return repo.findByFechaBetween(desdeDia, hastaDia);
     }
 
     // Métodos nuevos para manejar sede
+    @Transactional(readOnly = true)
     public List<Orden> listarPorSede(Long sedeId) {
         return repo.findBySedeId(sedeId);
     }
 
+    @Transactional(readOnly = true)
     public List<Orden> listarPorClienteYSede(Long clienteId, Long sedeId) {
         return repo.findByClienteIdAndSedeId(clienteId, sedeId);
     }
 
+    @Transactional(readOnly = true)
     public List<Orden> listarPorSedeYVenta(Long sedeId, boolean venta) {
         return repo.findBySedeIdAndVenta(sedeId, venta);
     }
 
+    @Transactional(readOnly = true)
     public List<Orden> listarPorSedeYCredito(Long sedeId, boolean credito) {
         return repo.findBySedeIdAndCredito(sedeId, credito);
     }
 
     /** Órdenes de una sede en un día específico */
+    @Transactional(readOnly = true)
     public List<Orden> listarPorSedeYFecha(Long sedeId, LocalDate fecha) {
         return repo.findBySedeIdAndFechaBetween(sedeId, fecha, fecha);
     }
 
     /** Órdenes de una sede en rango [desde, hasta] (ambos inclusive por día) */
+    @Transactional(readOnly = true)
     public List<Orden> listarPorSedeYRangoFechas(Long sedeId, LocalDate desdeDia, LocalDate hastaDia) {
         return repo.findBySedeIdAndFechaBetween(sedeId, desdeDia, hastaDia);
+    }
+
+    // 🆕 MÉTODOS PARA FILTRAR POR TRABAJADOR
+    /** Todas las órdenes de un trabajador */
+    @Transactional(readOnly = true)
+    public List<Orden> listarPorTrabajador(Long trabajadorId) {
+        return repo.findByTrabajadorId(trabajadorId);
+    }
+
+    /** Órdenes de un trabajador filtradas por venta/cotización */
+    @Transactional(readOnly = true)
+    public List<Orden> listarPorTrabajadorYVenta(Long trabajadorId, boolean venta) {
+        return repo.findByTrabajadorIdAndVenta(trabajadorId, venta);
+    }
+
+    /** Órdenes de un trabajador en un día específico */
+    @Transactional(readOnly = true)
+    public List<Orden> listarPorTrabajadorYFecha(Long trabajadorId, LocalDate fecha) {
+        return repo.findByTrabajadorIdAndFechaBetween(trabajadorId, fecha, fecha);
+    }
+
+    /** Órdenes de un trabajador en rango [desde, hasta] */
+    @Transactional(readOnly = true)
+    public List<Orden> listarPorTrabajadorYRangoFechas(Long trabajadorId, LocalDate desdeDia, LocalDate hastaDia) {
+        return repo.findByTrabajadorIdAndFechaBetween(trabajadorId, desdeDia, hastaDia);
+    }
+
+    /** Órdenes de una sede y trabajador específicos */
+    @Transactional(readOnly = true)
+    public List<Orden> listarPorSedeYTrabajador(Long sedeId, Long trabajadorId) {
+        return repo.findBySedeIdAndTrabajadorId(sedeId, trabajadorId);
     }
 
     /**
@@ -150,5 +206,115 @@ public class OrdenService {
     @Transactional(readOnly = true)
     public Long obtenerProximoNumero() {
         return repo.obtenerSiguienteNumero();
+    }
+
+    // 🎯 ================================
+    // 🎯 MÉTODOS OPTIMIZADOS PARA TABLA
+    // 🎯 ================================
+
+    /**
+     * 🚀 LISTADO OPTIMIZADO PARA TABLA DE ÓRDENES
+     * Retorna solo los campos necesarios para mejorar rendimiento
+     */
+    @Transactional(readOnly = true)
+    public List<OrdenTablaDTO> listarParaTabla() {
+        return repo.findAll().stream()
+                .map(this::convertirAOrdenTablaDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 🚀 LISTADO OPTIMIZADO POR SEDE PARA TABLA
+     */
+    @Transactional(readOnly = true)
+    public List<OrdenTablaDTO> listarPorSedeParaTabla(Long sedeId) {
+        return repo.findBySedeId(sedeId).stream()
+                .map(this::convertirAOrdenTablaDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 🚀 LISTADO OPTIMIZADO POR TRABAJADOR PARA TABLA
+     */
+    @Transactional(readOnly = true)
+    public List<OrdenTablaDTO> listarPorTrabajadorParaTabla(Long trabajadorId) {
+        return repo.findByTrabajadorId(trabajadorId).stream()
+                .map(this::convertirAOrdenTablaDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 🚀 LISTADO OPTIMIZADO POR CLIENTE PARA TABLA
+     */
+    @Transactional(readOnly = true)
+    public List<OrdenTablaDTO> listarPorClienteParaTabla(Long clienteId) {
+        return repo.findByClienteId(clienteId).stream()
+                .map(this::convertirAOrdenTablaDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 🔄 CONVERSOR: Orden Entity → OrdenTablaDTO optimizado
+     * Extrae solo los campos necesarios para la tabla
+     */
+    private OrdenTablaDTO convertirAOrdenTablaDTO(Orden orden) {
+        OrdenTablaDTO dto = new OrdenTablaDTO();
+        
+        // 📝 CAMPOS PRINCIPALES DE LA ORDEN
+        dto.setId(orden.getId());
+        dto.setNumero(orden.getNumero());
+        dto.setFecha(orden.getFecha());
+        dto.setObra(orden.getObra());
+        dto.setVenta(orden.isVenta());
+        dto.setCredito(orden.isCredito());
+        
+        // 👤 CLIENTE SIMPLIFICADO
+        if (orden.getCliente() != null) {
+            dto.setCliente(new OrdenTablaDTO.ClienteTablaDTO(orden.getCliente().getNombre()));
+        }
+        
+        // 👷 TRABAJADOR SIMPLIFICADO  
+        if (orden.getTrabajador() != null) {
+            dto.setTrabajador(new OrdenTablaDTO.TrabajadorTablaDTO(orden.getTrabajador().getNombre()));
+        }
+        
+        // 🏢 SEDE SIMPLIFICADA
+        if (orden.getSede() != null) {
+            dto.setSede(new OrdenTablaDTO.SedeTablaDTO(orden.getSede().getNombre()));
+        }
+        
+        // 📋 ITEMS COMPLETOS (manteniendo detalle como solicitado)
+        if (orden.getItems() != null) {
+            List<OrdenTablaDTO.OrdenItemTablaDTO> itemsDTO = orden.getItems().stream()
+                    .map(this::convertirAOrdenItemTablaDTO)
+                    .collect(Collectors.toList());
+            dto.setItems(itemsDTO);
+        }
+        
+        return dto;
+    }
+
+    /**
+     * 🔄 CONVERSOR: OrdenItem Entity → OrdenItemTablaDTO  
+     */
+    private OrdenTablaDTO.OrdenItemTablaDTO convertirAOrdenItemTablaDTO(OrdenItem item) {
+        OrdenTablaDTO.OrdenItemTablaDTO itemDTO = new OrdenTablaDTO.OrdenItemTablaDTO();
+        
+        itemDTO.setId(item.getId());
+        itemDTO.setDescripcion(item.getDescripcion());
+        itemDTO.setCantidad(item.getCantidad());
+        itemDTO.setPrecioUnitario(item.getPrecioUnitario());
+        itemDTO.setTotalLinea(item.getTotalLinea());
+        
+        // 🎯 PRODUCTO SIMPLIFICADO (solo código y nombre)
+        if (item.getProducto() != null) {
+            OrdenTablaDTO.ProductoTablaDTO productoDTO = new OrdenTablaDTO.ProductoTablaDTO(
+                item.getProducto().getCodigo(),
+                item.getProducto().getNombre()
+            );
+            itemDTO.setProducto(productoDTO);
+        }
+        
+        return itemDTO;
     }
 }

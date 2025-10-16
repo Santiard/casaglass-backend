@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.model.Orden;
+import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.service.OrdenService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -31,18 +32,22 @@ public class OrdenController {
     @GetMapping
     public List<Orden> listar(@RequestParam(required = false) Long clienteId,
                               @RequestParam(required = false) Long sedeId,
+                              @RequestParam(required = false) Long trabajadorId,
                               @RequestParam(required = false) Boolean venta,
                               @RequestParam(required = false) Boolean credito) {
-        // Filtros combinados con sede
+        // Filtros combinados con sede y trabajador
         if (clienteId != null && sedeId != null) return service.listarPorClienteYSede(clienteId, sedeId);
+        if (sedeId != null && trabajadorId != null) return service.listarPorSedeYTrabajador(sedeId, trabajadorId);
         if (sedeId != null && venta != null)     return service.listarPorSedeYVenta(sedeId, venta);
         if (sedeId != null && credito != null)   return service.listarPorSedeYCredito(sedeId, credito);
+        if (trabajadorId != null && venta != null) return service.listarPorTrabajadorYVenta(trabajadorId, venta);
         
         // Filtros individuales
-        if (sedeId != null)    return service.listarPorSede(sedeId);
-        if (clienteId != null) return service.listarPorCliente(clienteId);
-        if (venta != null)     return service.listarPorVenta(venta);
-        if (credito != null)   return service.listarPorCredito(credito);
+        if (sedeId != null)       return service.listarPorSede(sedeId);
+        if (clienteId != null)    return service.listarPorCliente(clienteId);
+        if (trabajadorId != null) return service.listarPorTrabajador(trabajadorId);
+        if (venta != null)        return service.listarPorVenta(venta);
+        if (credito != null)      return service.listarPorCredito(credito);
         
         return service.listar();
     }
@@ -121,6 +126,35 @@ public class OrdenController {
         return service.listarPorSedeYRangoFechas(sedeId, desde, hasta);
     }
 
+    // 🆕 Endpoints para trabajador
+    @GetMapping("/trabajador/{trabajadorId}")
+    public List<Orden> listarPorTrabajador(@PathVariable Long trabajadorId) {
+        return service.listarPorTrabajador(trabajadorId);
+    }
+
+    @GetMapping("/trabajador/{trabajadorId}/venta/{venta}")
+    public List<Orden> listarPorTrabajadorYVenta(@PathVariable Long trabajadorId, @PathVariable boolean venta) {
+        return service.listarPorTrabajadorYVenta(trabajadorId, venta);
+    }
+
+    @GetMapping("/trabajador/{trabajadorId}/fecha/{fecha}")
+    public List<Orden> listarPorTrabajadorYFecha(@PathVariable Long trabajadorId, 
+                                                 @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
+        return service.listarPorTrabajadorYFecha(trabajadorId, fecha);
+    }
+
+    @GetMapping("/trabajador/{trabajadorId}/fecha")
+    public List<Orden> listarPorTrabajadorYRango(@PathVariable Long trabajadorId,
+                                                 @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+                                                 @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return service.listarPorTrabajadorYRangoFechas(trabajadorId, desde, hasta);
+    }
+
+    @GetMapping("/sede/{sedeId}/trabajador/{trabajadorId}")
+    public List<Orden> listarPorSedeYTrabajador(@PathVariable Long sedeId, @PathVariable Long trabajadorId) {
+        return service.listarPorSedeYTrabajador(sedeId, trabajadorId);
+    }
+
     /**
      * Obtiene el próximo número de orden que se asignará
      * Útil para mostrar en el frontend como referencia provisional
@@ -133,6 +167,54 @@ public class OrdenController {
         } catch (Exception e) {
             return ResponseEntity.status(500).build();
         }
+    }
+
+    // 🎯 ================================
+    // 🎯 ENDPOINTS OPTIMIZADOS PARA TABLA
+    // 🎯 ================================
+
+    /**
+     * 🚀 LISTADO OPTIMIZADO PARA TABLA DE ÓRDENES
+     * Retorna solo campos esenciales para mejorar rendimiento
+     * - Cliente: solo nombre
+     * - Trabajador: solo nombre  
+     * - Sede: solo nombre
+     * - Items: todos los campos + producto simplificado (código, nombre)
+     */
+    @GetMapping("/tabla")
+    public List<OrdenTablaDTO> listarParaTabla(@RequestParam(required = false) Long clienteId,
+                                               @RequestParam(required = false) Long sedeId,
+                                               @RequestParam(required = false) Long trabajadorId) {
+        // Filtros específicos para tabla optimizada
+        if (sedeId != null)       return service.listarPorSedeParaTabla(sedeId);
+        if (clienteId != null)    return service.listarPorClienteParaTabla(clienteId);
+        if (trabajadorId != null) return service.listarPorTrabajadorParaTabla(trabajadorId);
+        
+        return service.listarParaTabla();
+    }
+
+    /**
+     * 🚀 ÓRDENES DE UNA SEDE PARA TABLA (optimizado)
+     */
+    @GetMapping("/tabla/sede/{sedeId}")
+    public List<OrdenTablaDTO> listarPorSedeParaTabla(@PathVariable Long sedeId) {
+        return service.listarPorSedeParaTabla(sedeId);
+    }
+
+    /**
+     * 🚀 ÓRDENES DE UN TRABAJADOR PARA TABLA (optimizado)
+     */
+    @GetMapping("/tabla/trabajador/{trabajadorId}")
+    public List<OrdenTablaDTO> listarPorTrabajadorParaTabla(@PathVariable Long trabajadorId) {
+        return service.listarPorTrabajadorParaTabla(trabajadorId);
+    }
+
+    /**
+     * 🚀 ÓRDENES DE UN CLIENTE PARA TABLA (optimizado)
+     */
+    @GetMapping("/tabla/cliente/{clienteId}")
+    public List<OrdenTablaDTO> listarPorClienteParaTabla(@PathVariable Long clienteId) {
+        return service.listarPorClienteParaTabla(clienteId);
     }
 
 }

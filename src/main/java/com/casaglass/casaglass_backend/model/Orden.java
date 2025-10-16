@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -12,36 +13,48 @@ import java.util.List;
   @Index(name = "idx_orden_numero", columnList = "numero", unique = true),
   @Index(name = "idx_orden_cliente", columnList = "cliente_id")
 })
-@Data @NoArgsConstructor @AllArgsConstructor
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Orden {
 
-  @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
   @Column(nullable = false, unique = true)
-  private Long numero;                 // numerador compartido
+  private Long numero;
 
   @NotNull
   private LocalDate fecha;
 
-  @ManyToOne(optional = false, fetch = FetchType.LAZY)
+  @ManyToOne(optional = false, fetch = FetchType.EAGER)
   @JoinColumn(name = "cliente_id", nullable = false)
+  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
   private Cliente cliente;
 
-  @ManyToOne(optional = false, fetch = FetchType.LAZY)
+  @ManyToOne(optional = false, fetch = FetchType.EAGER)
   @JoinColumn(name = "sede_id", nullable = false)
+  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
   private Sede sede;
+
+  // Trabajador encargado de realizar la venta
+  @ManyToOne(fetch = FetchType.EAGER)
+  @JoinColumn(name = "trabajador_id")
+  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+  private Trabajador trabajador;
 
   @Column(length = 150)
   private String obra;
 
   @Column(nullable = false)
-  private boolean venta = false;       // ← true=VENTA, false=COTIZACION
+  private boolean venta = false;
 
   @Column(nullable = false)
-  private boolean credito = false;     // ← true=es a crédito
+  private boolean credito = false;
 
-  @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true)
+  @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+  @JsonIgnoreProperties({"orden", "hibernateLazyInitializer", "handler"})
   private List<OrdenItem> items = new ArrayList<>();
 
   @Column(nullable = false)
@@ -50,7 +63,6 @@ public class Orden {
   @Column(nullable = false)
   private Double total = 0.0;
 
-  /** Indica si esta orden ya fue incluida en alguna entrega de dinero */
   @Column(name = "incluida_entrega", nullable = false)
   private boolean incluidaEntrega = false;
 }

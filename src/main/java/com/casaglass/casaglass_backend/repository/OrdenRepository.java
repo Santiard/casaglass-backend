@@ -1,6 +1,8 @@
 package com.casaglass.casaglass_backend.repository;
 
 import com.casaglass.casaglass_backend.model.Orden;
+
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -31,9 +33,21 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
 
     List<Orden> findBySedeIdAndFechaBetween(Long sedeId, LocalDate desde, LocalDate hasta);
 
+    // 🆕 Métodos para filtrar por trabajador
+    List<Orden> findByTrabajadorId(Long trabajadorId);
+
+    List<Orden> findByTrabajadorIdAndVenta(Long trabajadorId, boolean venta);
+
+    List<Orden> findByTrabajadorIdAndFechaBetween(Long trabajadorId, LocalDate desde, LocalDate hasta);
+
+    List<Orden> findBySedeIdAndTrabajadorId(Long sedeId, Long trabajadorId);
+
     List<Orden> findAllById(Iterable<Long> ids);
 
     // Método para obtener el siguiente número de orden disponible (thread-safe)
     @Query("SELECT COALESCE(MAX(o.numero), 0) + 1 FROM Orden o")
     Long obtenerSiguienteNumero();
+    @EntityGraph(attributePaths = {"cliente", "sede", "items", "items.producto"})
+    @Query("SELECT o FROM Orden o")
+    List<Orden> findAllWithFullRelations();
 }
