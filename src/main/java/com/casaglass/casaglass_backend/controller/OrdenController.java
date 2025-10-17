@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ordenes")
@@ -250,15 +251,19 @@ public class OrdenController {
      * }
      */
     @PutMapping("/tabla/{id}")
-    public ResponseEntity<OrdenTablaDTO> actualizarOrden(@PathVariable Long id, 
-                                                        @RequestBody OrdenActualizarDTO ordenDTO) {
+    public ResponseEntity<?> actualizarOrden(@PathVariable Long id, 
+                                            @RequestBody OrdenActualizarDTO ordenDTO) {
         try {
             OrdenTablaDTO ordenActualizada = service.actualizarOrden(id, ordenDTO);
             return ResponseEntity.ok(ordenActualizada);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
+            e.printStackTrace();
+            return ResponseEntity.status(404)
+                    .body(Map.of("error", "Orden no encontrada", "message", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            e.printStackTrace();
+            return ResponseEntity.status(400)
+                    .body(Map.of("error", "Error procesando solicitud", "message", e.getMessage()));
         }
     }
 
