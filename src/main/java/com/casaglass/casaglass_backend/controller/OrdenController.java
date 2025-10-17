@@ -3,6 +3,7 @@ package com.casaglass.casaglass_backend.controller;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
+import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
 import com.casaglass.casaglass_backend.service.OrdenService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -21,12 +22,53 @@ public class OrdenController {
 
     public OrdenController(OrdenService service) { this.service = service; }
 
-    @PostMapping
-    public ResponseEntity<Orden> crear(@RequestBody Orden orden) {
+    /**
+     * 🛒 CREAR ORDEN DE VENTA
+     * Endpoint optimizado para realizar ventas reales desde el frontend
+     */
+    @PostMapping("/venta")
+    public ResponseEntity<?> crearOrdenVenta(@RequestBody OrdenVentaDTO ventaDTO) {
         try {
-            return ResponseEntity.ok(service.crear(orden));
+            Orden ordenCreada = service.crearOrdenVenta(ventaDTO);
+            
+            return ResponseEntity.ok(Map.of(
+                "mensaje", "Orden de venta creada exitosamente",
+                "orden", ordenCreada,
+                "numero", ordenCreada.getNumero()
+            ));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "VALIDACION"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error interno del servidor: " + e.getMessage(),
+                "tipo", "SERVIDOR"
+            ));
+        }
+    }
+
+    /**
+     * 📋 CREAR ORDEN BÁSICA (compatibilidad)
+     * Mantiene el endpoint original para compatibilidad con código existente
+     */
+    @PostMapping
+    public ResponseEntity<?> crear(@RequestBody Orden orden) {
+        try {
+            Orden ordenCreada = service.crear(orden);
+            return ResponseEntity.ok(Map.of(
+                "mensaje", "Orden creada exitosamente",
+                "orden", ordenCreada
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error interno del servidor: " + e.getMessage()
+            ));
         }
     }
 
@@ -264,6 +306,37 @@ public class OrdenController {
             e.printStackTrace();
             return ResponseEntity.status(400)
                     .body(Map.of("error", "Error procesando solicitud", "message", e.getMessage()));
+        }
+    }
+
+    // 🚫 ================================
+    // 🚫 ENDPOINT DE ANULACIÓN
+    // 🚫 ================================
+
+    /**
+     * 🚫 ANULAR ORDEN (no eliminar, cambiar estado a ANULADA)
+     * Restaura automáticamente el inventario de productos
+     * 
+     * Solo se pueden anular órdenes ACTIVAS
+     * Una vez anulada, no se puede revertir
+     */
+    @PutMapping("/{id}/anular")
+    public ResponseEntity<?> anularOrden(@PathVariable Long id) {
+        try {
+            Orden ordenAnulada = service.anularOrden(id);
+            return ResponseEntity.ok(Map.of(
+                "message", "Orden anulada correctamente", 
+                "ordenId", ordenAnulada.getId(),
+                "numero", ordenAnulada.getNumero(),
+                "estado", ordenAnulada.getEstado().toString()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404)
+                    .body(Map.of("error", "Error al anular orden", "message", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(400)
+                    .body(Map.of("error", "Error procesando anulación", "message", e.getMessage()));
         }
     }
 

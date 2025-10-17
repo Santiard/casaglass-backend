@@ -6,8 +6,10 @@ import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.model.Producto;
+import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
+import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
@@ -25,10 +27,12 @@ public class OrdenService {
 
     private final OrdenRepository repo;
     private final EntityManager entityManager;
+    private final InventarioService inventarioService;
 
-    public OrdenService(OrdenRepository repo, EntityManager entityManager) { 
+    public OrdenService(OrdenRepository repo, EntityManager entityManager, InventarioService inventarioService) { 
         this.repo = repo; 
         this.entityManager = entityManager;
+        this.inventarioService = inventarioService;
     }
 
     @Transactional
@@ -70,7 +74,117 @@ public class OrdenService {
         subtotal = Math.round(subtotal * 100.0) / 100.0;
         orden.setSubtotal(subtotal);
         orden.setTotal(subtotal); // impuestos/desc. si aplica más adelante
-        return repo.save(orden);
+        
+        // Establecer estado activa por defecto
+        orden.setEstado(Orden.EstadoOrden.ACTIVA);
+        
+        // Guardar la orden primero
+        Orden ordenGuardada = repo.save(orden);
+        
+        // Actualizar inventario (restar productos vendidos)
+        actualizarInventarioPorVenta(ordenGuardada);
+        
+        return ordenGuardada;
+    }
+
+    /**
+     * 🛒 CREAR ORDEN DE VENTA - Método optimizado para ventas reales
+     * Valida todos los campos necesarios y maneja inventario automáticamente
+     */
+    @Transactional
+    public Orden crearOrdenVenta(OrdenVentaDTO ventaDTO) {
+        // 🔍 VALIDACIONES DE NEGOCIO
+        validarDatosVenta(ventaDTO);
+        
+        // 📝 CREAR ENTIDAD ORDEN
+        Orden orden = new Orden();
+        orden.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
+        orden.setObra(ventaDTO.getObra());
+        orden.setVenta(ventaDTO.isVenta());
+        orden.setCredito(ventaDTO.isCredito());
+        orden.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        orden.setEstado(Orden.EstadoOrden.ACTIVA);
+        
+        // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
+        orden.setCliente(entityManager.getReference(Cliente.class, ventaDTO.getClienteId()));
+        orden.setSede(entityManager.getReference(Sede.class, ventaDTO.getSedeId()));
+        
+        if (ventaDTO.getTrabajadorId() != null) {
+            orden.setTrabajador(entityManager.getReference(Trabajador.class, ventaDTO.getTrabajadorId()));
+        }
+        
+        // 📋 PROCESAR ITEMS DE VENTA
+        List<OrdenItem> items = new ArrayList<>();
+        double subtotal = 0.0;
+        
+        for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
+            OrdenItem item = new OrdenItem();
+            item.setOrden(orden);
+            item.setProducto(entityManager.getReference(Producto.class, itemDTO.getProductoId()));
+            item.setDescripcion(itemDTO.getDescripcion());
+            item.setCantidad(itemDTO.getCantidad());
+            item.setPrecioUnitario(itemDTO.getPrecioUnitario());
+            
+            // Calcular total de línea
+            double totalLinea = itemDTO.getCantidad() * itemDTO.getPrecioUnitario();
+            item.setTotalLinea(totalLinea);
+            subtotal += totalLinea;
+            
+            items.add(item);
+        }
+        
+        orden.setItems(items);
+        orden.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        orden.setTotal(orden.getSubtotal()); // Por ahora sin impuestos/descuentos
+        
+        // 🔢 GENERAR NÚMERO AUTOMÁTICO
+        orden.setNumero(generarNumeroOrden());
+        
+        // 💾 GUARDAR ORDEN
+        Orden ordenGuardada = repo.save(orden);
+        
+        // 📦 ACTUALIZAR INVENTARIO
+        actualizarInventarioPorVenta(ordenGuardada);
+        
+        return ordenGuardada;
+    }
+
+    /**
+     * 🔍 VALIDACIONES PARA ORDENES DE VENTA
+     */
+    private void validarDatosVenta(OrdenVentaDTO ventaDTO) {
+        // Cliente obligatorio
+        if (ventaDTO.getClienteId() == null) {
+            throw new IllegalArgumentException("El cliente es obligatorio para realizar una venta");
+        }
+        
+        // Sede obligatoria
+        if (ventaDTO.getSedeId() == null) {
+            throw new IllegalArgumentException("La sede es obligatoria para realizar una venta");
+        }
+        
+        // Items obligatorios
+        if (ventaDTO.getItems() == null || ventaDTO.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Debe incluir al menos un producto en la venta");
+        }
+        
+        // Validar cada item
+        for (int i = 0; i < ventaDTO.getItems().size(); i++) {
+            OrdenVentaDTO.OrdenItemVentaDTO item = ventaDTO.getItems().get(i);
+            String posicion = "Item " + (i + 1);
+            
+            if (item.getProductoId() == null) {
+                throw new IllegalArgumentException(posicion + ": El producto es obligatorio");
+            }
+            
+            if (item.getCantidad() == null || item.getCantidad() <= 0) {
+                throw new IllegalArgumentException(posicion + ": La cantidad debe ser mayor a 0");
+            }
+            
+            if (item.getPrecioUnitario() == null || item.getPrecioUnitario() <= 0) {
+                throw new IllegalArgumentException(posicion + ": El precio unitario debe ser mayor a 0");
+            }
+        }
     }
 
     /**
@@ -271,6 +385,7 @@ public class OrdenService {
         dto.setObra(orden.getObra());
         dto.setVenta(orden.isVenta());
         dto.setCredito(orden.isCredito());
+        dto.setEstado(orden.getEstado());
         
         // 👤 CLIENTE SIMPLIFICADO
         if (orden.getCliente() != null) {
@@ -409,5 +524,109 @@ public class OrdenService {
                 itemExistente.setTotalLinea(itemDTO.getTotalLinea());
             }
         }
+    }
+
+    /**
+     * Actualiza el inventario restando los productos vendidos
+     * Se ejecuta cuando se crea una nueva orden (venta)
+     */
+    private void actualizarInventarioPorVenta(Orden orden) {
+        if (orden.getItems() == null || orden.getItems().isEmpty()) {
+            return;
+        }
+
+        // Obtener la sede de la orden (donde se realiza la venta)
+        Long sedeId = orden.getSede().getId();
+
+        for (OrdenItem item : orden.getItems()) {
+            if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
+                Long productoId = item.getProducto().getId();
+                
+                // Buscar inventario del producto en la sede
+                Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
+                
+                if (inventarioOpt.isPresent()) {
+                    Inventario inventario = inventarioOpt.get();
+                    int cantidadActual = inventario.getCantidad();
+                    int cantidadVendida = item.getCantidad();
+                    
+                    // Verificar que hay suficiente stock
+                    if (cantidadActual < cantidadVendida) {
+                        throw new IllegalArgumentException(
+                            String.format("Stock insuficiente para producto ID %d en sede ID %d. Disponible: %d, Requerido: %d", 
+                                        productoId, sedeId, cantidadActual, cantidadVendida)
+                        );
+                    }
+                    
+                    // Restar cantidad vendida
+                    inventario.setCantidad(cantidadActual - cantidadVendida);
+                    inventarioService.actualizarInventarioVenta(productoId, sedeId, cantidadActual - cantidadVendida);
+                } else {
+                    throw new IllegalArgumentException(
+                        String.format("No existe inventario para producto ID %d en sede ID %d", productoId, sedeId)
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Restaura el inventario sumando los productos de una orden anulada
+     * Se ejecuta cuando se anula una orden
+     */
+    private void restaurarInventarioPorAnulacion(Orden orden) {
+        if (orden.getItems() == null || orden.getItems().isEmpty()) {
+            return;
+        }
+
+        // Obtener la sede de la orden
+        Long sedeId = orden.getSede().getId();
+
+        for (OrdenItem item : orden.getItems()) {
+            if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
+                Long productoId = item.getProducto().getId();
+                
+                // Buscar inventario del producto en la sede
+                Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
+                
+                if (inventarioOpt.isPresent()) {
+                    Inventario inventario = inventarioOpt.get();
+                    int cantidadActual = inventario.getCantidad();
+                    int cantidadARestaurar = item.getCantidad();
+                    
+                    // Sumar cantidad restaurada usando método seguro
+                    inventarioService.actualizarInventarioVenta(productoId, sedeId, cantidadActual + cantidadARestaurar);
+                } else {
+                    // Si no existe inventario, crearlo con la cantidad restaurada usando método seguro
+                    inventarioService.actualizarInventarioVenta(productoId, sedeId, item.getCantidad());
+                }
+            }
+        }
+    }
+
+    /**
+     * Anula una orden y restaura el inventario
+     */
+    @Transactional
+    public Orden anularOrden(Long id) {
+        Optional<Orden> ordenOpt = repo.findById(id);
+        if (!ordenOpt.isPresent()) {
+            throw new IllegalArgumentException("Orden no encontrada con ID: " + id);
+        }
+
+        Orden orden = ordenOpt.get();
+        
+        // Verificar que la orden esté activa
+        if (orden.getEstado() == Orden.EstadoOrden.ANULADA) {
+            throw new IllegalArgumentException("La orden ya está anulada");
+        }
+
+        // Restaurar inventario antes de anular
+        restaurarInventarioPorAnulacion(orden);
+
+        // Cambiar estado a anulada
+        orden.setEstado(Orden.EstadoOrden.ANULADA);
+        
+        return repo.save(orden);
     }
 }

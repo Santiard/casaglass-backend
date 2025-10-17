@@ -56,16 +56,59 @@ public class InventarioService {
             throw new IllegalArgumentException("Se requieren producto.id y sede.id");
         }
 
-        // Usamos referencias ligeras para evitar consultas completas
-        Producto productoRef = em.getReference(Producto.class, productoId);
-        Sede sedeRef = em.getReference(Sede.class, sedeId);
+        // Buscar si ya existe inventario para esta combinación producto-sede
+        Optional<Inventario> inventarioExistente = obtenerPorProductoYSede(productoId, sedeId);
+        
+        if (inventarioExistente.isPresent()) {
+            // ACTUALIZAR inventario existente
+            Inventario inv = inventarioExistente.get();
+            inv.setCantidad(payload.getCantidad() == null ? 0 : payload.getCantidad());
+            return repo.save(inv);
+        } else {
+            // CREAR nuevo inventario
+            Producto productoRef = em.getReference(Producto.class, productoId);
+            Sede sedeRef = em.getReference(Sede.class, sedeId);
 
-        Inventario inv = new Inventario();
-        inv.setProducto(productoRef);
-        inv.setSede(sedeRef);
-        inv.setCantidad(payload.getCantidad() == null ? 0 : payload.getCantidad());
+            Inventario inv = new Inventario();
+            inv.setProducto(productoRef);
+            inv.setSede(sedeRef);
+            inv.setCantidad(payload.getCantidad() == null ? 0 : payload.getCantidad());
 
-        return repo.save(inv); // si duplica (producto,sede), saltará la uniqueConstraint -> DataIntegrityViolationException
+            return repo.save(inv);
+        }
+    }
+
+    /**
+     * 📦 ACTUALIZAR INVENTARIO PARA VENTAS
+     * Método específico para actualizar inventario en operaciones de venta/anulación
+     * Garantiza que no habrá duplicados
+     */
+    @Transactional
+    public Inventario actualizarInventarioVenta(Long productoId, Long sedeId, int nuevaCantidad) {
+        if (productoId == null || sedeId == null) {
+            throw new IllegalArgumentException("Se requieren producto ID y sede ID");
+        }
+
+        // Buscar inventario existente
+        Optional<Inventario> inventarioOpt = obtenerPorProductoYSede(productoId, sedeId);
+        
+        if (inventarioOpt.isPresent()) {
+            // ACTUALIZAR inventario existente
+            Inventario inventario = inventarioOpt.get();
+            inventario.setCantidad(nuevaCantidad);
+            return repo.save(inventario);
+        } else {
+            // CREAR nuevo inventario solo si no existe
+            Producto productoRef = em.getReference(Producto.class, productoId);
+            Sede sedeRef = em.getReference(Sede.class, sedeId);
+
+            Inventario nuevoInventario = new Inventario();
+            nuevoInventario.setProducto(productoRef);
+            nuevoInventario.setSede(sedeRef);
+            nuevoInventario.setCantidad(nuevaCantidad);
+
+            return repo.save(nuevoInventario);
+        }
     }
 
     @Transactional

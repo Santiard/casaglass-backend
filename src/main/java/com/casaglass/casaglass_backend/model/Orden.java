@@ -65,4 +65,12 @@ public class Orden {
 
   @Column(name = "incluida_entrega", nullable = false)
   private boolean incluidaEntrega = false;
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 20)
+  private EstadoOrden estado = EstadoOrden.ACTIVA;
+
+  public enum EstadoOrden {
+    ACTIVA, ANULADA
+  }
 }

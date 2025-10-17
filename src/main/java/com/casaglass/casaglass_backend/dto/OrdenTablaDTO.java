@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.dto;
 
+import com.casaglass.casaglass_backend.model.Orden;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,6 +24,7 @@ public class OrdenTablaDTO {
     private String obra;
     private boolean venta;
     private boolean credito;
+    private Orden.EstadoOrden estado;
     
     // INFORMACION SIMPLIFICADA DE ENTIDADES RELACIONADAS
     private ClienteTablaDTO cliente;
