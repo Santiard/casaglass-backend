@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/clientes")
-@CrossOrigin(origins = "*") // Permite llamadas desde cualquier frontend
+@CrossOrigin(origins = "*")
 public class ClienteController {
 
     private final ClienteService clienteService;

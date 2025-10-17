@@ -8,7 +8,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * DTO optimizado para la TABLA de órdenes en el frontend
+ * DTO optimizado para la TABLA de ordenes en el frontend
  * Contiene solo los campos esenciales para el listado/tabla
  */
 @Data
@@ -16,7 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 public class OrdenTablaDTO {
     
-    // 🎯 CAMPOS PRINCIPALES DE LA ORDEN
+    // CAMPOS PRINCIPALES DE LA ORDEN
     private Long id;
     private Long numero;
     private LocalDate fecha;
@@ -24,12 +24,12 @@ public class OrdenTablaDTO {
     private boolean venta;
     private boolean credito;
     
-    // 🏢 INFORMACIÓN SIMPLIFICADA DE ENTIDADES RELACIONADAS
+    // INFORMACION SIMPLIFICADA DE ENTIDADES RELACIONADAS
     private ClienteTablaDTO cliente;
     private TrabajadorTablaDTO trabajador; 
     private SedeTablaDTO sede;
     
-    // 📋 ITEMS COMPLETOS (necesarios para mostrar detalle)
+    // ITEMS COMPLETOS (necesarios para mostrar detalle)
     private List<OrdenItemTablaDTO> items;
     
     /**

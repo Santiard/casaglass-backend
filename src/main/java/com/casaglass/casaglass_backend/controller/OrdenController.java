@@ -2,6 +2,7 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
+import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.service.OrdenService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/ordenes")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class OrdenController {
 
     private final OrdenService service;
@@ -215,6 +216,50 @@ public class OrdenController {
     @GetMapping("/tabla/cliente/{clienteId}")
     public List<OrdenTablaDTO> listarPorClienteParaTabla(@PathVariable Long clienteId) {
         return service.listarPorClienteParaTabla(clienteId);
+    }
+
+    // 🔄 ================================
+    // 🔄 ENDPOINT DE ACTUALIZACIÓN
+    // 🔄 ================================
+
+    /**
+     * 🔄 ACTUALIZAR ORDEN COMPLETA (compatible con tabla)
+     * Permite actualizar orden + items desde la estructura de tabla
+     * 
+     * Body esperado:
+     * {
+     *   "id": 1,
+     *   "fecha": "2025-10-16",
+     *   "obra": "Nueva obra",
+     *   "venta": true,
+     *   "credito": false,
+     *   "clienteId": 1,
+     *   "trabajadorId": 2,
+     *   "sedeId": 1,
+     *   "items": [
+     *     {
+     *       "id": 1,           // null = nuevo, valor = actualizar
+     *       "productoId": 1,
+     *       "descripcion": "Descripción actualizada",
+     *       "cantidad": 15,
+     *       "precioUnitario": 2.0,
+     *       "totalLinea": 30.0,
+     *       "eliminar": false  // true = eliminar este item
+     *     }
+     *   ]
+     * }
+     */
+    @PutMapping("/tabla/{id}")
+    public ResponseEntity<OrdenTablaDTO> actualizarOrden(@PathVariable Long id, 
+                                                        @RequestBody OrdenActualizarDTO ordenDTO) {
+        try {
+            OrdenTablaDTO ordenActualizada = service.actualizarOrden(id, ordenDTO);
+            return ResponseEntity.ok(ordenActualizada);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
 }

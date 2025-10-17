@@ -4,7 +4,10 @@ import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.OrdenItem;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.model.Trabajador;
+import com.casaglass.casaglass_backend.model.Cliente;
+import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
+import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 @Service
 public class OrdenService {
@@ -39,12 +43,12 @@ public class OrdenService {
         // Usar referencia ligera para la sede
         orden.setSede(entityManager.getReference(Sede.class, orden.getSede().getId()));
 
-        // 🆕 Manejar trabajador encargado (opcional)
+        // Manejar trabajador encargado (opcional)
         if (orden.getTrabajador() != null && orden.getTrabajador().getId() != null) {
             orden.setTrabajador(entityManager.getReference(Trabajador.class, orden.getTrabajador().getId()));
         }
 
-        // 🚀 GENERACIÓN AUTOMÁTICA DE NÚMERO (THREAD-SAFE)
+        // GENERACION AUTOMATICA DE NUMERO (THREAD-SAFE)
         // El número se ignora si viene del frontend - siempre se genera automáticamente
         Long numeroGenerado = generarNumeroOrden();
         orden.setNumero(numeroGenerado);
@@ -316,5 +320,94 @@ public class OrdenService {
         }
         
         return itemDTO;
+    }
+
+    // 🔄 ================================
+    // 🔄 MÉTODO DE ACTUALIZACIÓN
+    // 🔄 ================================
+
+    /**
+     * 🔄 ACTUALIZAR ORDEN COMPLETA desde tabla
+     * Maneja actualización de orden + items (crear, actualizar, eliminar)
+     */
+    @Transactional
+    public OrdenTablaDTO actualizarOrden(Long ordenId, OrdenActualizarDTO dto) {
+        // 1️⃣ Buscar orden existente
+        Orden orden = repo.findById(ordenId)
+                .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+
+        // 2️⃣ Actualizar campos básicos de la orden
+        orden.setFecha(dto.getFecha());
+        orden.setObra(dto.getObra());
+        orden.setVenta(dto.isVenta());
+        orden.setCredito(dto.isCredito());
+
+        // 3️⃣ Actualizar referencias de entidades
+        if (dto.getClienteId() != null) {
+            orden.setCliente(entityManager.getReference(Cliente.class, dto.getClienteId()));
+        }
+        if (dto.getTrabajadorId() != null) {
+            orden.setTrabajador(entityManager.getReference(Trabajador.class, dto.getTrabajadorId()));
+        }
+        if (dto.getSedeId() != null) {
+            orden.setSede(entityManager.getReference(Sede.class, dto.getSedeId()));
+        }
+
+        // 4️⃣ Manejar items: eliminar, actualizar, crear
+        if (dto.getItems() != null) {
+            actualizarItemsDeOrden(orden, dto.getItems());
+        }
+
+        // 5️⃣ Guardar orden actualizada
+        Orden ordenActualizada = repo.save(orden);
+
+        // 6️⃣ Retornar DTO optimizado para tabla
+        return convertirAOrdenTablaDTO(ordenActualizada);
+    }
+
+    /**
+     * 🔄 ACTUALIZAR ITEMS DE UNA ORDEN
+     * Maneja crear, actualizar y eliminar items
+     */
+    private void actualizarItemsDeOrden(Orden orden, List<OrdenActualizarDTO.OrdenItemActualizarDTO> itemsDTO) {
+        
+        // 🗑️ Eliminar items marcados para eliminación
+        orden.getItems().removeIf(item -> 
+            itemsDTO.stream().anyMatch(dto -> 
+                dto.getId() != null && dto.getId().equals(item.getId()) && dto.isEliminar()
+            )
+        );
+
+        for (OrdenActualizarDTO.OrdenItemActualizarDTO itemDTO : itemsDTO) {
+            if (itemDTO.isEliminar()) {
+                continue; // Ya eliminado arriba
+            }
+
+            if (itemDTO.getId() == null) {
+                // 🆕 CREAR NUEVO ITEM
+                OrdenItem nuevoItem = new OrdenItem();
+                nuevoItem.setOrden(orden);
+                nuevoItem.setProducto(entityManager.getReference(Producto.class, itemDTO.getProductoId()));
+                nuevoItem.setDescripcion(itemDTO.getDescripcion());
+                nuevoItem.setCantidad(itemDTO.getCantidad());
+                nuevoItem.setPrecioUnitario(itemDTO.getPrecioUnitario());
+                nuevoItem.setTotalLinea(itemDTO.getTotalLinea());
+                
+                orden.getItems().add(nuevoItem);
+                
+            } else {
+                // 🔄 ACTUALIZAR ITEM EXISTENTE
+                OrdenItem itemExistente = orden.getItems().stream()
+                    .filter(item -> item.getId().equals(itemDTO.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Item no encontrado: " + itemDTO.getId()));
+
+                itemExistente.setProducto(entityManager.getReference(Producto.class, itemDTO.getProductoId()));
+                itemExistente.setDescripcion(itemDTO.getDescripcion());
+                itemExistente.setCantidad(itemDTO.getCantidad());
+                itemExistente.setPrecioUnitario(itemDTO.getPrecioUnitario());
+                itemExistente.setTotalLinea(itemDTO.getTotalLinea());
+            }
+        }
     }
 }

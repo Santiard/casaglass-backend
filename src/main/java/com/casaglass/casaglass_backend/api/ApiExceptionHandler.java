@@ -19,12 +19,12 @@ import java.util.Map;
 public class ApiExceptionHandler {
 
     private Map<String, Object> body(HttpStatus status, String message, String error) {
-        return Map.of(
-                "timestamp", Instant.now().toString(),
-                "status", status.value(),
-                "error",  error,
-                "message", message
-        );
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("timestamp", Instant.now().toString());
+        response.put("status", status.value());
+        response.put("error", error);
+        response.put("message", message);
+        return response;
     }
 
     /**
