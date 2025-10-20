@@ -94,4 +94,7 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
         @Param("fechaDesde") LocalDate fechaDesde,
         @Param("fechaHasta") LocalDate fechaHasta
     );
+
+    // 📊 MÉTODO PARA DASHBOARD - VENTAS DE HOY
+    List<Orden> findBySedeIdAndFechaAndVentaTrue(Long sedeId, LocalDate fecha);
 }

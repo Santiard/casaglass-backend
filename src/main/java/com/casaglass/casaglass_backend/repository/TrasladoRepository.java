@@ -36,4 +36,20 @@ public interface TrasladoRepository extends JpaRepository<Traslado, Long> {
     List<Traslado> findByTrabajadorConfirmacionIsNull();
 
     List<Traslado> findByTrabajadorConfirmacionIsNotNull();
+    
+    // 📊 MÉTODOS PARA DASHBOARD - TRASLADOS PENDIENTES
+    @Query("""
+        SELECT DISTINCT t FROM Traslado t 
+        LEFT JOIN FETCH t.sedeOrigen 
+        LEFT JOIN FETCH t.sedeDestino 
+        LEFT JOIN FETCH t.detalles 
+        WHERE (t.sedeOrigen.id = :sedeId OR t.sedeDestino.id = :sedeId) 
+        AND t.fechaConfirmacion IS NULL 
+        ORDER BY t.fecha ASC
+        """)
+    List<Traslado> findTrasladosPendientesBySede(Long sedeId);
+    
+    List<Traslado> findBySedeOrigenIdAndFechaConfirmacionIsNull(Long sedeOrigenId);
+    
+    List<Traslado> findBySedeDestinoIdAndFechaConfirmacionIsNull(Long sedeDestinoId);
 }

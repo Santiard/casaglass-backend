@@ -22,4 +22,7 @@ public interface CreditoRepository extends JpaRepository<Credito, Long> {
     
     // Para compatibilidad con código anterior (método único)
     Optional<Credito> findFirstByClienteId(Long clienteId);
+    
+    // 📊 MÉTODO PARA DASHBOARD - CRÉDITOS POR SEDE
+    List<Credito> findByOrdenSedeIdAndEstado(Long sedeId, Credito.EstadoCredito estado);
 }
