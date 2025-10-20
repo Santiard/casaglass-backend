@@ -31,6 +31,9 @@ public class OrdenTablaDTO {
     private TrabajadorTablaDTO trabajador; 
     private SedeTablaDTO sede;
     
+    // INFORMACIÓN DEL CRÉDITO (si es venta a crédito)
+    private CreditoTablaDTO creditoDetalle;
+    
     // ITEMS COMPLETOS (necesarios para mostrar detalle)
     private List<OrdenItemTablaDTO> items;
     

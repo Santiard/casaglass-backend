@@ -7,6 +7,19 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CreditoRepository extends JpaRepository<Credito, Long> {
-    Optional<Credito> findByClienteId(Long clienteId);
-    List<Credito> findAllByClienteId(Long clienteId); // por si permites >1 crédito por cliente
+    
+    // Búsqueda por cliente (para el nuevo modelo permite múltiples créditos por cliente)
+    List<Credito> findByClienteId(Long clienteId);
+    
+    // Búsqueda por orden (en el nuevo modelo cada crédito tiene una orden específica)
+    Optional<Credito> findByOrdenId(Long ordenId);
+    
+    // Búsqueda por estado
+    List<Credito> findByEstado(Credito.EstadoCredito estado);
+    
+    // Métodos adicionales para consultas específicas
+    List<Credito> findByClienteIdAndEstado(Long clienteId, Credito.EstadoCredito estado);
+    
+    // Para compatibilidad con código anterior (método único)
+    Optional<Credito> findFirstByClienteId(Long clienteId);
 }

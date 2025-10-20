@@ -2,132 +2,182 @@ package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.Orden;
-import com.casaglass.casaglass_backend.model.Abono;
+import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.repository.CreditoRepository;
-import com.casaglass.casaglass_backend.repository.OrdenRepository;
-import com.casaglass.casaglass_backend.repository.AbonoRepository;
-import jakarta.transaction.Transactional;
+import jakarta.persistence.EntityManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CreditoService {
 
     private final CreditoRepository creditoRepo;
-    private final OrdenRepository ordenRepo;
-    private final AbonoRepository abonoRepo;
+    private final EntityManager entityManager;
 
-    public CreditoService(CreditoRepository creditoRepo,
-                          OrdenRepository ordenRepo,
-                          AbonoRepository abonoRepo) {
+    public CreditoService(CreditoRepository creditoRepo, EntityManager entityManager) {
         this.creditoRepo = creditoRepo;
-        this.ordenRepo = ordenRepo;
-        this.abonoRepo = abonoRepo;
+        this.entityManager = entityManager;
     }
 
     /* ---------- Helpers de dinero (redondeado a 2 decimales) ---------- */
-
-    private Double nz(Double v) {
-        return v == null ? 0.0 : Math.round(v * 100.0) / 100.0;
-    }
 
     private Double normalize(Double v) {
         return v == null ? 0.0 : Math.round(v * 100.0) / 100.0;
     }
 
-    private Double sumMoney(Collection<Double> values) {
-        double acc = 0.0;
-        for (Double v : values) acc += v == null ? 0.0 : v;
-        return Math.round(acc * 100.0) / 100.0;
-    }
-
     /* --------------------- Operaciones de negocio --------------------- */
 
-    public Optional<Credito> obtener(Long id) { return creditoRepo.findById(id); }
+    public Optional<Credito> obtener(Long id) { 
+        return creditoRepo.findById(id); 
+    }
 
-    public Optional<Credito> obtenerPorCliente(Long clienteId) { return creditoRepo.findByClienteId(clienteId); }
+    public Optional<Credito> obtenerPorOrden(Long ordenId) { 
+        return creditoRepo.findByOrdenId(ordenId); 
+    }
 
-    public List<Credito> listar() { return creditoRepo.findAll(); }
+    public List<Credito> listar() { 
+        return creditoRepo.findAll(); 
+    }
 
-    public List<Credito> listarPorCliente(Long clienteId) { return creditoRepo.findAllByClienteId(clienteId); }
+    public List<Credito> listarPorCliente(Long clienteId) { 
+        return creditoRepo.findByClienteId(clienteId); 
+    }
 
-    @Transactional
-    public Credito crear(Credito payload) {
-        if (payload.getCliente() == null || payload.getCliente().getId() == null) {
-            throw new IllegalArgumentException("Debe especificar cliente.id");
-        }
-        // Normaliza totalDeuda (si viene en el body, lo ignoramos y partimos en 0; se recalcula al agregar órdenes/abonos)
-        payload.setTotalDeuda(normalize(0.0));
-        // Asegura lista de órdenes y abonos no nulas
-        if (payload.getOrdenes() == null) payload.setOrdenes(new ArrayList<>());
-        if (payload.getAbonos() == null) payload.setAbonos(new ArrayList<>());
-        return creditoRepo.save(payload);
+    public List<Credito> listarPorEstado(Credito.EstadoCredito estado) { 
+        return creditoRepo.findByEstado(estado); 
     }
 
     /**
-     * Agrega órdenes a un crédito y recalcula totalDeuda = SUM(orden.total) - SUM(abonos.total).
-     * Valida que las órdenes pertenezcan al mismo cliente.
+     * 💳 CREAR CRÉDITO PARA UNA ORDEN
+     * Se ejecuta cuando una orden se marca como crédito
      */
-    @Transactional
-    public Credito agregarOrdenes(Long creditoId, List<Long> ordenIds) {
-        Credito credito = creditoRepo.findById(creditoId)
-                .orElseThrow(() -> new RuntimeException("Crédito no encontrado"));
-
-        if (ordenIds == null || ordenIds.isEmpty()) return recalcular(creditoId);
-
-        List<Orden> nuevas = ordenRepo.findAllById(ordenIds);
-        if (nuevas.size() != ordenIds.size()) {
-            throw new IllegalArgumentException("Alguna orden no existe");
-        }
-
-        Long clienteId = credito.getCliente().getId();
-        for (Orden o : nuevas) {
-            if (!Objects.equals(o.getCliente().getId(), clienteId)) {
-                throw new IllegalArgumentException("La orden " + o.getId() + " pertenece a otro cliente");
+    @Transactional(propagation = Propagation.REQUIRED)
+    public Credito crearCreditoParaOrden(Long ordenId, Long clienteId, Double totalOrden) {
+        try {
+            System.out.println("🔍 DEBUG: Verificando si ya existe crédito para orden " + ordenId);
+            
+            // Verificar que no exista ya un crédito para esta orden
+            Optional<Credito> existente = creditoRepo.findByOrdenId(ordenId);
+            if (existente.isPresent()) {
+                System.out.println("⚠️ WARNING: Ya existe crédito para orden " + ordenId);
+                return existente.get(); // Devolver el existente en lugar de fallar
             }
-        }
 
-        // Evita duplicados (DB también protege con unique en join-table)
-        Set<Long> existentes = new HashSet<>();
-        for (Orden o : credito.getOrdenes()) existentes.add(o.getId());
-        for (Orden o : nuevas) {
-            if (!existentes.contains(o.getId())) credito.getOrdenes().add(o);
-        }
-        creditoRepo.save(credito);
-        return recalcular(creditoId);
-    }
+            System.out.println("🔍 DEBUG: Creando nuevo crédito...");
+            
+            // ⚠️ OBTENER LA ORDEN COMPLETA PARA ESTABLECER RELACIÓN BIDIRECCIONAL
+            Orden orden = entityManager.find(Orden.class, ordenId);
+            if (orden == null) {
+                throw new IllegalArgumentException("Orden no encontrada con ID: " + ordenId);
+            }
+            
+            Credito credito = new Credito();
+            credito.setCliente(entityManager.getReference(Cliente.class, clienteId));
+            credito.setOrden(orden); // Usar la orden completa, no una referencia
+            credito.setFechaInicio(LocalDate.now());
+            credito.setTotalCredito(normalize(totalOrden));
+            credito.setTotalAbonado(0.0);
+            credito.setSaldoPendiente(normalize(totalOrden));
+            credito.setEstado(Credito.EstadoCredito.ABIERTO);
 
-    @Transactional
-    public Credito quitarOrden(Long creditoId, Long ordenId) {
-        Credito credito = creditoRepo.findById(creditoId)
-                .orElseThrow(() -> new RuntimeException("Crédito no encontrado"));
-        credito.getOrdenes().removeIf(o -> Objects.equals(o.getId(), ordenId));
-        creditoRepo.save(credito);
-        return recalcular(creditoId);
+            // ⚡ ESTABLECER RELACIÓN BIDIRECCIONAL CORRECTAMENTE
+            orden.setCreditoDetalle(credito);
+            
+            Credito creditoGuardado = creditoRepo.save(credito);
+            System.out.println("✅ DEBUG: Crédito guardado con ID: " + creditoGuardado.getId());
+            return creditoGuardado;
+            
+        } catch (Exception e) {
+            // Log del error para debugging
+            System.err.println("❌ ERROR al crear crédito: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Error al crear crédito: " + e.getMessage(), e);
+        }
     }
 
     /**
-     * Recalcula totalDeuda = SUM(orden.total) - SUM(abonos.total), clamp a 0 mínimo.
+     * 💰 REGISTRAR ABONO A UN CRÉDITO
+     * Actualiza automáticamente los totales y el estado
      */
     @Transactional
-    public Credito recalcular(Long creditoId) {
+    public Credito registrarAbono(Long creditoId, Double montoAbono) {
         Credito credito = creditoRepo.findById(creditoId)
-                .orElseThrow(() -> new RuntimeException("Crédito no encontrado"));
+                .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado"));
 
-        // Suma órdenes (normalizadas)
-        Double totalOrdenes = sumMoney(
-                credito.getOrdenes().stream().map(Orden::getTotal).toList()
-        );
+        if (credito.getEstado() == Credito.EstadoCredito.CERRADO) {
+            throw new IllegalArgumentException("No se pueden agregar abonos a un crédito cerrado");
+        }
 
-        // Suma abonos (normalizados)
-        Double totalAbonos = sumMoney(
-                abonoRepo.findByCreditoId(creditoId).stream().map(Abono::getTotal).toList()
-        );
+        if (credito.getEstado() == Credito.EstadoCredito.ANULADO) {
+            throw new IllegalArgumentException("No se pueden agregar abonos a un crédito anulado");
+        }
 
-        Double deuda = normalize(totalOrdenes - totalAbonos);
-        if (deuda < 0) deuda = 0.0; // evita negativos
-        credito.setTotalDeuda(deuda);
+        Double montoNormalizado = normalize(montoAbono);
+        if (montoNormalizado <= 0) {
+            throw new IllegalArgumentException("El monto del abono debe ser mayor a 0");
+        }
+
+        // Actualizar totales
+        credito.setTotalAbonado(normalize(credito.getTotalAbonado() + montoNormalizado));
+        credito.actualizarSaldo();
+
+        return creditoRepo.save(credito);
+    }
+
+    /**
+     * 🔄 RECALCULAR TOTALES DE UN CRÉDITO
+     * Útil para sincronizar después de cambios en abonos
+     */
+    @Transactional
+    public Credito recalcularTotales(Long creditoId) {
+        Credito credito = creditoRepo.findById(creditoId)
+                .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado"));
+
+        // Recalcular total abonado sumando todos los abonos
+        Double totalAbonos = credito.getAbonos().stream()
+                .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
+                .sum();
+
+        credito.setTotalAbonado(normalize(totalAbonos));
+        credito.actualizarSaldo();
+
+        return creditoRepo.save(credito);
+    }
+
+    /**
+     * ❌ ANULAR CRÉDITO
+     * Se ejecuta cuando se anula la orden asociada
+     */
+    @Transactional
+    public Credito anularCredito(Long creditoId) {
+        Credito credito = creditoRepo.findById(creditoId)
+                .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado"));
+
+        credito.setEstado(Credito.EstadoCredito.ANULADO);
+        credito.setFechaCierre(LocalDate.now());
+
+        return creditoRepo.save(credito);
+    }
+
+    /**
+     * 🏁 CERRAR CRÉDITO MANUALMENTE
+     * Para casos especiales donde se quiere cerrar sin estar completamente pagado
+     */
+    @Transactional
+    public Credito cerrarCredito(Long creditoId) {
+        Credito credito = creditoRepo.findById(creditoId)
+                .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado"));
+
+        credito.setEstado(Credito.EstadoCredito.CERRADO);
+        credito.setFechaCierre(LocalDate.now());
+        // Ajustar saldo a 0 si se cierra manualmente
+        credito.setSaldoPendiente(0.0);
+
         return creditoRepo.save(credito);
     }
 

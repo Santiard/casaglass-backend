@@ -29,7 +29,18 @@ public class OrdenController {
     @PostMapping("/venta")
     public ResponseEntity<?> crearOrdenVenta(@RequestBody OrdenVentaDTO ventaDTO) {
         try {
-            Orden ordenCreada = service.crearOrdenVenta(ventaDTO);
+            System.out.println("🔍 DEBUG: Iniciando creación de orden venta");
+            System.out.println("🔍 DEBUG: Datos recibidos: " + ventaDTO);
+            
+            // Crear orden (con o sin crédito según el flag)
+            Orden ordenCreada;
+            if (ventaDTO.isCredito()) {
+                ordenCreada = service.crearOrdenVentaConCredito(ventaDTO);
+            } else {
+                ordenCreada = service.crearOrdenVenta(ventaDTO);
+            }
+            
+            System.out.println("🔍 DEBUG: Orden creada exitosamente: " + ordenCreada.getId());
             
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Orden de venta creada exitosamente",
@@ -37,11 +48,14 @@ public class OrdenController {
                 "numero", ordenCreada.getNumero()
             ));
         } catch (IllegalArgumentException e) {
+            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION"
             ));
         } catch (Exception e) {
+            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"

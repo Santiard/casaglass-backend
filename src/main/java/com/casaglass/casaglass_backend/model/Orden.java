@@ -53,6 +53,14 @@ public class Orden {
   @Column(nullable = false)
   private boolean credito = false;
 
+  /** 
+   * Crédito asociado a esta orden (si es una venta a crédito)
+   * Relación opcional - solo existe si credito = true
+   */
+  @OneToOne(mappedBy = "orden", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+  @JsonIgnoreProperties({"orden", "hibernateLazyInitializer", "handler"})
+  private Credito creditoDetalle;
+
   @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
   @JsonIgnoreProperties({"orden", "hibernateLazyInitializer", "handler"})
   private List<OrdenItem> items = new ArrayList<>();

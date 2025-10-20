@@ -7,9 +7,11 @@ import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Inventario;
+import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
+import com.casaglass.casaglass_backend.dto.CreditoTablaDTO;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
@@ -28,11 +30,13 @@ public class OrdenService {
     private final OrdenRepository repo;
     private final EntityManager entityManager;
     private final InventarioService inventarioService;
+    private final CreditoService creditoService;
 
-    public OrdenService(OrdenRepository repo, EntityManager entityManager, InventarioService inventarioService) { 
+    public OrdenService(OrdenRepository repo, EntityManager entityManager, InventarioService inventarioService, CreditoService creditoService) { 
         this.repo = repo; 
         this.entityManager = entityManager;
         this.inventarioService = inventarioService;
+        this.creditoService = creditoService;
     }
 
     @Transactional
@@ -144,6 +148,80 @@ public class OrdenService {
         Orden ordenGuardada = repo.save(orden);
         
         // 📦 ACTUALIZAR INVENTARIO
+        actualizarInventarioPorVenta(ordenGuardada);
+        
+        return ordenGuardada;
+    }
+
+    /**
+     * 💳 CREAR ORDEN DE VENTA CON CRÉDITO - Método unificado sin transacciones anidadas
+     */
+    @Transactional
+    public Orden crearOrdenVentaConCredito(OrdenVentaDTO ventaDTO) {
+        System.out.println("🔍 DEBUG: Iniciando creación de orden con crédito");
+        
+        // 🔍 VALIDACIONES DE NEGOCIO
+        validarDatosVenta(ventaDTO);
+        
+        // 📝 CREAR ENTIDAD ORDEN
+        Orden orden = new Orden();
+        orden.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
+        orden.setObra(ventaDTO.getObra());
+        orden.setVenta(ventaDTO.isVenta());
+        orden.setCredito(ventaDTO.isCredito());
+        orden.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        orden.setEstado(Orden.EstadoOrden.ACTIVA);
+        
+        // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
+        orden.setCliente(entityManager.getReference(Cliente.class, ventaDTO.getClienteId()));
+        orden.setSede(entityManager.getReference(Sede.class, ventaDTO.getSedeId()));
+        
+        if (ventaDTO.getTrabajadorId() != null) {
+            orden.setTrabajador(entityManager.getReference(Trabajador.class, ventaDTO.getTrabajadorId()));
+        }
+        
+        // 📋 PROCESAR ITEMS DE VENTA
+        List<OrdenItem> items = new ArrayList<>();
+        double subtotal = 0.0;
+        
+        for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
+            OrdenItem item = new OrdenItem();
+            item.setOrden(orden);
+            item.setProducto(entityManager.getReference(Producto.class, itemDTO.getProductoId()));
+            item.setDescripcion(itemDTO.getDescripcion());
+            item.setCantidad(itemDTO.getCantidad());
+            item.setPrecioUnitario(itemDTO.getPrecioUnitario());
+            
+            // Calcular total de línea
+            double totalLinea = itemDTO.getCantidad() * itemDTO.getPrecioUnitario();
+            item.setTotalLinea(totalLinea);
+            subtotal += totalLinea;
+            
+            items.add(item);
+        }
+        
+        orden.setItems(items);
+        orden.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        orden.setTotal(orden.getSubtotal()); // Por ahora sin impuestos/descuentos
+        
+        // 🔢 GENERAR NÚMERO AUTOMÁTICO
+        orden.setNumero(generarNumeroOrden());
+        
+        // 💾 GUARDAR ORDEN PRIMERO
+        Orden ordenGuardada = repo.save(orden);
+        System.out.println("✅ DEBUG: Orden guardada con ID: " + ordenGuardada.getId());
+        
+        // 💳 CREAR CRÉDITO SI ES NECESARIO (en la misma transacción)
+        if (ventaDTO.isCredito()) {
+            System.out.println("🔍 DEBUG: Creando crédito para orden " + ordenGuardada.getId());
+            creditoService.crearCreditoParaOrden(
+                ordenGuardada.getId(), 
+                ventaDTO.getClienteId(), 
+                ordenGuardada.getTotal()
+            );
+        }
+        
+        // 📦 ACTUALIZAR INVENTARIO AL FINAL
         actualizarInventarioPorVenta(ordenGuardada);
         
         return ordenGuardada;
@@ -402,7 +480,19 @@ public class OrdenService {
             dto.setSede(new OrdenTablaDTO.SedeTablaDTO(orden.getSede().getNombre()));
         }
         
-        // 📋 ITEMS COMPLETOS (manteniendo detalle como solicitado)
+        // 💳 INFORMACIÓN DEL CRÉDITO (si existe)
+        if (orden.getCreditoDetalle() != null) {
+            CreditoTablaDTO creditoDTO = new CreditoTablaDTO();
+            creditoDTO.setId(orden.getCreditoDetalle().getId());
+            creditoDTO.setFechaInicio(orden.getCreditoDetalle().getFechaInicio());
+            creditoDTO.setTotalCredito(orden.getCreditoDetalle().getTotalCredito());
+            creditoDTO.setSaldoPendiente(orden.getCreditoDetalle().getSaldoPendiente());
+            creditoDTO.setEstado(orden.getCreditoDetalle().getEstado());
+            creditoDTO.setTotalAbonado(orden.getCreditoDetalle().getTotalAbonado());
+            dto.setCreditoDetalle(creditoDTO);
+        }
+        
+        // �📋 ITEMS COMPLETOS (manteniendo detalle como solicitado)
         if (orden.getItems() != null) {
             List<OrdenTablaDTO.OrdenItemTablaDTO> itemsDTO = orden.getItems().stream()
                     .map(this::convertirAOrdenItemTablaDTO)
@@ -623,6 +713,16 @@ public class OrdenService {
 
         // Restaurar inventario antes de anular
         restaurarInventarioPorAnulacion(orden);
+
+        // 💳 ANULAR CRÉDITO ASOCIADO SI EXISTE
+        if (orden.getCreditoDetalle() != null) {
+            try {
+                creditoService.anularCredito(orden.getCreditoDetalle().getId());
+            } catch (Exception e) {
+                // Si falla la anulación del crédito, registrar el error pero continuar con la anulación de la orden
+                System.err.println("Error al anular crédito para orden " + orden.getId() + ": " + e.getMessage());
+            }
+        }
 
         // Cambiar estado a anulada
         orden.setEstado(Orden.EstadoOrden.ANULADA);

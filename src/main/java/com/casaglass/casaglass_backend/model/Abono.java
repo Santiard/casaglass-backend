@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -25,13 +26,15 @@ public class Abono {
     private Long id;
 
     /** A qué crédito aplica el abono (historial) */
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false, fetch = FetchType.EAGER)
     @JoinColumn(name = "credito_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Credito credito;
 
     /** (Opcional) Orden específica a la que imputas el abono */
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "orden_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Orden orden;
 
     /** Snapshot del número de orden (para reportes/impresión incluso si se borra la orden) */
@@ -39,8 +42,9 @@ public class Abono {
     private Long numeroOrden;
 
     /** Cliente (redundante con credito.cliente; mantenlo consistente desde el servicio) */
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false, fetch = FetchType.EAGER)
     @JoinColumn(name = "cliente_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Cliente cliente;
 
     @NotNull
