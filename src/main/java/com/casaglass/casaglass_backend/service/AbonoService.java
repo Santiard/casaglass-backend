@@ -266,4 +266,21 @@ public class AbonoService {
         // Recalcular totales del crédito
         creditoService.recalcularTotales(creditoId);
     }
+
+    /**
+     * 💰 CALCULA ABONOS DE UNA ORDEN EN UN PERÍODO ESPECÍFICO
+     * Usado para entregas de dinero - solo cuenta abonos realizados en el período
+     */
+    public Double calcularAbonosOrdenEnPeriodo(Long ordenId, LocalDate fechaDesde, LocalDate fechaHasta) {
+        if (ordenId == null || fechaDesde == null || fechaHasta == null) {
+            return 0.0;
+        }
+        
+        List<Abono> abonos = abonoRepo.findByOrdenIdAndFechaBetween(ordenId, fechaDesde, fechaHasta);
+        
+        return abonos.stream()
+                .filter(Objects::nonNull)
+                .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
+                .sum();
+    }
 }

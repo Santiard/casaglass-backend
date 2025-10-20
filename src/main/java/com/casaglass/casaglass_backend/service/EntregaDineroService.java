@@ -33,34 +33,42 @@ public class EntregaDineroService {
     @Autowired
     private TrabajadorRepository trabajadorRepository;
 
+    @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerTodas() {
         return entregaDineroRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public Optional<EntregaDinero> obtenerPorId(Long id) {
         return entregaDineroRepository.findById(id);
     }
 
+    @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerPorSede(Long sedeId) {
         return entregaDineroRepository.findBySedeId(sedeId);
     }
 
+    @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerPorEmpleado(Long empleadoId) {
         return entregaDineroRepository.findByEmpleadoId(empleadoId);
     }
 
+    @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerPorEstado(EntregaDinero.EstadoEntrega estado) {
         return entregaDineroRepository.findByEstado(estado);
     }
 
+    @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerPorSedeYEstado(Long sedeId, EntregaDinero.EstadoEntrega estado) {
         return entregaDineroRepository.findBySedeIdAndEstado(sedeId, estado);
     }
 
+    @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerPorPeriodo(LocalDate desde, LocalDate hasta) {
         return entregaDineroRepository.findByFechaEntregaBetween(desde, hasta);
     }
 
+    @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerPorSedeYPeriodo(Long sedeId, LocalDate desde, LocalDate hasta) {
         return entregaDineroRepository.findBySedeIdAndFechaEntregaBetween(sedeId, desde, hasta);
     }
@@ -75,10 +83,12 @@ public class EntregaDineroService {
         return total != null ? total : 0.0;
     }
 
+    @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerEntregasConDiferencias() {
         return entregaDineroRepository.findEntregasWithDifferences();
     }
 
+    @Transactional(readOnly = true)
     public List<Object[]> obtenerResumenPorEmpleado(Long sedeId, LocalDate desde, LocalDate hasta) {
         return entregaDineroRepository.getResumenByEmpleado(sedeId, desde, hasta);
     }
@@ -146,8 +156,12 @@ public class EntregaDineroService {
                 entregaDetalleService.crearDetalle(detalle);
             }
             
-            // Recalcular monto esperado
-            montoEsperado = entregaDetalleService.calcularMontoTotalEntrega(entregaGuardada.getId());
+            // Recalcular monto esperado USANDO LA NUEVA LÓGICA
+            montoEsperado = entregaDetalleService.calcularDineroRealEntrega(
+                entregaGuardada.getId(), 
+                entrega.getFechaDesde(), 
+                entrega.getFechaHasta()
+            );
             entregaGuardada.setMontoEsperado(montoEsperado != null ? montoEsperado : 0.0);
         }
 

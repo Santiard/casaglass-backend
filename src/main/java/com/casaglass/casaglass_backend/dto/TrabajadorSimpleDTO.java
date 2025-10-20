@@ -23,7 +23,7 @@ public class TrabajadorSimpleDTO {
         this.nombre = trabajador.getNombre();
         this.correo = trabajador.getCorreo();
         this.username = trabajador.getUsername();
-        this.rol = trabajador.getRol().name();
-        this.sede = new SedeSimpleDTO(trabajador.getSede());
+        this.rol = trabajador.getRol() != null ? trabajador.getRol().name() : null;
+        this.sede = trabajador.getSede() != null ? new SedeSimpleDTO(trabajador.getSede()) : null;
     }
 }

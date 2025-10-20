@@ -19,6 +19,9 @@ public class EntregaDetalleService {
     @Autowired
     private OrdenRepository ordenRepository;
 
+    @Autowired
+    private AbonoService abonoService;
+
     public List<EntregaDetalle> obtenerTodos() {
         return entregaDetalleRepository.findAll();
     }
@@ -125,5 +128,60 @@ public class EntregaDetalleService {
 
     public Double calcularMontoTotalEntrega(Long entregaId) {
         return entregaDetalleRepository.calcularMontoTotalPorEntrega(entregaId);
+    }
+
+    /**
+     * 💰 CALCULA EL DINERO REAL A ENTREGAR
+     * - Órdenes A CONTADO: Monto completo
+     * - Órdenes A CRÉDITO: Solo abonos del período
+     */
+    public Double calcularDineroRealEntrega(Long entregaId, java.time.LocalDate fechaDesde, java.time.LocalDate fechaHasta) {
+        List<EntregaDetalle> detalles = entregaDetalleRepository.findByEntregaId(entregaId);
+        Double total = 0.0;
+        
+        for (EntregaDetalle detalle : detalles) {
+            if (detalle.getVentaCredito() != null && detalle.getVentaCredito()) {
+                // Es venta a CRÉDITO: Solo sumar abonos del período
+                if (detalle.getOrden() != null) {
+                    Double abonosDelPeriodo = abonoService.calcularAbonosOrdenEnPeriodo(
+                        detalle.getOrden().getId(), fechaDesde, fechaHasta);
+                    total += (abonosDelPeriodo != null ? abonosDelPeriodo : 0.0);
+                }
+            } else {
+                // Es venta A CONTADO: Sumar monto completo
+                total += (detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0);
+            }
+        }
+        
+        return Math.round(total * 100.0) / 100.0; // Redondear a 2 decimales
+    }
+
+    /**
+     * 📋 OBTIENE ÓRDENES A CONTADO DISPONIBLES PARA ENTREGA
+     * Solo órdenes que NO son crédito y NO han sido incluidas en entregas
+     */
+    public List<Orden> obtenerOrdenesContadoDisponibles(Long sedeId, java.time.LocalDate fechaDesde, java.time.LocalDate fechaHasta) {
+        // Buscar órdenes que cumplan:
+        // 1. De la sede especificada
+        // 2. En el rango de fechas
+        // 3. credito = false (venta a contado)
+        // 4. incluidaEntrega = false (no incluida en otra entrega)
+        // 5. estado = ACTIVA
+        
+        return ordenRepository.findOrdenesContadoDisponiblesParaEntrega(sedeId, fechaDesde, fechaHasta);
+    }
+
+    /**
+     * 📋 OBTIENE ÓRDENES A CRÉDITO CON ABONOS EN EL PERÍODO
+     * Solo órdenes a crédito que tienen abonos en el período especificado
+     */
+    public List<Orden> obtenerOrdenesConAbonosEnPeriodo(Long sedeId, java.time.LocalDate fechaDesde, java.time.LocalDate fechaHasta) {
+        // Buscar órdenes que cumplan:
+        // 1. De la sede especificada
+        // 2. credito = true (venta a crédito)
+        // 3. Que tengan abonos en el período especificado
+        // 4. estado = ACTIVA
+        
+        return ordenRepository.findOrdenesConAbonosEnPeriodo(sedeId, fechaDesde, fechaHasta);
     }
 }
