@@ -4,12 +4,10 @@ import com.casaglass.casaglass_backend.dto.ProductoInventarioCompletoDTO;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.ProductoVidrio;
-import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.model.TipoProducto;
 import com.casaglass.casaglass_backend.model.ColorProducto;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
-import com.casaglass.casaglass_backend.repository.SedeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,41 +21,20 @@ public class InventarioCompletoService {
 
     private final ProductoRepository productoRepository;
     private final InventarioRepository inventarioRepository;
-    private final SedeRepository sedeRepository;
-
-    // Cache de sedes por nombre
-    private Map<String, Long> sedeIds = null;
 
     public InventarioCompletoService(ProductoRepository productoRepository, 
-                                   InventarioRepository inventarioRepository,
-                                   SedeRepository sedeRepository) {
+                                   InventarioRepository inventarioRepository) {
         this.productoRepository = productoRepository;
         this.inventarioRepository = inventarioRepository;
-        this.sedeRepository = sedeRepository;
-    }
-
-    private void inicializarSedeIds() {
-        if (sedeIds == null) {
-            sedeIds = sedeRepository.findAll().stream()
-                .collect(Collectors.toMap(
-                    sede -> sede.getNombre().toLowerCase(),
-                    Sede::getId
-                ));
-        }
-    }
-
-    private Long obtenerSedeId(String nombreSede) {
-        inicializarSedeIds();
-        return sedeIds.get(nombreSede.toLowerCase());
     }
 
     public List<ProductoInventarioCompletoDTO> obtenerInventarioCompleto() {
         // Obtener todos los productos con sus categorías
         List<Producto> productos = productoRepository.findAll();
         
-        // Obtener inventarios agrupados por producto y sede
+        // 🔧 USAR MÉTODO CON FETCH JOINS para evitar lazy loading
         Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
-            inventarioRepository.findAll().stream()
+            inventarioRepository.findAllWithDetails().stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
@@ -66,6 +43,15 @@ public class InventarioCompletoService {
                         Integer::sum // En caso de duplicados, sumar
                     )
                 ));
+
+        // 🐛 DEBUG: Logging para verificar los datos
+        System.out.println("=== DEBUG INVENTARIO COMPLETO ===");
+        System.out.println("Productos encontrados: " + productos.size());
+        System.out.println("Inventarios por producto: " + inventariosPorProductoYSede.size());
+        inventariosPorProductoYSede.forEach((productoId, sedes) -> {
+            System.out.println("Producto " + productoId + " -> " + sedes);
+        });
+        System.out.println("================================");
 
         // Convertir a DTOs
         return productos.stream()
@@ -208,14 +194,14 @@ public class InventarioCompletoService {
     }
 
     private ProductoInventarioCompletoDTO convertirADTO(Producto producto, Map<Long, Integer> inventariosPorSede) {
-        // Obtener cantidades por sede (0 si no existe)
-        Long insulaId = obtenerSedeId("insula");
-        Long centroId = obtenerSedeId("centro");
-        Long patiosId = obtenerSedeId("patios");
+        // 🔧 USAR IDS ESPECÍFICOS DE LAS SEDES (según los datos reales)
+        Long insulaId = 1L;  // Sede ID 1 = Insula  
+        Long centroId = 2L;  // Sede ID 2 = Centro
+        Long patiosId = 3L;  // Sede ID 3 = Patios
 
-        Integer cantidadInsula = inventariosPorSede != null && insulaId != null ? inventariosPorSede.getOrDefault(insulaId, 0) : 0;
-        Integer cantidadCentro = inventariosPorSede != null && centroId != null ? inventariosPorSede.getOrDefault(centroId, 0) : 0;
-        Integer cantidadPatios = inventariosPorSede != null && patiosId != null ? inventariosPorSede.getOrDefault(patiosId, 0) : 0;
+        Integer cantidadInsula = inventariosPorSede != null ? inventariosPorSede.getOrDefault(insulaId, 0) : 0;
+        Integer cantidadCentro = inventariosPorSede != null ? inventariosPorSede.getOrDefault(centroId, 0) : 0;
+        Integer cantidadPatios = inventariosPorSede != null ? inventariosPorSede.getOrDefault(patiosId, 0) : 0;
 
         // Verificar si es vidrio y obtener datos específicos
         Boolean esVidrio = producto instanceof ProductoVidrio;

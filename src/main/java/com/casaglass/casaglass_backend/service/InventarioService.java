@@ -6,8 +6,8 @@ import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.casaglass.casaglass_backend.dto.InventarioProductoDTO;
 
 import java.util.Map;
@@ -27,22 +27,27 @@ public class InventarioService {
         this.em = em;
     }
 
+    @Transactional(readOnly = true)
     public List<Inventario> listar() {
-        return repo.findAll();
+        return repo.findAllWithDetails(); // 🔧 Usar método con FETCH JOINS
     }
 
+    @Transactional(readOnly = true)
     public Optional<Inventario> obtenerPorId(Long id) {
-        return repo.findById(id);
+        return repo.findByIdWithDetails(id); // 🔧 Usar método con FETCH JOINS
     }
 
+    @Transactional(readOnly = true)
     public List<Inventario> listarPorProducto(Long productoId) {
         return repo.findByProductoId(productoId);
     }
 
+    @Transactional(readOnly = true)
     public List<Inventario> listarPorSede(Long sedeId) {
         return repo.findBySedeId(sedeId);
     }
 
+    @Transactional(readOnly = true)
     public Optional<Inventario> obtenerPorProductoYSede(Long productoId, Long sedeId) {
         return repo.findByProductoIdAndSedeId(productoId, sedeId);
     }
@@ -133,9 +138,9 @@ public class InventarioService {
         repo.deleteById(id);
     }
 
-    @Transactional
+    @Transactional(readOnly = true) // 🔧 Cambio a readOnly para consultas
     public List<InventarioProductoDTO> listarInventarioAgrupado() {
-        List<Inventario> inventarios = repo.findAll();
+        List<Inventario> inventarios = repo.findAllWithDetails(); // 🔧 Usar método con FETCH JOINS
         Map<Long, InventarioProductoDTO> mapa = new HashMap<>();
 
         for (Inventario inv : inventarios) {

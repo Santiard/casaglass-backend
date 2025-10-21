@@ -10,14 +10,51 @@ import java.util.Optional;
 
 public interface InventarioRepository extends JpaRepository<Inventario, Long> {
 
-    List<Inventario> findByProductoId(Long productoId);
+    // 🔧 MÉTODOS CON FETCH JOINS para evitar LazyInitializationException
+    @Query("SELECT i FROM Inventario i " +
+           "LEFT JOIN FETCH i.producto p " +
+           "LEFT JOIN FETCH p.categoria " +
+           "LEFT JOIN FETCH i.sede " +
+           "WHERE p.id = :productoId")
+    List<Inventario> findByProductoId(@Param("productoId") Long productoId);
 
-    List<Inventario> findBySedeId(Long sedeId);
+    @Query("SELECT i FROM Inventario i " +
+           "LEFT JOIN FETCH i.producto p " +
+           "LEFT JOIN FETCH p.categoria " +
+           "LEFT JOIN FETCH i.sede " +
+           "WHERE i.sede.id = :sedeId")
+    List<Inventario> findBySedeId(@Param("sedeId") Long sedeId);
 
-    Optional<Inventario> findByProductoIdAndSedeId(Long productoId, Long sedeId);
+    @Query("SELECT i FROM Inventario i " +
+           "LEFT JOIN FETCH i.producto p " +
+           "LEFT JOIN FETCH p.categoria " +
+           "LEFT JOIN FETCH i.sede " +
+           "WHERE p.id = :productoId AND i.sede.id = :sedeId")
+    Optional<Inventario> findByProductoIdAndSedeId(@Param("productoId") Long productoId, @Param("sedeId") Long sedeId);
 
-    // Nuevo: buscar inventarios para una lista de productos
-    List<Inventario> findByProductoIdIn(List<Long> productoIds);
+    // Nuevo: buscar inventarios para una lista de productos con FETCH
+    @Query("SELECT i FROM Inventario i " +
+           "LEFT JOIN FETCH i.producto p " +
+           "LEFT JOIN FETCH p.categoria " +
+           "LEFT JOIN FETCH i.sede " +
+           "WHERE p.id IN :productoIds")
+    List<Inventario> findByProductoIdIn(@Param("productoIds") List<Long> productoIds);
+
+    // 🔧 MÉTODO PARA OBTENER POR ID CON FETCH JOINS
+    @Query("SELECT i FROM Inventario i " +
+           "LEFT JOIN FETCH i.producto p " +
+           "LEFT JOIN FETCH p.categoria " +
+           "LEFT JOIN FETCH i.sede " +
+           "WHERE i.id = :id")
+    Optional<Inventario> findByIdWithDetails(@Param("id") Long id);
+
+    // 🔧 MÉTODO PARA LISTAR TODOS CON FETCH JOINS
+    @Query("SELECT i FROM Inventario i " +
+           "LEFT JOIN FETCH i.producto p " +
+           "LEFT JOIN FETCH p.categoria " +
+           "LEFT JOIN FETCH i.sede " +
+           "ORDER BY p.nombre, i.sede.nombre")
+    List<Inventario> findAllWithDetails();
     
     // 📊 MÉTODO PARA DASHBOARD - STOCK BAJO POR SEDE CON FETCH JOINS
     @Query("SELECT DISTINCT i FROM Inventario i " +
