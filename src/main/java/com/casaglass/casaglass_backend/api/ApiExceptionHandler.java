@@ -92,7 +92,13 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleOther(Exception ex) {
+        // 🐛 DEBUG: Imprimir stack trace completo para identificar el problema
+        System.err.println("🚨 EXCEPCIÓN NO MANEJADA:");
+        System.err.println("Tipo: " + ex.getClass().getName());
+        System.err.println("Mensaje: " + ex.getMessage());
+        ex.printStackTrace();
+        
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(body(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno.", "INTERNAL_SERVER_ERROR"));
+                .body(body(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno: " + ex.getMessage(), "INTERNAL_SERVER_ERROR"));
     }
 }

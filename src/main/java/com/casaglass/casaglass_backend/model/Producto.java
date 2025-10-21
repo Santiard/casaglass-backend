@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -21,6 +22,7 @@ public class Producto {
 
     // 🔧 COMENTAR temporalmente para debug
     // @Version
+    @JsonIgnore  // Ignorar en serialización/deserialización JSON
     private Long version;
 
     private String posicion;

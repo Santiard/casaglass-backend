@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-
-
 @Entity
 @Table(name = "cortes")
 @Data @NoArgsConstructor @AllArgsConstructor

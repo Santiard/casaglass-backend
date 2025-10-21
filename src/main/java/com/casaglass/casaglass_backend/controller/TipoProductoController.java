@@ -64,12 +64,8 @@ public class TipoProductoController {
 
     private String obtenerDescripcion(TipoProducto tipo) {
         return switch (tipo) {
-            case MATE -> "Mate";
-            case BLANCO -> "Blanco";
-            case NEGRO -> "Negro";
-            case BRONCE -> "Bronce";
-            case NATURAL -> "Natural";
-            case NA -> "N/A";
+            case UNID -> "Unidad";
+            case PERFIL -> "Perfil";
         };
     }
 

@@ -29,9 +29,26 @@ public class CorteController {
                               @RequestParam(required = false) Double precioMax,
                               @RequestParam(required = false) Double largoMinimo,
                               @RequestParam(required = false) Double precioMaximo,
-                              @RequestParam(required = false, defaultValue = "false") boolean conObservaciones) {
+                              @RequestParam(required = false, defaultValue = "false") boolean conObservaciones,
+                              @RequestParam(required = false) String tipo,
+                              @RequestParam(required = false) String color) {
         
-        // Filtros específicos
+        // 🆕 NUEVOS FILTROS POR TIPO Y COLOR
+        if (tipo != null && !tipo.isBlank()) {
+            if (categoriaId != null) {
+                return service.listarPorCategoriaYTipo(categoriaId, tipo);
+            }
+            return service.listarPorTipo(tipo);
+        }
+        
+        if (color != null && !color.isBlank()) {
+            if (categoriaId != null) {
+                return service.listarPorCategoriaYColor(categoriaId, color);
+            }
+            return service.listarPorColor(color);
+        }
+        
+        // Filtros específicos existentes
         if (conObservaciones) {
             return service.listarConObservaciones();
         }
@@ -56,7 +73,7 @@ public class CorteController {
             return service.buscar(query);
         }
         
-        // 🔁 Nuevo filtro por ID de categoría (recomendado)
+        // 🔁 Filtro por ID de categoría (recomendado)
         if (categoriaId != null) {
             return service.listarPorCategoriaId(categoriaId);
         }
@@ -86,8 +103,21 @@ public class CorteController {
     @PostMapping
     public ResponseEntity<?> crear(@RequestBody Corte corte) {
         try {
-            return ResponseEntity.ok(service.guardar(corte));
+            // 🐛 DEBUG: Logging para verificar que llegan los datos de corte
+            System.out.println("=== CREANDO CORTE ===");
+            System.out.println("Nombre: " + corte.getNombre());
+            System.out.println("Código: " + corte.getCodigo());
+            System.out.println("Largo CM: " + corte.getLargoCm());
+            System.out.println("Precio: " + corte.getPrecio());
+            System.out.println("Observación: " + corte.getObservacion());
+            System.out.println("Categoría: " + (corte.getCategoria() != null ? corte.getCategoria().getId() : "null"));
+            System.out.println("======================");
+            
+            Corte resultado = service.guardar(corte);
+            return ResponseEntity.ok(resultado);
         } catch (Exception e) {
+            System.err.println("ERROR al crear corte: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -95,19 +125,46 @@ public class CorteController {
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Corte corte) {
         try {
-            return ResponseEntity.ok(service.actualizar(id, corte));
-        } catch (Exception e) {
+            // 🐛 DEBUG: Logging para debug
+            System.out.println("=== ACTUALIZANDO CORTE ===");
+            System.out.println("ID: " + id);
+            System.out.println("Código: " + corte.getCodigo());
+            System.out.println("Largo CM: " + corte.getLargoCm());
+            System.out.println("Precio: " + corte.getPrecio());
+            System.out.println("========================");
+            
+            Corte resultado = service.actualizar(id, corte);
+            return ResponseEntity.ok(resultado);
+        } catch (IllegalArgumentException e) {
+            System.err.println("ERROR de validación: " + e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            System.err.println("ERROR no encontrado: " + e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            System.err.println("ERROR general: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Error interno: " + e.getMessage());
         }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+    public ResponseEntity<?> eliminar(@PathVariable Long id) {
         try {
+            System.out.println("=== ELIMINANDO CORTE ===");
+            System.out.println("ID: " + id);
+            
             service.eliminar(id);
+            
+            System.out.println("Corte eliminado exitosamente");
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
+            System.err.println("ERROR: Corte no encontrado con ID " + id);
             return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            System.err.println("ERROR al eliminar corte: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Error al eliminar: " + e.getMessage());
         }
     }
 
@@ -135,5 +192,51 @@ public class CorteController {
     @GetMapping("/observaciones")
     public List<Corte> listarConObservaciones() {
         return service.listarConObservaciones();
+    }
+
+    // 🆕 NUEVOS ENDPOINTS ESPECÍFICOS
+    @GetMapping("/tipo/{tipo}")
+    public ResponseEntity<List<Corte>> listarPorTipo(@PathVariable String tipo) {
+        try {
+            return ResponseEntity.ok(service.listarPorTipo(tipo));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/color/{color}")
+    public ResponseEntity<List<Corte>> listarPorColor(@PathVariable String color) {
+        try {
+            return ResponseEntity.ok(service.listarPorColor(color));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/categoria/{categoriaId}/tipo/{tipo}")
+    public ResponseEntity<List<Corte>> listarPorCategoriaYTipo(
+            @PathVariable Long categoriaId, 
+            @PathVariable String tipo) {
+        try {
+            return ResponseEntity.ok(service.listarPorCategoriaYTipo(categoriaId, tipo));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/categoria/{categoriaId}/color/{color}")
+    public ResponseEntity<List<Corte>> listarPorCategoriaYColor(
+            @PathVariable Long categoriaId, 
+            @PathVariable String color) {
+        try {
+            return ResponseEntity.ok(service.listarPorCategoriaYColor(categoriaId, color));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/buscar-por-ids")
+    public ResponseEntity<List<Corte>> listarPorIds(@RequestBody List<Long> ids) {
+        return ResponseEntity.ok(service.listarPorIds(ids));
     }
 }

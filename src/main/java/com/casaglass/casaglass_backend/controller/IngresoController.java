@@ -65,11 +65,29 @@ public class IngresoController {
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizarIngreso(@PathVariable Long id, @RequestBody Ingreso ingreso) {
         try {
-            return ResponseEntity.ok(ingresoService.actualizarIngreso(id, ingreso));
+            System.out.println("🔄 PUT /api/ingresos/" + id + " - Iniciando actualización");
+            System.out.println("📥 Datos recibidos: " + ingreso.getNumeroFactura());
+            
+            Ingreso resultado = ingresoService.actualizarIngreso(id, ingreso);
+            
+            System.out.println("✅ Actualización exitosa - ID: " + resultado.getId());
+            
+            // 🔧 ARREGLO: Recargar la entidad para evitar problemas de serialización
+            Ingreso ingresoLimpio = ingresoService.obtenerIngresoPorId(id)
+                    .orElseThrow(() -> new RuntimeException("Error al recargar ingreso"));
+            
+            return ResponseEntity.ok(ingresoLimpio);
         } catch (IllegalArgumentException e) {
+            System.err.println("❌ Error de validación: " + e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
+            System.err.println("❌ Error de ejecución: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("❌ Error inesperado: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error inesperado: " + e.getMessage());
         }
     }
 
@@ -100,6 +118,16 @@ public class IngresoController {
         try {
             ingresoService.reprocesarInventario(id);
             return ResponseEntity.ok("Inventario reprocesado correctamente");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/marcar-procesado")
+    public ResponseEntity<?> marcarComoProcesado(@PathVariable Long id) {
+        try {
+            Ingreso ingreso = ingresoService.marcarComoProcesado(id);
+            return ResponseEntity.ok(ingreso);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

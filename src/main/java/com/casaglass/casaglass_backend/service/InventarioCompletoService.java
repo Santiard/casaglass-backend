@@ -29,8 +29,13 @@ public class InventarioCompletoService {
     }
 
     public List<ProductoInventarioCompletoDTO> obtenerInventarioCompleto() {
-        // Obtener todos los productos con sus categorías
-        List<Producto> productos = productoRepository.findAll();
+        // 🔧 TEMPORALMENTE: Usar findAll() para debug
+        List<Producto> todosLosProductos = productoRepository.findAll();
+        
+        // 🔧 FILTRAR CORTES MANUALMENTE EN JAVA
+        List<Producto> productos = todosLosProductos.stream()
+            .filter(p -> !(p instanceof com.casaglass.casaglass_backend.model.Corte))
+            .collect(Collectors.toList());
         
         // 🔧 USAR MÉTODO CON FETCH JOINS para evitar lazy loading
         Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
@@ -45,8 +50,9 @@ public class InventarioCompletoService {
                 ));
 
         // 🐛 DEBUG: Logging para verificar los datos
-        System.out.println("=== DEBUG INVENTARIO COMPLETO ===");
-        System.out.println("Productos encontrados: " + productos.size());
+        System.out.println("=== DEBUG INVENTARIO COMPLETO (FILTRO MANUAL) ===");
+        System.out.println("Todos los productos: " + todosLosProductos.size());
+        System.out.println("Productos sin cortes: " + productos.size());
         System.out.println("Inventarios por producto: " + inventariosPorProductoYSede.size());
         inventariosPorProductoYSede.forEach((productoId, sedes) -> {
             System.out.println("Producto " + productoId + " -> " + sedes);
@@ -60,8 +66,8 @@ public class InventarioCompletoService {
     }
 
     public List<ProductoInventarioCompletoDTO> obtenerInventarioCompletoPorCategoria(Long categoriaId) {
-        // Obtener productos de una categoría específica
-        List<Producto> productos = productoRepository.findByCategoria_Id(categoriaId);
+        // 🔧 OBTENER PRODUCTOS DE CATEGORÍA ESPECÍFICA (excluir cortes)
+        List<Producto> productos = productoRepository.findByCategoria_IdSinCortes(categoriaId);
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
@@ -82,8 +88,8 @@ public class InventarioCompletoService {
     }
 
     public List<ProductoInventarioCompletoDTO> buscarInventarioCompleto(String query) {
-        // Búsqueda por nombre o código
-        List<Producto> productos = productoRepository.findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(query, query);
+        // 🔧 BÚSQUEDA POR NOMBRE O CÓDIGO (excluir cortes)
+        List<Producto> productos = productoRepository.findByNombreOrCodigoSinCortes(query, query);
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
@@ -112,8 +118,8 @@ public class InventarioCompletoService {
             throw new IllegalArgumentException("Tipo de producto inválido: " + tipoStr);
         }
 
-        // Obtener productos de un tipo específico
-        List<Producto> productos = productoRepository.findByTipo(tipo);
+        // 🔧 OBTENER PRODUCTOS DE UN TIPO ESPECÍFICO (excluir cortes)
+        List<Producto> productos = productoRepository.findByTipoSinCortes(tipo);
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
@@ -142,8 +148,8 @@ public class InventarioCompletoService {
             throw new IllegalArgumentException("Color de producto inválido: " + colorStr);
         }
 
-        // Obtener productos de un color específico
-        List<Producto> productos = productoRepository.findByColor(color);
+        // 🔧 OBTENER PRODUCTOS DE UN COLOR ESPECÍFICO (excluir cortes)
+        List<Producto> productos = productoRepository.findByColorSinCortes(color);
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
