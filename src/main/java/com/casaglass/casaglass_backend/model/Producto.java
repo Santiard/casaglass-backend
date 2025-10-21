@@ -19,7 +19,8 @@ public class Producto {
     @EqualsAndHashCode.Include
     private Long id;
 
-    @Version
+    // 🔧 COMENTAR temporalmente para debug
+    // @Version
     private Long version;
 
     private String posicion;

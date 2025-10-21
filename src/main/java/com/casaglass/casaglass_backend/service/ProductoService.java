@@ -58,28 +58,51 @@ public class ProductoService {
 
     public Producto actualizar(Long id, Producto p) {
         return repo.findById(id).map(actual -> {
-            actual.setPosicion(p.getPosicion());
-            actual.setCodigo(p.getCodigo());
-            actual.setNombre(p.getNombre());
-            actual.setColor(p.getColor());
-            actual.setCantidad(p.getCantidad());
-            actual.setCosto(p.getCosto());
-            actual.setPrecio1(p.getPrecio1());
-            actual.setPrecio2(p.getPrecio2());
-            actual.setPrecio3(p.getPrecio3());
-            actual.setPrecioEspecial(p.getPrecioEspecial());
-            actual.setDescripcion(p.getDescripcion());
+            try {
+                // 🐛 DEBUG: Logging para identificar problemas
+                System.out.println("=== ACTUALIZANDO PRODUCTO ===");
+                System.out.println("ID: " + id);
+                System.out.println("Version actual en DB: " + actual.getVersion());
+                System.out.println("Version recibida: " + p.getVersion());
+                System.out.println("Tipo recibido: " + p.getTipo());
+                System.out.println("Color recibido: " + p.getColor());
+                System.out.println("Categoria recibida: " + (p.getCategoria() != null ? p.getCategoria().getId() : "null"));
+                
+                // 🔧 NO TOCAR el version - Hibernate lo maneja automáticamente
+                // actual.setVersion(p.getVersion()); // ❌ NO hacer esto
+                
+                actual.setPosicion(p.getPosicion());
+                actual.setCodigo(p.getCodigo());
+                actual.setNombre(p.getNombre());
+                actual.setTipo(p.getTipo());
+                actual.setColor(p.getColor());
+                actual.setCantidad(p.getCantidad());
+                actual.setCosto(p.getCosto());
+                actual.setPrecio1(p.getPrecio1());
+                actual.setPrecio2(p.getPrecio2());
+                actual.setPrecio3(p.getPrecio3());
+                actual.setPrecioEspecial(p.getPrecioEspecial());
+                actual.setDescripcion(p.getDescripcion());
 
-            // Actualizar categoría si se envía
-            if (p.getCategoria() != null && p.getCategoria().getId() != null) {
-                Categoria cat = categoriaRepo.findById(p.getCategoria().getId())
-                        .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
-                actual.setCategoria(cat);
-            } else {
-                actual.setCategoria(null);
+                // Actualizar categoría si se envía
+                if (p.getCategoria() != null && p.getCategoria().getId() != null) {
+                    Categoria cat = categoriaRepo.findById(p.getCategoria().getId())
+                            .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
+                    actual.setCategoria(cat);
+                } else {
+                    actual.setCategoria(null);
+                }
+
+                System.out.println("Producto antes de guardar: " + actual);
+                Producto saved = repo.save(actual);
+                System.out.println("Producto guardado exitosamente con version: " + saved.getVersion());
+                return saved;
+                
+            } catch (Exception e) {
+                System.err.println("ERROR al actualizar producto: " + e.getMessage());
+                e.printStackTrace();
+                throw new RuntimeException("Error al actualizar producto: " + e.getMessage(), e);
             }
-
-            return repo.save(actual);
         }).orElseThrow(() -> new RuntimeException("Producto no encontrado con id " + id));
     }
 

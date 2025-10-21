@@ -1,0 +1,19 @@
+{
+  "id": 1,
+  "posicion": "A1",
+  "categoria": {
+    "id": 2,
+    "nombre": "744"
+  },
+  "tipo": "PERFIL",
+  "codigo": "PER-M-744-TEST",
+  "nombre": "PERFIL ESTRUCTURAL 744 MATE - UPDATED",
+  "color": "MATE",
+  "cantidad": 100,
+  "costo": 15.5,
+  "precio1": 25,
+  "precio2": 23,
+  "precio3": 22,
+  "precioEspecial": 20,
+  "descripcion": "TEST UPDATE"
+}
