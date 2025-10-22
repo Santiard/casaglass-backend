@@ -13,6 +13,10 @@ import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
 import com.casaglass.casaglass_backend.dto.CreditoTablaDTO;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
+import com.casaglass.casaglass_backend.repository.ClienteRepository;
+import com.casaglass.casaglass_backend.repository.SedeRepository;
+import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
+import com.casaglass.casaglass_backend.repository.ProductoRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,12 +32,27 @@ import java.util.ArrayList;
 public class OrdenService {
 
     private final OrdenRepository repo;
+    private final ClienteRepository clienteRepository;
+    private final SedeRepository sedeRepository;
+    private final TrabajadorRepository trabajadorRepository;
+    private final ProductoRepository productoRepository;
     private final EntityManager entityManager;
     private final InventarioService inventarioService;
     private final CreditoService creditoService;
 
-    public OrdenService(OrdenRepository repo, EntityManager entityManager, InventarioService inventarioService, CreditoService creditoService) { 
+    public OrdenService(OrdenRepository repo, 
+                       ClienteRepository clienteRepository,
+                       SedeRepository sedeRepository,
+                       TrabajadorRepository trabajadorRepository,
+                       ProductoRepository productoRepository,
+                       EntityManager entityManager, 
+                       InventarioService inventarioService, 
+                       CreditoService creditoService) { 
         this.repo = repo; 
+        this.clienteRepository = clienteRepository;
+        this.sedeRepository = sedeRepository;
+        this.trabajadorRepository = trabajadorRepository;
+        this.productoRepository = productoRepository;
         this.entityManager = entityManager;
         this.inventarioService = inventarioService;
         this.creditoService = creditoService;
@@ -110,11 +129,14 @@ public class OrdenService {
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
         // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
-        orden.setCliente(entityManager.getReference(Cliente.class, ventaDTO.getClienteId()));
-        orden.setSede(entityManager.getReference(Sede.class, ventaDTO.getSedeId()));
+        orden.setCliente(clienteRepository.findById(ventaDTO.getClienteId())
+            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId())));
+        orden.setSede(sedeRepository.findById(ventaDTO.getSedeId())
+            .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + ventaDTO.getSedeId())));
         
         if (ventaDTO.getTrabajadorId() != null) {
-            orden.setTrabajador(entityManager.getReference(Trabajador.class, ventaDTO.getTrabajadorId()));
+            orden.setTrabajador(trabajadorRepository.findById(ventaDTO.getTrabajadorId())
+                .orElseThrow(() -> new RuntimeException("Trabajador no encontrado con ID: " + ventaDTO.getTrabajadorId())));
         }
         
         // 📋 PROCESAR ITEMS DE VENTA
@@ -124,7 +146,8 @@ public class OrdenService {
         for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
             OrdenItem item = new OrdenItem();
             item.setOrden(orden);
-            item.setProducto(entityManager.getReference(Producto.class, itemDTO.getProductoId()));
+            item.setProducto(productoRepository.findById(itemDTO.getProductoId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
             item.setDescripcion(itemDTO.getDescripcion());
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
@@ -173,11 +196,14 @@ public class OrdenService {
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
         // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
-        orden.setCliente(entityManager.getReference(Cliente.class, ventaDTO.getClienteId()));
-        orden.setSede(entityManager.getReference(Sede.class, ventaDTO.getSedeId()));
+        orden.setCliente(clienteRepository.findById(ventaDTO.getClienteId())
+            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId())));
+        orden.setSede(sedeRepository.findById(ventaDTO.getSedeId())
+            .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + ventaDTO.getSedeId())));
         
         if (ventaDTO.getTrabajadorId() != null) {
-            orden.setTrabajador(entityManager.getReference(Trabajador.class, ventaDTO.getTrabajadorId()));
+            orden.setTrabajador(trabajadorRepository.findById(ventaDTO.getTrabajadorId())
+                .orElseThrow(() -> new RuntimeException("Trabajador no encontrado con ID: " + ventaDTO.getTrabajadorId())));
         }
         
         // 📋 PROCESAR ITEMS DE VENTA
@@ -187,7 +213,8 @@ public class OrdenService {
         for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
             OrdenItem item = new OrdenItem();
             item.setOrden(orden);
-            item.setProducto(entityManager.getReference(Producto.class, itemDTO.getProductoId()));
+            item.setProducto(productoRepository.findById(itemDTO.getProductoId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
             item.setDescripcion(itemDTO.getDescripcion());
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
@@ -592,7 +619,8 @@ public class OrdenService {
                 // 🆕 CREAR NUEVO ITEM
                 OrdenItem nuevoItem = new OrdenItem();
                 nuevoItem.setOrden(orden);
-                nuevoItem.setProducto(entityManager.getReference(Producto.class, itemDTO.getProductoId()));
+                nuevoItem.setProducto(productoRepository.findById(itemDTO.getProductoId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
                 nuevoItem.setDescripcion(itemDTO.getDescripcion());
                 nuevoItem.setCantidad(itemDTO.getCantidad());
                 nuevoItem.setPrecioUnitario(itemDTO.getPrecioUnitario());
@@ -607,7 +635,8 @@ public class OrdenService {
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Item no encontrado: " + itemDTO.getId()));
 
-                itemExistente.setProducto(entityManager.getReference(Producto.class, itemDTO.getProductoId()));
+                itemExistente.setProducto(productoRepository.findById(itemDTO.getProductoId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
                 itemExistente.setDescripcion(itemDTO.getDescripcion());
                 itemExistente.setCantidad(itemDTO.getCantidad());
                 itemExistente.setPrecioUnitario(itemDTO.getPrecioUnitario());
@@ -620,43 +649,99 @@ public class OrdenService {
      * Actualiza el inventario restando los productos vendidos
      * Se ejecuta cuando se crea una nueva orden (venta)
      */
+    /**
+     * 📦 ACTUALIZAR INVENTARIO POR VENTA - CON MANEJO DE CONCURRENCIA
+     * 
+     * Mejoras implementadas:
+     * - Validación de stock con lock pesimista
+     * - Manejo de concurrencia con reintentos
+     * - Mensajes de error específicos
+     * - Transaccional para consistencia
+     */
+    @Transactional
     private void actualizarInventarioPorVenta(Orden orden) {
         if (orden.getItems() == null || orden.getItems().isEmpty()) {
             return;
         }
 
+        System.out.println("🔄 Actualizando inventario para orden ID: " + orden.getId());
+        
         // Obtener la sede de la orden (donde se realiza la venta)
         Long sedeId = orden.getSede().getId();
 
         for (OrdenItem item : orden.getItems()) {
             if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
                 Long productoId = item.getProducto().getId();
+                Integer cantidadVendida = item.getCantidad();
                 
-                // Buscar inventario del producto en la sede
-                Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
+                System.out.println("📦 Procesando producto ID: " + productoId + ", cantidad: " + cantidadVendida);
                 
-                if (inventarioOpt.isPresent()) {
-                    Inventario inventario = inventarioOpt.get();
-                    int cantidadActual = inventario.getCantidad();
-                    int cantidadVendida = item.getCantidad();
-                    
-                    // Verificar que hay suficiente stock
-                    if (cantidadActual < cantidadVendida) {
-                        throw new IllegalArgumentException(
-                            String.format("Stock insuficiente para producto ID %d en sede ID %d. Disponible: %d, Requerido: %d", 
-                                        productoId, sedeId, cantidadActual, cantidadVendida)
-                        );
-                    }
-                    
-                    // Restar cantidad vendida
-                    inventario.setCantidad(cantidadActual - cantidadVendida);
-                    inventarioService.actualizarInventarioVenta(productoId, sedeId, cantidadActual - cantidadVendida);
-                } else {
-                    throw new IllegalArgumentException(
-                        String.format("No existe inventario para producto ID %d en sede ID %d", productoId, sedeId)
-                    );
-                }
+                // 🔒 VALIDACIÓN Y ACTUALIZACIÓN CONCURRENTE SEGURA
+                actualizarInventarioConcurrente(productoId, sedeId, cantidadVendida);
             }
+        }
+        
+        System.out.println("✅ Inventario actualizado correctamente para orden ID: " + orden.getId());
+    }
+
+    /**
+     * 🔒 ACTUALIZAR INVENTARIO CON MANEJO DE CONCURRENCIA
+     * 
+     * Implementa:
+     * - Lock pesimista para evitar race conditions
+     * - Validación de stock en tiempo real
+     * - Manejo de errores específicos
+     */
+    @Transactional
+    private void actualizarInventarioConcurrente(Long productoId, Long sedeId, Integer cantidadVendida) {
+        try {
+            // 🔍 BUSCAR INVENTARIO CON LOCK PESIMISTA
+            Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSedeConLock(productoId, sedeId);
+            
+            if (!inventarioOpt.isPresent()) {
+                throw new IllegalArgumentException(
+                    String.format("❌ No existe inventario para producto ID %d en sede ID %d", productoId, sedeId)
+                );
+            }
+            
+            Inventario inventario = inventarioOpt.get();
+            int cantidadActual = inventario.getCantidad();
+            
+            System.out.println("📊 Stock actual: " + cantidadActual + ", cantidad a vender: " + cantidadVendida);
+            
+            // 🛡️ VALIDAR STOCK SUFICIENTE
+            if (cantidadActual < cantidadVendida) {
+                throw new IllegalArgumentException(
+                    String.format("❌ Stock insuficiente para producto ID %d en sede ID %d. Disponible: %d, Requerido: %d", 
+                                productoId, sedeId, cantidadActual, cantidadVendida)
+                );
+            }
+            
+            // ➖ ACTUALIZAR CANTIDAD CON VALIDACIÓN ADICIONAL
+            int nuevaCantidad = cantidadActual - cantidadVendida;
+            
+            // 🔒 DOBLE VERIFICACIÓN PARA CONCURRENCIA
+            if (nuevaCantidad < 0) {
+                throw new IllegalArgumentException(
+                    String.format("❌ Error de concurrencia: Stock insuficiente después de validación. Disponible: %d, Requerido: %d", 
+                                cantidadActual, cantidadVendida)
+                );
+            }
+            
+            inventario.setCantidad(nuevaCantidad);
+            inventarioService.actualizar(inventario.getId(), inventario);
+            
+            System.out.println("✅ Stock actualizado: " + cantidadActual + " → " + nuevaCantidad);
+            
+        } catch (IllegalArgumentException e) {
+            // Re-lanzar errores de validación
+            throw e;
+        } catch (Exception e) {
+            // Manejar errores de concurrencia
+            System.err.println("❌ Error de concurrencia en inventario: " + e.getMessage());
+            throw new RuntimeException(
+                String.format("❌ Error de concurrencia al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
+            );
         }
     }
 

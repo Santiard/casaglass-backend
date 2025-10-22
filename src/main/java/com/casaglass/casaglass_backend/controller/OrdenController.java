@@ -51,7 +51,16 @@ public class OrdenController {
             System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
-                "tipo", "VALIDACION"
+                "tipo", "VALIDACION",
+                "codigo", "STOCK_INSUFICIENTE"
+            ));
+        } catch (RuntimeException e) {
+            System.err.println("❌ ERROR CONCURRENCIA: " + e.getMessage());
+            return ResponseEntity.status(409).body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "CONCURRENCIA",
+                "codigo", "CONFLICTO_STOCK",
+                "mensaje", "Conflicto de concurrencia. Por favor, intente nuevamente."
             ));
         } catch (Exception e) {
             System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());

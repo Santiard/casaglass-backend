@@ -52,6 +52,17 @@ public class InventarioService {
         return repo.findByProductoIdAndSedeId(productoId, sedeId);
     }
 
+    /**
+     * 🔒 OBTENER INVENTARIO CON LOCK PESIMISTA PARA CONCURRENCIA
+     * 
+     * Usa SELECT FOR UPDATE para evitar race conditions
+     * Bloquea el registro hasta que termine la transacción
+     */
+    @Transactional(readOnly = true)
+    public Optional<Inventario> obtenerPorProductoYSedeConLock(Long productoId, Long sedeId) {
+        return repo.findByProductoIdAndSedeIdWithLock(productoId, sedeId);
+    }
+
     @Transactional
     public Inventario guardar(Inventario payload) {
         // Esperamos payload con producto.id y sede.id
