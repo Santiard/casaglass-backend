@@ -2,11 +2,10 @@ package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.*;
+import com.casaglass.casaglass_backend.dto.IngresoCreateDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -103,6 +102,66 @@ public class IngresoService {
 
         // Procesar automáticamente el inventario
         procesarInventario(ingresoGuardado);
+
+        return ingresoGuardado;
+    }
+
+    /**
+     * Crea un ingreso desde un DTO que contiene solo IDs de proveedor y productos
+     */
+    public Ingreso crearIngresoDesdeDTO(IngresoCreateDTO ingresoDTO) {
+        System.out.println("🔧 Servicio - Creando ingreso desde DTO");
+        
+        // Crear la entidad Ingreso
+        Ingreso ingreso = new Ingreso();
+        ingreso.setFecha(ingresoDTO.getFecha() != null ? ingresoDTO.getFecha() : LocalDate.now());
+        ingreso.setNumeroFactura(ingresoDTO.getNumeroFactura());
+        ingreso.setObservaciones(ingresoDTO.getObservaciones());
+        ingreso.setTotalCosto(ingresoDTO.getTotalCosto() != null ? ingresoDTO.getTotalCosto() : 0.0);
+        ingreso.setProcesado(ingresoDTO.getProcesado() != null ? ingresoDTO.getProcesado() : false);
+
+        // Buscar el proveedor completo por ID
+        if (ingresoDTO.getProveedor() != null && ingresoDTO.getProveedor().getId() != null) {
+            Proveedor proveedorCompleto = proveedorRepository.findById(ingresoDTO.getProveedor().getId())
+                .orElseThrow(() -> new RuntimeException("Proveedor con ID " + ingresoDTO.getProveedor().getId() + " no encontrado"));
+            ingreso.setProveedor(proveedorCompleto);
+        } else {
+            throw new RuntimeException("El proveedor es obligatorio");
+        }
+
+        // Procesar los detalles de productos
+        if (ingresoDTO.getDetalles() != null && !ingresoDTO.getDetalles().isEmpty()) {
+            for (IngresoCreateDTO.IngresoDetalleCreateDTO detalleDTO : ingresoDTO.getDetalles()) {
+                // Buscar el producto completo por ID
+                if (detalleDTO.getProducto() != null && detalleDTO.getProducto().getId() != null) {
+                    Producto productoCompleto = productoRepository.findById(detalleDTO.getProducto().getId())
+                        .orElseThrow(() -> new RuntimeException("Producto con ID " + detalleDTO.getProducto().getId() + " no encontrado"));
+                    
+                    // Crear el detalle del ingreso
+                    IngresoDetalle detalle = new IngresoDetalle();
+                    detalle.setProducto(productoCompleto);
+                    detalle.setCantidad(detalleDTO.getCantidad());
+                    detalle.setCostoUnitario(detalleDTO.getCostoUnitario());
+                    detalle.setTotalLinea(detalleDTO.getTotalLinea());
+                    detalle.setIngreso(ingreso);
+                    
+                    ingreso.getDetalles().add(detalle);
+                } else {
+                    throw new RuntimeException("Todos los detalles deben tener un producto válido");
+                }
+            }
+        } else {
+            throw new RuntimeException("El ingreso debe tener al menos un detalle");
+        }
+
+        // Calcular totales
+        ingreso.calcularTotal();
+        
+        // Guardar el ingreso
+        Ingreso ingresoGuardado = ingresoRepository.save(ingreso);
+
+        // NO procesar automáticamente - el usuario debe hacerlo manualmente
+        // procesarInventario(ingresoGuardado);
 
         return ingresoGuardado;
     }

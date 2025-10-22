@@ -3,6 +3,7 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.model.Ingreso;
 import com.casaglass.casaglass_backend.service.IngresoService;
+import com.casaglass.casaglass_backend.dto.IngresoCreateDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,14 +52,30 @@ public class IngresoController {
     }
 
     @PostMapping
-    public ResponseEntity<?> crearIngreso(@RequestBody Ingreso ingreso) {
-        // Aquí sí retornamos mensajes (ResponseEntity<?>), y el handler global formatea 400/500
+    public ResponseEntity<?> crearIngreso(@RequestBody IngresoCreateDTO ingresoDTO) {
         try {
-            return ResponseEntity.ok(ingresoService.guardarIngreso(ingreso));
+            System.out.println("🔄 POST /api/ingresos - Creando ingreso desde DTO");
+            System.out.println("📥 Datos recibidos - Proveedor ID: " + 
+                (ingresoDTO.getProveedor() != null ? ingresoDTO.getProveedor().getId() : "null"));
+            System.out.println("📥 Detalles: " + 
+                (ingresoDTO.getDetalles() != null ? ingresoDTO.getDetalles().size() : 0) + " items");
+            
+            Ingreso resultado = ingresoService.crearIngresoDesdeDTO(ingresoDTO);
+            
+            System.out.println("✅ Ingreso creado exitosamente - ID: " + resultado.getId());
+            
+            return ResponseEntity.ok(resultado);
         } catch (IllegalArgumentException e) {
+            System.err.println("❌ Error de validación: " + e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.status(500).body(e.getMessage());
+            System.err.println("❌ Error de ejecución: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("❌ Error inesperado: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error inesperado: " + e.getMessage());
         }
     }
 
@@ -101,7 +118,7 @@ public class IngresoController {
         }
     }
 
-    @PostMapping("/{id}/procesar")
+    @PutMapping("/{id}/procesar")
     public ResponseEntity<?> procesarInventario(@PathVariable Long id) {
         try {
             Ingreso ingreso = ingresoService.obtenerIngresoPorId(id)
@@ -113,7 +130,7 @@ public class IngresoController {
         }
     }
 
-    @PostMapping("/{id}/reprocesar")
+    @PutMapping("/{id}/reprocesar")
     public ResponseEntity<?> reprocesarInventario(@PathVariable Long id) {
         try {
             ingresoService.reprocesarInventario(id);
@@ -123,7 +140,7 @@ public class IngresoController {
         }
     }
 
-    @PostMapping("/{id}/marcar-procesado")
+    @PutMapping("/{id}/marcar-procesado")
     public ResponseEntity<?> marcarComoProcesado(@PathVariable Long id) {
         try {
             Ingreso ingreso = ingresoService.marcarComoProcesado(id);
