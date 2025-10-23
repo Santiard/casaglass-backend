@@ -258,8 +258,7 @@ public class CorteInventarioCompletoService {
             cantidadPatios,
             corte.getPrecio1(),
             corte.getPrecio2(),
-            corte.getPrecio3(),
-            corte.getPrecioEspecial()
+            corte.getPrecio3()
         );
     }
 }

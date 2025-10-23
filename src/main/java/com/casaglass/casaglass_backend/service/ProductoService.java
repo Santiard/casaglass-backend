@@ -81,7 +81,6 @@ public class ProductoService {
                 actual.setPrecio1(p.getPrecio1());
                 actual.setPrecio2(p.getPrecio2());
                 actual.setPrecio3(p.getPrecio3());
-                actual.setPrecioEspecial(p.getPrecioEspecial());
                 actual.setDescripcion(p.getDescripcion());
 
                 // Actualizar categoría si se envía

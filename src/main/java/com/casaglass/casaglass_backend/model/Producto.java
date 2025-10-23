@@ -53,7 +53,6 @@ public class Producto {
     private Double precio1;
     private Double precio2;
     private Double precio3;
-    private Double precioEspecial;
 
     @Lob
     private String descripcion;

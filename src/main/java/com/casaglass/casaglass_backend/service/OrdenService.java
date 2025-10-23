@@ -736,11 +736,23 @@ public class OrdenService {
         } catch (IllegalArgumentException e) {
             // Re-lanzar errores de validación
             throw e;
-        } catch (Exception e) {
-            // Manejar errores de concurrencia
-            System.err.println("❌ Error de concurrencia en inventario: " + e.getMessage());
+        } catch (org.springframework.dao.PessimisticLockingFailureException e) {
+            // Error específico de lock pesimista (timeout o deadlock)
+            System.err.println("❌ Error de lock pesimista: " + e.getMessage());
             throw new RuntimeException(
-                String.format("❌ Error de concurrencia al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
+                String.format("❌ Conflicto de concurrencia: Otro proceso está usando el inventario del producto ID %d. Espere unos segundos e intente nuevamente.", productoId)
+            );
+        } catch (org.springframework.dao.DataAccessException e) {
+            // Otros errores de base de datos
+            System.err.println("❌ Error de base de datos: " + e.getMessage());
+            throw new RuntimeException(
+                String.format("❌ Error de base de datos al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
+            );
+        } catch (Exception e) {
+            // Manejar otros errores de concurrencia
+            System.err.println("❌ Error inesperado en inventario: " + e.getMessage());
+            throw new RuntimeException(
+                String.format("❌ Error inesperado al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
             );
         }
     }

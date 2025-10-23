@@ -243,8 +243,7 @@ public class InventarioCompletoService {
             cantidadPatios,
             producto.getPrecio1(),
             producto.getPrecio2(),
-            producto.getPrecio3(),
-            producto.getPrecioEspecial()
+            producto.getPrecio3()
         );
     }
 }

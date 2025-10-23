@@ -32,7 +32,6 @@ public class ProductoInventarioCompletoDTO {
     private Double precio1;
     private Double precio2;
     private Double precio3;
-    private Double precioEspecial;
     
     // === Campos calculados ===
     private Integer cantidadTotal; // suma de las 3 sedes
@@ -41,7 +40,7 @@ public class ProductoInventarioCompletoDTO {
     public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria, String tipo, String color,
                                         Boolean esVidrio, Double mm, Double m1m2, Integer laminas,
                                         Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
-                                        Double precio1, Double precio2, Double precio3, Double precioEspecial) {
+                                        Double precio1, Double precio2, Double precio3) {
         this.id = id;
         this.codigo = codigo;
         this.nombre = nombre;
@@ -58,7 +57,6 @@ public class ProductoInventarioCompletoDTO {
         this.precio1 = precio1;
         this.precio2 = precio2;
         this.precio3 = precio3;
-        this.precioEspecial = precioEspecial;
         
         // Calcular total automáticamente
         this.cantidadTotal = this.cantidadInsula + this.cantidadCentro + this.cantidadPatios;

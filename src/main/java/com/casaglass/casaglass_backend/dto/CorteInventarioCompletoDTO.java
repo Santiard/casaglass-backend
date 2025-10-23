@@ -32,13 +32,12 @@ public class CorteInventarioCompletoDTO {
     private Double precio1;
     private Double precio2;
     private Double precio3;
-    private Double precioEspecial;
     
     // Constructor principal con cálculo automático de total
     public CorteInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria, String tipo, String color,
                                      Double largoCm, Double precio, String observacion,
                                      Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
-                                     Double precio1, Double precio2, Double precio3, Double precioEspecial) {
+                                     Double precio1, Double precio2, Double precio3) {
         this.id = id;
         this.codigo = codigo;
         this.nombre = nombre;
@@ -54,7 +53,6 @@ public class CorteInventarioCompletoDTO {
         this.precio1 = precio1;
         this.precio2 = precio2;
         this.precio3 = precio3;
-        this.precioEspecial = precioEspecial;
         
         // Calcular total automáticamente
         recalcularTotal();

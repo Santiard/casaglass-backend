@@ -139,9 +139,6 @@ public class CorteService {
                         if (corteActualizado.getPrecio3() != null) {
                             corteExistente.setPrecio3(corteActualizado.getPrecio3());
                         }
-                        if (corteActualizado.getPrecioEspecial() != null) {
-                            corteExistente.setPrecioEspecial(corteActualizado.getPrecioEspecial());
-                        }
 
                         // Actualizar categoría si se envía
                         if (corteActualizado.getCategoria() != null && corteActualizado.getCategoria().getId() != null) {

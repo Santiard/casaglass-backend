@@ -9,12 +9,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "creditos", indexes = {
-    @Index(name = "idx_credito_cliente", columnList = "cliente_id"),
-    @Index(name = "idx_credito_orden", columnList = "orden_id"),
-    @Index(name = "idx_credito_estado", columnList = "estado"),
-    @Index(name = "idx_credito_fecha", columnList = "fecha_inicio")
-})
+@Table(name = "creditos", 
+    indexes = {
+        @Index(name = "idx_credito_cliente", columnList = "cliente_id"),
+        @Index(name = "idx_credito_orden", columnList = "orden_id"),
+        @Index(name = "idx_credito_estado", columnList = "estado"),
+        @Index(name = "idx_credito_fecha", columnList = "fecha_inicio")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_credito_orden", columnNames = {"orden_id"})
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

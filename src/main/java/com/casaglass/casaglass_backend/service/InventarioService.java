@@ -60,7 +60,13 @@ public class InventarioService {
      */
     @Transactional(readOnly = true)
     public Optional<Inventario> obtenerPorProductoYSedeConLock(Long productoId, Long sedeId) {
-        return repo.findByProductoIdAndSedeIdWithLock(productoId, sedeId);
+        try {
+            return repo.findByProductoIdAndSedeIdWithLock(productoId, sedeId);
+        } catch (org.springframework.dao.PessimisticLockingFailureException e) {
+            // Si falla el lock pesimista, usar método sin lock como fallback
+            System.err.println("⚠️ Lock pesimista falló, usando método sin lock: " + e.getMessage());
+            return obtenerPorProductoYSede(productoId, sedeId);
+        }
     }
 
     @Transactional
