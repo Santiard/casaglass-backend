@@ -275,6 +275,192 @@ public class OrdenService {
     }
 
     /**
+     * 🔄 ACTUALIZAR ORDEN DE VENTA - Método optimizado para editar ventas
+     * Maneja inventario automáticamente y procesa cortes
+     */
+    @Transactional
+    public Orden actualizarOrdenVenta(Long ordenId, OrdenVentaDTO ventaDTO) {
+        System.out.println("🔄 DEBUG: Iniciando actualización de orden ID: " + ordenId);
+        
+        // 🔍 VALIDACIONES DE NEGOCIO
+        validarDatosVenta(ventaDTO);
+        
+        // 📝 BUSCAR ORDEN EXISTENTE
+        Orden ordenExistente = repo.findById(ordenId)
+            .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+        
+        // 🔄 RESTAURAR INVENTARIO DE LA ORDEN ANTERIOR
+        System.out.println("🔄 Restaurando inventario de la orden anterior...");
+        restaurarInventarioPorAnulacion(ordenExistente);
+        
+        // 📝 ACTUALIZAR CAMPOS BÁSICOS
+        ordenExistente.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
+        ordenExistente.setObra(ventaDTO.getObra());
+        ordenExistente.setVenta(ventaDTO.isVenta());
+        ordenExistente.setCredito(ventaDTO.isCredito());
+        ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        
+        // 🔗 ACTUALIZAR RELACIONES
+        ordenExistente.setCliente(clienteRepository.findById(ventaDTO.getClienteId())
+            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId())));
+        ordenExistente.setSede(sedeRepository.findById(ventaDTO.getSedeId())
+            .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + ventaDTO.getSedeId())));
+        
+        if (ventaDTO.getTrabajadorId() != null) {
+            ordenExistente.setTrabajador(trabajadorRepository.findById(ventaDTO.getTrabajadorId())
+                .orElseThrow(() -> new RuntimeException("Trabajador no encontrado con ID: " + ventaDTO.getTrabajadorId())));
+        }
+        
+        // 📋 ACTUALIZAR ITEMS DE VENTA (manejo correcto de cascade)
+        // Limpiar items existentes para evitar problemas de cascade
+        ordenExistente.getItems().clear();
+        
+        double subtotal = 0.0;
+        
+        for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
+            OrdenItem item = new OrdenItem();
+            item.setOrden(ordenExistente);
+            item.setProducto(productoRepository.findById(itemDTO.getProductoId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+            item.setDescripcion(itemDTO.getDescripcion());
+            item.setCantidad(itemDTO.getCantidad());
+            item.setPrecioUnitario(itemDTO.getPrecioUnitario());
+            
+            // Calcular total de línea
+            double totalLinea = itemDTO.getCantidad() * itemDTO.getPrecioUnitario();
+            item.setTotalLinea(totalLinea);
+            subtotal += totalLinea;
+            
+            // Agregar item a la lista existente
+            ordenExistente.getItems().add(item);
+        }
+        
+        ordenExistente.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        ordenExistente.setTotal(ordenExistente.getSubtotal());
+        
+        // 💾 GUARDAR ORDEN ACTUALIZADA
+        Orden ordenActualizada = repo.save(ordenExistente);
+        
+        // 📦 ACTUALIZAR INVENTARIO CON LOS NUEVOS ITEMS
+        actualizarInventarioPorVenta(ordenActualizada);
+        
+        // 🔪 PROCESAR CORTES SI EXISTEN
+        if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+            System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes en actualización...");
+            procesarCortes(ordenActualizada, ventaDTO.getCortes());
+        }
+        
+        System.out.println("✅ Orden actualizada exitosamente: " + ordenActualizada.getId());
+        return ordenActualizada;
+    }
+
+    /**
+     * 💳 ACTUALIZAR ORDEN DE VENTA CON CRÉDITO - Método para editar ventas a crédito
+     */
+    @Transactional
+    public Orden actualizarOrdenVentaConCredito(Long ordenId, OrdenVentaDTO ventaDTO) {
+        System.out.println("🔄 DEBUG: Actualizando orden con crédito ID: " + ordenId);
+        
+        // 🔍 VALIDACIONES DE NEGOCIO
+        validarDatosVenta(ventaDTO);
+        
+        // 📝 BUSCAR ORDEN EXISTENTE
+        Orden ordenExistente = repo.findById(ordenId)
+            .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+        
+        // 🔄 RESTAURAR INVENTARIO DE LA ORDEN ANTERIOR
+        System.out.println("🔄 Restaurando inventario de la orden anterior...");
+        restaurarInventarioPorAnulacion(ordenExistente);
+        
+        // 📝 ACTUALIZAR CAMPOS BÁSICOS
+        ordenExistente.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
+        ordenExistente.setObra(ventaDTO.getObra());
+        ordenExistente.setVenta(ventaDTO.isVenta());
+        ordenExistente.setCredito(ventaDTO.isCredito());
+        ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        
+        // 🔗 ACTUALIZAR RELACIONES
+        ordenExistente.setCliente(clienteRepository.findById(ventaDTO.getClienteId())
+            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId())));
+        ordenExistente.setSede(sedeRepository.findById(ventaDTO.getSedeId())
+            .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + ventaDTO.getSedeId())));
+        
+        if (ventaDTO.getTrabajadorId() != null) {
+            ordenExistente.setTrabajador(trabajadorRepository.findById(ventaDTO.getTrabajadorId())
+                .orElseThrow(() -> new RuntimeException("Trabajador no encontrado con ID: " + ventaDTO.getTrabajadorId())));
+        }
+        
+        // 📋 ACTUALIZAR ITEMS DE VENTA (manejo correcto de cascade)
+        // Limpiar items existentes para evitar problemas de cascade
+        ordenExistente.getItems().clear();
+        
+        double subtotal = 0.0;
+        
+        for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
+            OrdenItem item = new OrdenItem();
+            item.setOrden(ordenExistente);
+            item.setProducto(productoRepository.findById(itemDTO.getProductoId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+            item.setDescripcion(itemDTO.getDescripcion());
+            item.setCantidad(itemDTO.getCantidad());
+            item.setPrecioUnitario(itemDTO.getPrecioUnitario());
+            
+            // Calcular total de línea
+            double totalLinea = itemDTO.getCantidad() * itemDTO.getPrecioUnitario();
+            item.setTotalLinea(totalLinea);
+            subtotal += totalLinea;
+            
+            // Agregar item a la lista existente
+            ordenExistente.getItems().add(item);
+        }
+        
+        ordenExistente.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        ordenExistente.setTotal(ordenExistente.getSubtotal());
+        
+        // 💾 GUARDAR ORDEN ACTUALIZADA PRIMERO
+        Orden ordenActualizada = repo.save(ordenExistente);
+        System.out.println("✅ DEBUG: Orden actualizada con ID: " + ordenActualizada.getId());
+        
+        // 💳 ACTUALIZAR CRÉDITO SI ES NECESARIO
+        if (ventaDTO.isCredito()) {
+            System.out.println("🔄 DEBUG: Actualizando crédito para orden " + ordenActualizada.getId());
+            
+            // Si ya existe crédito, actualizarlo
+            if (ordenActualizada.getCreditoDetalle() != null) {
+                creditoService.actualizarCreditoParaOrden(
+                    ordenActualizada.getCreditoDetalle().getId(),
+                    ordenActualizada.getTotal()
+                );
+            } else {
+                // Si no existe crédito, crearlo
+                creditoService.crearCreditoParaOrden(
+                    ordenActualizada.getId(), 
+                    ventaDTO.getClienteId(), 
+                    ordenActualizada.getTotal()
+                );
+            }
+        } else {
+            // Si se cambió de crédito a contado, anular el crédito existente
+            if (ordenActualizada.getCreditoDetalle() != null) {
+                System.out.println("🔄 DEBUG: Anulando crédito existente...");
+                creditoService.anularCredito(ordenActualizada.getCreditoDetalle().getId());
+            }
+        }
+        
+        // 📦 ACTUALIZAR INVENTARIO CON LOS NUEVOS ITEMS
+        actualizarInventarioPorVenta(ordenActualizada);
+        
+        // 🔪 PROCESAR CORTES SI EXISTEN
+        if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+            System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes en actualización...");
+            procesarCortes(ordenActualizada, ventaDTO.getCortes());
+        }
+        
+        System.out.println("✅ Orden con crédito actualizada exitosamente: " + ordenActualizada.getId());
+        return ordenActualizada;
+    }
+
+    /**
      * 🔍 VALIDACIONES PARA ORDENES DE VENTA
      */
     private void validarDatosVenta(OrdenVentaDTO ventaDTO) {

@@ -101,6 +101,37 @@ public class CreditoService {
     }
 
     /**
+     * 🔄 ACTUALIZAR CRÉDITO PARA UNA ORDEN
+     * Se ejecuta cuando se actualiza una orden que tiene crédito
+     */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public Credito actualizarCreditoParaOrden(Long creditoId, Double nuevoTotalOrden) {
+        try {
+            System.out.println("🔄 DEBUG: Actualizando crédito ID: " + creditoId + " con nuevo total: " + nuevoTotalOrden);
+            
+            Credito credito = creditoRepo.findById(creditoId)
+                .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado con ID: " + creditoId));
+
+            // Actualizar el total del crédito
+            Double totalNormalizado = normalize(nuevoTotalOrden);
+            credito.setTotalCredito(totalNormalizado);
+            
+            // Recalcular el saldo pendiente
+            credito.actualizarSaldo();
+            
+            Credito creditoActualizado = creditoRepo.save(credito);
+            System.out.println("✅ DEBUG: Crédito actualizado - Total: " + totalNormalizado + ", Saldo: " + creditoActualizado.getSaldoPendiente());
+            
+            return creditoActualizado;
+            
+        } catch (Exception e) {
+            System.err.println("❌ ERROR al actualizar crédito: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Error al actualizar crédito: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * 💰 REGISTRAR ABONO A UN CRÉDITO
      * Actualiza automáticamente los totales y el estado
      */
