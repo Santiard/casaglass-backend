@@ -24,13 +24,13 @@ public interface CorteRepository extends JpaRepository<Corte, Long> {
     List<Corte> findByLargoRange(@Param("largoMin") Double largoMin, 
                                  @Param("largoMax") Double largoMax);
 
-    @Query("SELECT c FROM Corte c WHERE c.precio BETWEEN :precioMin AND :precioMax")
+    @Query("SELECT c FROM Corte c WHERE c.precio1 BETWEEN :precioMin AND :precioMax")
     List<Corte> findByPrecioRange(@Param("precioMin") Double precioMin, 
                                   @Param("precioMax") Double precioMax);
 
     List<Corte> findByLargoCmGreaterThanEqual(Double largoMinimo);
 
-    List<Corte> findByPrecioLessThanEqual(Double precioMaximo);
+    List<Corte> findByPrecio1LessThanEqual(Double precioMaximo);
 
     @Query("SELECT c FROM Corte c WHERE c.observacion IS NOT NULL AND c.observacion != ''")
     List<Corte> findCortesWithObservaciones();

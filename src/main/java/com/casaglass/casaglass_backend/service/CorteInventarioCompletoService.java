@@ -251,7 +251,6 @@ public class CorteInventarioCompletoService {
             tipoProducto,
             colorProducto,
             corte.getLargoCm(),
-            corte.getPrecio(),
             corte.getObservacion(),
             cantidadInsula,
             cantidadCentro,

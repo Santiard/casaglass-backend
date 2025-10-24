@@ -19,7 +19,6 @@ public class CorteInventarioCompletoDTO {
     
     // Datos específicos de Corte
     private Double largoCm;
-    private Double precio;
     private String observacion;
     
     // Inventario por sede
@@ -35,7 +34,7 @@ public class CorteInventarioCompletoDTO {
     
     // Constructor principal con cálculo automático de total
     public CorteInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria, String tipo, String color,
-                                     Double largoCm, Double precio, String observacion,
+                                     Double largoCm, String observacion,
                                      Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
                                      Double precio1, Double precio2, Double precio3) {
         this.id = id;
@@ -45,7 +44,6 @@ public class CorteInventarioCompletoDTO {
         this.tipo = tipo;
         this.color = color;
         this.largoCm = largoCm;
-        this.precio = precio;
         this.observacion = observacion;
         this.cantidadInsula = cantidadInsula != null ? cantidadInsula : 0;
         this.cantidadCentro = cantidadCentro != null ? cantidadCentro : 0;

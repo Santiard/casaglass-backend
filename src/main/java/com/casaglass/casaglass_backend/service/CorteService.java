@@ -43,7 +43,7 @@ public class CorteService {
             System.out.println("Código: " + corte.getCodigo());
             System.out.println("Nombre: " + corte.getNombre());
             System.out.println("Largo CM: " + corte.getLargoCm());
-            System.out.println("Precio: " + corte.getPrecio());
+            System.out.println("Precio1: " + corte.getPrecio1());
             System.out.println("Tipo: " + corte.getTipo());
             System.out.println("Color: " + corte.getColor());
             
@@ -57,8 +57,8 @@ public class CorteService {
             if (corte.getLargoCm() == null || corte.getLargoCm() <= 0) {
                 throw new IllegalArgumentException("El largo debe ser mayor que 0");
             }
-            if (corte.getPrecio() == null || corte.getPrecio() <= 0) {
-                throw new IllegalArgumentException("El precio debe ser mayor que 0");
+            if (corte.getPrecio1() == null || corte.getPrecio1() <= 0) {
+                throw new IllegalArgumentException("El precio1 debe ser mayor que 0");
             }
 
             // 🔧 Configurar valores por defecto si no vienen
@@ -101,7 +101,7 @@ public class CorteService {
                         System.out.println("ID: " + id);
                         System.out.println("Nuevo código: " + corteActualizado.getCodigo());
                         System.out.println("Nuevo largo: " + corteActualizado.getLargoCm());
-                        System.out.println("Nuevo precio: " + corteActualizado.getPrecio());
+                        System.out.println("Nuevo precio1: " + corteActualizado.getPrecio1());
                         
                         // Campos heredados de Producto - SOLO si no son null
                         if (corteActualizado.getPosicion() != null) {
@@ -154,11 +154,11 @@ public class CorteService {
                             }
                             corteExistente.setLargoCm(corteActualizado.getLargoCm());
                         }
-                        if (corteActualizado.getPrecio() != null) {
-                            if (corteActualizado.getPrecio() <= 0) {
-                                throw new IllegalArgumentException("El precio debe ser mayor que 0");
+                        if (corteActualizado.getPrecio1() != null) {
+                            if (corteActualizado.getPrecio1() <= 0) {
+                                throw new IllegalArgumentException("El precio1 debe ser mayor que 0");
                             }
-                            corteExistente.setPrecio(corteActualizado.getPrecio());
+                            corteExistente.setPrecio1(corteActualizado.getPrecio1());
                         }
                         if (corteActualizado.getObservacion() != null) {
                             corteExistente.setObservacion(corteActualizado.getObservacion());
@@ -212,7 +212,7 @@ public class CorteService {
     }
 
     public List<Corte> listarPorPrecioMaximo(Double precioMaximo) {
-        return repository.findByPrecioLessThanEqual(precioMaximo);
+        return repository.findByPrecio1LessThanEqual(precioMaximo);
     }
 
     public List<Corte> listarConObservaciones() {

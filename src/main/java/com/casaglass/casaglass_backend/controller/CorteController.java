@@ -108,7 +108,7 @@ public class CorteController {
             System.out.println("Nombre: " + corte.getNombre());
             System.out.println("Código: " + corte.getCodigo());
             System.out.println("Largo CM: " + corte.getLargoCm());
-            System.out.println("Precio: " + corte.getPrecio());
+            System.out.println("Precio1: " + corte.getPrecio1());
             System.out.println("Observación: " + corte.getObservacion());
             System.out.println("Categoría: " + (corte.getCategoria() != null ? corte.getCategoria().getId() : "null"));
             System.out.println("======================");
@@ -130,7 +130,7 @@ public class CorteController {
             System.out.println("ID: " + id);
             System.out.println("Código: " + corte.getCodigo());
             System.out.println("Largo CM: " + corte.getLargoCm());
-            System.out.println("Precio: " + corte.getPrecio());
+            System.out.println("Precio1: " + corte.getPrecio1());
             System.out.println("========================");
             
             Corte resultado = service.actualizar(id, corte);

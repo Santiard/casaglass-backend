@@ -14,8 +14,6 @@ public class Corte extends Producto {
     @Column(name = "largo", nullable = false)
     private Double largoCm;
 
-    @Column(name="precio", nullable = false)
-    private Double precio;
 
     @Lob
     private String observacion;

@@ -31,6 +31,9 @@ public class OrdenVentaDTO {
     // ITEMS DE LA VENTA (mínimo 1 item requerido)
     private List<OrdenItemVentaDTO> items;
     
+    // 🆕 CORTES DE PRODUCTOS PERFIL (opcional)
+    private List<CorteSolicitadoDTO> cortes;
+    
     /**
      * DTO para items de venta
      */
@@ -44,5 +47,21 @@ public class OrdenVentaDTO {
         private Double precioUnitario; // OBLIGATORIO - precio unitario
         
         // totalLinea se calcula automáticamente en el backend
+    }
+    
+    /**
+     * 🆕 DTO para cortes de productos PERFIL
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CorteSolicitadoDTO {
+        private Long productoId;              // Producto PERFIL original
+        private Integer medidaSolicitada;     // Medida en cm del corte a vender
+        private Integer cantidad;             // Cantidad de cortes
+        
+        // Datos ya calculados por el frontend:
+        private Double precioUnitarioSolicitado;  // Precio del corte a vender
+        private Double precioUnitarioSobrante;     // Precio del corte sobrante
     }
 }

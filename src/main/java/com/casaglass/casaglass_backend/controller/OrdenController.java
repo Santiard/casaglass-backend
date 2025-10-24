@@ -32,6 +32,31 @@ public class OrdenController {
             System.out.println("🔍 DEBUG: Iniciando creación de orden venta");
             System.out.println("🔍 DEBUG: Datos recibidos: " + ventaDTO);
             
+            // 🔪 LOGGING DETALLADO PARA CORTES
+            System.out.println("🔪 ===== ANÁLISIS DE CORTES =====");
+            System.out.println("🔪 ventaDTO.getCortes() es null? " + (ventaDTO.getCortes() == null));
+            if (ventaDTO.getCortes() != null) {
+                System.out.println("🔪 Cantidad de cortes: " + ventaDTO.getCortes().size());
+                System.out.println("🔪 Lista vacía? " + ventaDTO.getCortes().isEmpty());
+            }
+            
+            if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+                System.out.println("🔪 ✅ CORTES ENCONTRADOS - Procesando...");
+                for (int i = 0; i < ventaDTO.getCortes().size(); i++) {
+                    OrdenVentaDTO.CorteSolicitadoDTO corte = ventaDTO.getCortes().get(i);
+                    System.out.println("🔪 Corte " + i + ": " + corte.toString());
+                    System.out.println("🔪   - ProductoId: " + corte.getProductoId());
+                    System.out.println("🔪   - Medida solicitada: " + corte.getMedidaSolicitada());
+                    System.out.println("🔪   - Cantidad: " + corte.getCantidad());
+                    System.out.println("🔪   - Precio solicitado: " + corte.getPrecioUnitarioSolicitado());
+                    System.out.println("🔪   - Precio sobrante: " + corte.getPrecioUnitarioSobrante());
+                }
+            } else {
+                System.out.println("⚠️ ❌ NO SE RECIBIERON CORTES EN EL PAYLOAD");
+                System.out.println("⚠️ Esto puede indicar que el frontend no está enviando los cortes correctamente");
+            }
+            System.out.println("🔪 ================================");
+            
             // Crear orden (con o sin crédito según el flag)
             Orden ordenCreada;
             if (ventaDTO.isCredito()) {

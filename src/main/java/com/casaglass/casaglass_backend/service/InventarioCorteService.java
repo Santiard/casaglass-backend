@@ -190,7 +190,7 @@ public List<InventarioCorteDTO> listarInventarioCortesAgrupado() {
         Long corteId = inv.getCorte().getId();
         String nombre = inv.getCorte().getNombre();
         Double largoCm = inv.getCorte().getLargoCm();
-        Double precio = inv.getCorte().getPrecio();
+        Double precio = inv.getCorte().getPrecio1();
         String sede = inv.getSede().getNombre().toLowerCase();
 
         InventarioCorteDTO dto = mapa.computeIfAbsent(corteId,
