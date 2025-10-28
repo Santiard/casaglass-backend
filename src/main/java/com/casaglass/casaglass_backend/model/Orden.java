@@ -61,6 +61,14 @@ public class Orden {
   @JsonIgnoreProperties({"orden", "hibernateLazyInitializer", "handler"})
   private Credito creditoDetalle;
 
+  /**
+   * Factura asociada a esta orden (si ya fue facturada)
+   * Relación opcional - solo existe si la orden fue facturada
+   */
+  @OneToOne(fetch = FetchType.LAZY)
+  @JsonIgnoreProperties({"orden", "hibernateLazyInitializer", "handler"})
+  private Factura factura;
+
   @OneToMany(mappedBy = "orden", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
   @JsonIgnoreProperties({"orden", "hibernateLazyInitializer", "handler"})
   private List<OrdenItem> items = new ArrayList<>();
