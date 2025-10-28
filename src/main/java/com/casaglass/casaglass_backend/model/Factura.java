@@ -9,8 +9,7 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "facturas", indexes = {
-  @Index(name = "idx_factura_numero", columnList = "numero", unique = true),
-  @Index(name = "idx_factura_cliente", columnList = "cliente_id"),
+  @Index(name = "idx_factura_numero", columnList = "numero_factura", unique = true),
   @Index(name = "idx_factura_orden", columnList = "orden_id")
 })
 @Data
@@ -23,11 +22,12 @@ public class Factura {
   private Long id;
 
   /**
-   * Número de factura único (generado automáticamente)
+   * Número de factura público (generado automáticamente)
    * Formato: Factura electrónica o manual
+   * Diferente del ID interno de la base de datos
    */
-  @Column(nullable = false, unique = true)
-  private String numero;
+  @Column(name = "numero_factura", nullable = false, unique = true)
+  private String numeroFactura;
 
   /**
    * Fecha de emisión de la factura
@@ -45,32 +45,6 @@ public class Factura {
   @NotNull
   @JsonIgnoreProperties({"factura", "hibernateLazyInitializer", "handler"})
   private Orden orden;
-
-  /**
-   * Cliente (puede venir desde orden o redundante para consultas rápidas)
-   */
-  @ManyToOne(optional = false, fetch = FetchType.EAGER)
-  @JoinColumn(name = "cliente_id", nullable = false)
-  @NotNull
-  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-  private Cliente cliente;
-
-  /**
-   * Sede donde se genera la factura
-   */
-  @ManyToOne(optional = false, fetch = FetchType.EAGER)
-  @JoinColumn(name = "sede_id", nullable = false)
-  @NotNull
-  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-  private Sede sede;
-
-  /**
-   * Trabajador que genera la factura
-   */
-  @ManyToOne(fetch = FetchType.EAGER)
-  @JoinColumn(name = "trabajador_id")
-  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-  private Trabajador trabajador;
 
   // ========== CAMPOS FINANCIEROS ==========
 
@@ -103,14 +77,8 @@ public class Factura {
   private Double retencionFuente = 0.0;
 
   /**
-   * Otros impuestos o cargos
-   */
-  @Column(nullable = false)
-  private Double otrosImpuestos = 0.0;
-
-  /**
    * Total final de la factura
-   * Fórmula: (subtotal - descuentos) + iva - retencionFuente + otrosImpuestos
+   * Fórmula: (subtotal - descuentos) + iva - retencionFuente
    */
   @NotNull
   @Positive
@@ -153,7 +121,7 @@ public class Factura {
    */
   public void calcularTotal() {
     double baseImponible = subtotal - descuentos;
-    double totalCalculado = baseImponible + iva - retencionFuente + otrosImpuestos;
+    double totalCalculado = baseImponible + iva - retencionFuente;
     // Redondear a 2 decimales
     this.total = Math.round(totalCalculado * 100.0) / 100.0;
   }

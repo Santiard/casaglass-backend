@@ -23,23 +23,6 @@ public class FacturaCreateDTO {
     private Long ordenId;
 
     /**
-     * ID del cliente (se puede obtener de la orden, pero redundante para consultas rápidas)
-     */
-    @NotNull(message = "El cliente es obligatorio")
-    private Long clienteId;
-
-    /**
-     * ID de la sede donde se genera la factura
-     */
-    @NotNull(message = "La sede es obligatoria")
-    private Long sedeId;
-
-    /**
-     * ID del trabajador que genera la factura (opcional)
-     */
-    private Long trabajadorId;
-
-    /**
      * Fecha de la factura (opcional, por defecto hoy)
      */
     private LocalDate fecha;
@@ -67,11 +50,6 @@ public class FacturaCreateDTO {
     private Double retencionFuente = 0.0;
 
     /**
-     * Otros impuestos
-     */
-    private Double otrosImpuestos = 0.0;
-
-    /**
      * Total de la factura (se calcula automáticamente si no se proporciona)
      */
     private Double total;
@@ -85,5 +63,11 @@ public class FacturaCreateDTO {
      * Observaciones
      */
     private String observaciones;
+
+    /**
+     * Número de factura personalizado (opcional)
+     * Si no se proporciona, se genera automáticamente
+     */
+    private String numeroFactura;
 }
 

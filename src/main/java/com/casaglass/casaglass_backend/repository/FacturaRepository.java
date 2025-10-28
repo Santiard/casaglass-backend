@@ -13,29 +13,14 @@ import java.util.Optional;
 public interface FacturaRepository extends JpaRepository<Factura, Long> {
 
     /**
-     * Buscar factura por número único
+     * Buscar factura por número de factura público
      */
-    Optional<Factura> findByNumero(String numero);
+    Optional<Factura> findByNumeroFactura(String numeroFactura);
 
     /**
      * Buscar factura por orden (solo puede haber una)
      */
     Optional<Factura> findByOrdenId(Long ordenId);
-
-    /**
-     * Listar facturas por cliente
-     */
-    List<Factura> findByClienteId(Long clienteId);
-
-    /**
-     * Listar facturas por sede
-     */
-    List<Factura> findBySedeId(Long sedeId);
-
-    /**
-     * Listar facturas por trabajador
-     */
-    List<Factura> findByTrabajadorId(Long trabajadorId);
 
     /**
      * Listar facturas por estado
@@ -52,20 +37,6 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
      */
     List<Factura> findByFechaBetween(LocalDate desde, LocalDate hasta);
 
-    /**
-     * Listar facturas por cliente y estado
-     */
-    List<Factura> findByClienteIdAndEstado(Long clienteId, Factura.EstadoFactura estado);
-
-    /**
-     * Listar facturas por sede y estado
-     */
-    List<Factura> findBySedeIdAndEstado(Long sedeId, Factura.EstadoFactura estado);
-
-    /**
-     * Listar facturas por sede y fecha
-     */
-    List<Factura> findBySedeIdAndFechaBetween(Long sedeId, LocalDate desde, LocalDate hasta);
 
     /**
      * Listar facturas pagadas
@@ -77,7 +48,7 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
      * Busca el número más alto y lo incrementa en 1
      * Usa query nativa porque HQL no soporta REGEXP
      */
-    @Query(value = "SELECT COALESCE(MAX(CAST(numero AS UNSIGNED)), 0) + 1 FROM facturas WHERE numero REGEXP '^[0-9]+$'", nativeQuery = true)
+    @Query(value = "SELECT COALESCE(MAX(CAST(numero_factura AS UNSIGNED)), 0) + 1 FROM facturas WHERE numero_factura REGEXP '^[0-9]+$'", nativeQuery = true)
     Long obtenerSiguienteNumero();
 
     /**

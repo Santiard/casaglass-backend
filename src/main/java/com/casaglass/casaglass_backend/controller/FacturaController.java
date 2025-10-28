@@ -29,7 +29,7 @@ public class FacturaController {
             return ResponseEntity.ok(Map.of(
                     "mensaje", "Factura creada exitosamente",
                     "factura", factura,
-                    "numero", factura.getNumero()
+                    "numeroFactura", factura.getNumeroFactura()
             ));
         } catch (IllegalArgumentException e) {
             System.err.println("❌ Error de validación: " + e.getMessage());
@@ -54,9 +54,9 @@ public class FacturaController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/numero/{numero}")
-    public ResponseEntity<?> obtenerFacturaPorNumero(@PathVariable String numero) {
-        return facturaService.obtenerPorNumero(numero)
+    @GetMapping("/numero/{numeroFactura}")
+    public ResponseEntity<?> obtenerFacturaPorNumeroFactura(@PathVariable String numeroFactura) {
+        return facturaService.obtenerPorNumeroFactura(numeroFactura)
                 .map(factura -> ResponseEntity.ok(factura))
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -76,16 +76,6 @@ public class FacturaController {
     @GetMapping("/tabla")
     public ResponseEntity<List<FacturaTablaDTO>> listarFacturasParaTabla() {
         return ResponseEntity.ok(facturaService.listarParaTabla());
-    }
-
-    @GetMapping("/cliente/{clienteId}")
-    public ResponseEntity<List<Factura>> listarFacturasPorCliente(@PathVariable Long clienteId) {
-        return ResponseEntity.ok(facturaService.listarPorCliente(clienteId));
-    }
-
-    @GetMapping("/sede/{sedeId}")
-    public ResponseEntity<List<Factura>> listarFacturasPorSede(@PathVariable Long sedeId) {
-        return ResponseEntity.ok(facturaService.listarPorSede(sedeId));
     }
 
     @GetMapping("/estado/{estado}")

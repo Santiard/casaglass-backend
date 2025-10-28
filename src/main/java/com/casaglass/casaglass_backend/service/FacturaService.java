@@ -61,33 +61,14 @@ public class FacturaService {
             throw new IllegalArgumentException("No se puede facturar una orden anulada");
         }
 
-        // Buscar cliente
-        Cliente cliente = clienteRepository.findById(facturaDTO.getClienteId())
-                .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado con ID: " + facturaDTO.getClienteId()));
-
-        // Buscar sede
-        Sede sede = sedeRepository.findById(facturaDTO.getSedeId())
-                .orElseThrow(() -> new IllegalArgumentException("Sede no encontrada con ID: " + facturaDTO.getSedeId()));
-
-        // Buscar trabajador (opcional)
-        Trabajador trabajador = null;
-        if (facturaDTO.getTrabajadorId() != null) {
-            trabajador = trabajadorRepository.findById(facturaDTO.getTrabajadorId())
-                    .orElseThrow(() -> new IllegalArgumentException("Trabajador no encontrado con ID: " + facturaDTO.getTrabajadorId()));
-        }
-
-        // Crear factura
+        // Crear factura (el cliente viene de la orden)
         Factura factura = new Factura();
         factura.setOrden(orden);
-        factura.setCliente(cliente);
-        factura.setSede(sede);
-        factura.setTrabajador(trabajador);
         factura.setFecha(facturaDTO.getFecha() != null ? facturaDTO.getFecha() : LocalDate.now());
         factura.setSubtotal(facturaDTO.getSubtotal());
         factura.setDescuentos(facturaDTO.getDescuentos() != null ? facturaDTO.getDescuentos() : 0.0);
         factura.setIva(facturaDTO.getIva() != null ? facturaDTO.getIva() : 0.0);
         factura.setRetencionFuente(facturaDTO.getRetencionFuente() != null ? facturaDTO.getRetencionFuente() : 0.0);
-        factura.setOtrosImpuestos(facturaDTO.getOtrosImpuestos() != null ? facturaDTO.getOtrosImpuestos() : 0.0);
         factura.setFormaPago(facturaDTO.getFormaPago());
         factura.setObservaciones(facturaDTO.getObservaciones());
         factura.setEstado(Factura.EstadoFactura.PENDIENTE);
@@ -99,14 +80,18 @@ public class FacturaService {
             factura.calcularTotal();
         }
 
-        // Generar número de factura único
-        Long siguienteNumero = generarNumeroFactura();
-        factura.setNumero(String.valueOf(siguienteNumero));
+        // Generar o usar número de factura
+        if (facturaDTO.getNumeroFactura() != null && !facturaDTO.getNumeroFactura().isEmpty()) {
+            factura.setNumeroFactura(facturaDTO.getNumeroFactura());
+        } else {
+            Long siguienteNumero = generarNumeroFactura();
+            factura.setNumeroFactura(String.valueOf(siguienteNumero));
+        }
 
         // Guardar factura
         Factura facturaGuardada = facturaRepo.save(factura);
 
-        System.out.println("✅ Factura creada exitosamente - Número: " + facturaGuardada.getNumero());
+        System.out.println("✅ Factura creada exitosamente - Número: " + facturaGuardada.getNumeroFactura());
 
         return facturaGuardada;
     }
@@ -122,7 +107,7 @@ public class FacturaService {
             try {
                 Long siguienteNumero = facturaRepo.obtenerSiguienteNumero();
 
-                if (!facturaRepo.findByNumero(String.valueOf(siguienteNumero)).isPresent()) {
+                if (!facturaRepo.findByNumeroFactura(String.valueOf(siguienteNumero)).isPresent()) {
                     return siguienteNumero;
                 }
 
@@ -152,8 +137,8 @@ public class FacturaService {
      * Obtener factura por número
      */
     @Transactional(readOnly = true)
-    public Optional<Factura> obtenerPorNumero(String numero) {
-        return facturaRepo.findByNumero(numero);
+    public Optional<Factura> obtenerPorNumeroFactura(String numeroFactura) {
+        return facturaRepo.findByNumeroFactura(numeroFactura);
     }
 
     /**
@@ -180,22 +165,6 @@ public class FacturaService {
         return facturaRepo.findAll().stream()
                 .map(this::convertirAFacturaTablaDTO)
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * Listar facturas por cliente
-     */
-    @Transactional(readOnly = true)
-    public List<Factura> listarPorCliente(Long clienteId) {
-        return facturaRepo.findByClienteId(clienteId);
-    }
-
-    /**
-     * Listar facturas por sede
-     */
-    @Transactional(readOnly = true)
-    public List<Factura> listarPorSede(Long sedeId) {
-        return facturaRepo.findBySedeId(sedeId);
     }
 
     /**
@@ -279,7 +248,6 @@ public class FacturaService {
         factura.setDescuentos(facturaDTO.getDescuentos() != null ? facturaDTO.getDescuentos() : 0.0);
         factura.setIva(facturaDTO.getIva() != null ? facturaDTO.getIva() : 0.0);
         factura.setRetencionFuente(facturaDTO.getRetencionFuente() != null ? facturaDTO.getRetencionFuente() : 0.0);
-        factura.setOtrosImpuestos(facturaDTO.getOtrosImpuestos() != null ? facturaDTO.getOtrosImpuestos() : 0.0);
         factura.setFormaPago(facturaDTO.getFormaPago());
         factura.setObservaciones(facturaDTO.getObservaciones());
 
@@ -311,13 +279,12 @@ public class FacturaService {
         FacturaTablaDTO dto = new FacturaTablaDTO();
 
         dto.setId(factura.getId());
-        dto.setNumero(factura.getNumero());
+        dto.setNumeroFactura(factura.getNumeroFactura());
         dto.setFecha(factura.getFecha());
         dto.setSubtotal(factura.getSubtotal());
         dto.setDescuentos(factura.getDescuentos());
         dto.setIva(factura.getIva());
         dto.setRetencionFuente(factura.getRetencionFuente());
-        dto.setOtrosImpuestos(factura.getOtrosImpuestos());
         dto.setTotal(factura.getTotal());
         dto.setFormaPago(factura.getFormaPago());
         dto.setEstado(convertirEstado(factura.getEstado()));
@@ -330,20 +297,11 @@ public class FacturaService {
             dto.setOrden(new FacturaTablaDTO.OrdenTabla(factura.getOrden().getNumero()));
         }
 
-        // Cliente
-        if (factura.getCliente() != null) {
-            dto.setCliente(new FacturaTablaDTO.ClienteTabla(factura.getCliente().getNombre()));
+        // Cliente desde la orden
+        if (factura.getOrden() != null && factura.getOrden().getCliente() != null) {
+            dto.setCliente(new FacturaTablaDTO.ClienteTabla(factura.getOrden().getCliente().getNombre()));
         }
 
-        // Sede
-        if (factura.getSede() != null) {
-            dto.setSede(new FacturaTablaDTO.SedeTabla(factura.getSede().getNombre()));
-        }
-
-        // Trabajador
-        if (factura.getTrabajador() != null) {
-            dto.setTrabajador(new FacturaTablaDTO.TrabajadorTabla(factura.getTrabajador().getNombre()));
-        }
 
         return dto;
     }

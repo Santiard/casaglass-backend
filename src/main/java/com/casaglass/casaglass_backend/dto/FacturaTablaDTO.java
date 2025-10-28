@@ -16,14 +16,13 @@ import java.time.LocalDate;
 public class FacturaTablaDTO {
 
     private Long id;
-    private String numero;
+    private String numeroFactura;
     private LocalDate fecha;
     private String obra; // De la orden
     private Double subtotal;
     private Double descuentos;
     private Double iva;
     private Double retencionFuente;
-    private Double otrosImpuestos;
     private Double total;
     private String formaPago;
     private EstadoFactura estado;
@@ -32,29 +31,13 @@ public class FacturaTablaDTO {
 
     // Información simplificada de relaciones
     private ClienteTabla cliente;
-    private SedeTabla sede;
-    private TrabajadorTabla trabajador;
     private OrdenTabla orden;
 
-    // Carmpos anidados
+    // Campos anidados
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ClienteTabla {
-        private String nombre;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class SedeTabla {
-        private String nombre;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class TrabajadorTabla {
         private String nombre;
     }
 
