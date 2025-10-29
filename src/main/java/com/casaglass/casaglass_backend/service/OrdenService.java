@@ -697,6 +697,7 @@ public class OrdenService {
         dto.setVenta(orden.isVenta());
         dto.setCredito(orden.isCredito());
         dto.setEstado(orden.getEstado());
+        dto.setFacturada(orden.getFactura() != null);  // Verifica si existe una factura asociada
         
         // 👤 CLIENTE SIMPLIFICADO
         if (orden.getCliente() != null) {

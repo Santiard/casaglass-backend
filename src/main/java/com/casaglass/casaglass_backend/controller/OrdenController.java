@@ -4,7 +4,10 @@ import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
+import com.casaglass.casaglass_backend.dto.OrdenDetalleDTO;
+import com.casaglass.casaglass_backend.dto.FacturaCreateDTO;
 import com.casaglass.casaglass_backend.service.OrdenService;
+import com.casaglass.casaglass_backend.service.FacturaService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,8 +22,12 @@ import java.util.Map;
 public class OrdenController {
 
     private final OrdenService service;
+    private final FacturaService facturaService;
 
-    public OrdenController(OrdenService service) { this.service = service; }
+    public OrdenController(OrdenService service, FacturaService facturaService) { 
+        this.service = service;
+        this.facturaService = facturaService;
+    }
 
     /**
      * 🔄 ACTUALIZAR ORDEN DE VENTA
@@ -223,6 +230,22 @@ public class OrdenController {
     @GetMapping("/{id}")
     public ResponseEntity<Orden> obtener(@PathVariable Long id) {
         return service.obtenerPorId(id).map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * 📋 OBTENER ORDEN CON DETALLE COMPLETO (incluye items y cliente completo)
+     * GET /api/ordenes/{id}/detalle
+     * 
+     * Retorna la orden con la estructura completa:
+     * - Información básica de la orden (id, numero, fecha, obra, total)
+     * - Cliente con todos sus datos (id, nombre, nit, direccion, telefono)
+     * - Items con información del producto (id, nombre)
+     */
+    @GetMapping("/{id}/detalle")
+    public ResponseEntity<OrdenDetalleDTO> obtenerDetalle(@PathVariable Long id) {
+        return service.obtenerPorId(id)
+                .map(orden -> ResponseEntity.ok(new OrdenDetalleDTO(orden)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -461,6 +484,116 @@ public class OrdenController {
             e.printStackTrace();
             return ResponseEntity.status(400)
                     .body(Map.of("error", "Error procesando anulación", "message", e.getMessage()));
+        }
+    }
+
+    // 🧾 ================================
+    // 🧾 ENDPOINT DE FACTURACIÓN
+    // 🧾 ================================
+
+    /**
+     * 🧾 MARCAR ORDEN COMO FACTURADA O DESFACTURADA
+     * PUT /api/ordenes/{id}/facturar
+     * 
+     * Body esperado:
+     * {
+     *   "facturada": true  // true = crear factura, false = eliminar factura
+     * }
+     * 
+     * Si facturada = true: Crea una factura para esta orden
+     * Si facturada = false: Elimina la factura asociada a esta orden
+     */
+    @PutMapping("/{id}/facturar")
+    public ResponseEntity<?> cambiarEstadoFacturacion(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
+        try {
+            Boolean facturada = body.get("facturada");
+            
+            if (facturada == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "El campo 'facturada' es requerido",
+                    "message", "Debe enviar 'facturada': true o false"
+                ));
+            }
+            
+            if (facturada) {
+                // MARCAR COMO FACTURADA - Crear factura
+                return service.obtenerPorId(id)
+                    .map(orden -> {
+                        try {
+                            // Verificar que no tenga factura ya
+                            if (orden.getFactura() != null) {
+                                return ResponseEntity.badRequest().body(Map.of(
+                                    "error", "La orden ya tiene una factura",
+                                    "facturaId", orden.getFactura().getId()
+                                ));
+                            }
+                            
+                            // Crear factura automática
+                            FacturaCreateDTO facturaDTO = new FacturaCreateDTO();
+                            facturaDTO.setOrdenId(orden.getId());
+                            facturaDTO.setFecha(LocalDate.now());
+                            facturaDTO.setSubtotal(orden.getSubtotal());
+                            facturaDTO.setDescuentos(0.0);
+                            facturaDTO.setIva(0.0);
+                            facturaDTO.setRetencionFuente(0.0);
+                            facturaDTO.setTotal(orden.getTotal());
+                            facturaDTO.setFormaPago("PENDIENTE");
+                            facturaDTO.setObservaciones("Factura generada automáticamente");
+                            
+                            var facturaCreada = facturaService.crearFactura(facturaDTO);
+                            
+                            return ResponseEntity.ok(Map.of(
+                                "mensaje", "Orden marcada como facturada",
+                                "ordenId", orden.getId(),
+                                "facturaId", facturaCreada.getId(),
+                                "numeroFactura", facturaCreada.getNumeroFactura(),
+                                "facturada", true
+                            ));
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            return ResponseEntity.status(500).body(Map.of(
+                                "error", "Error al crear factura",
+                                "message", e.getMessage()
+                            ));
+                        }
+                    })
+                    .orElse(ResponseEntity.notFound().body(Map.of("error", "Orden no encontrada")));
+            } else {
+                // DESFACTURAR - Eliminar factura
+                return service.obtenerPorId(id)
+                    .map(orden -> {
+                        try {
+                            if (orden.getFactura() == null) {
+                                return ResponseEntity.badRequest().body(Map.of(
+                                    "error", "La orden no tiene una factura para eliminar"
+                                ));
+                            }
+                            
+                            Long facturaId = orden.getFactura().getId();
+                            facturaService.eliminarFactura(facturaId);
+                            
+                            return ResponseEntity.ok(Map.of(
+                                "mensaje", "Orden desfacturada correctamente",
+                                "ordenId", orden.getId(),
+                                "facturaId", facturaId,
+                                "facturada", false
+                            ));
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            return ResponseEntity.status(500).body(Map.of(
+                                "error", "Error al eliminar factura",
+                                "message", e.getMessage()
+                            ));
+                        }
+                    })
+                    .orElse(ResponseEntity.notFound().body(Map.of("error", "Orden no encontrada")));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Error procesando solicitud",
+                "message", e.getMessage()
+            ));
         }
     }
 

@@ -25,6 +25,7 @@ public class OrdenTablaDTO {
     private boolean venta;
     private boolean credito;
     private Orden.EstadoOrden estado;
+    private boolean facturada;  // Indica si la orden tiene una factura asociada
     
     // INFORMACION SIMPLIFICADA DE ENTIDADES RELACIONADAS
     private ClienteTablaDTO cliente;
