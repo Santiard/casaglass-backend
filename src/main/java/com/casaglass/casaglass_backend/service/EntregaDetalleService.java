@@ -135,7 +135,7 @@ public class EntregaDetalleService {
      * - Órdenes A CONTADO: Monto completo
      * - Órdenes A CRÉDITO: Solo abonos del período
      */
-    public Double calcularDineroRealEntrega(Long entregaId, java.time.LocalDate fechaDesde, java.time.LocalDate fechaHasta) {
+    public Double calcularDineroRealEntrega(Long entregaId, java.time.LocalDate fechaDesde, java.time.LocalDate fechaHasta, Long sedeId) {
         List<EntregaDetalle> detalles = entregaDetalleRepository.findByEntregaId(entregaId);
         Double total = 0.0;
         
@@ -143,8 +143,20 @@ public class EntregaDetalleService {
             if (detalle.getVentaCredito() != null && detalle.getVentaCredito()) {
                 // Es venta a CRÉDITO: Solo sumar abonos del período
                 if (detalle.getOrden() != null) {
+                    // Verificar que la orden pertenezca a la misma sede de la entrega
+                    Long ordenId = detalle.getOrden().getId();
+                    if (ordenId != null && sedeId != null) {
+                        java.util.Optional<Orden> ordenOpt = ordenRepository.findById(ordenId);
+                        if (ordenOpt.isPresent()) {
+                            Orden orden = ordenOpt.get();
+                            if (orden.getSede() == null || !sedeId.equals(orden.getSede().getId())) {
+                                // Si la orden no pertenece a la sede de la entrega, no sumar sus abonos
+                                continue;
+                            }
+                        }
+                    }
                     Double abonosDelPeriodo = abonoService.calcularAbonosOrdenEnPeriodo(
-                        detalle.getOrden().getId(), fechaDesde, fechaHasta);
+                        ordenId, fechaDesde, fechaHasta);
                     total += (abonosDelPeriodo != null ? abonosDelPeriodo : 0.0);
                 }
             } else {

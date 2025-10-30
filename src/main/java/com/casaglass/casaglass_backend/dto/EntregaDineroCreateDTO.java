@@ -42,4 +42,10 @@ public class EntregaDineroCreateDTO {
     private Double montoEsperado;
     private Double montoGastos;
     private Double montoEntregado;
+
+    // Desglose por método
+    private Double montoEfectivo;
+    private Double montoTransferencia;
+    private Double montoCheque;
+    private Double montoDeposito;
 }

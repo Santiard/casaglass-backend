@@ -139,6 +139,16 @@ public class EntregaDineroService {
 
         entrega.setMontoGastos(montoGastos);
 
+        // Normalizar desgloses y validar suma
+        entrega.setMontoEfectivo(entrega.getMontoEfectivo() != null ? entrega.getMontoEfectivo() : 0.0);
+        entrega.setMontoTransferencia(entrega.getMontoTransferencia() != null ? entrega.getMontoTransferencia() : 0.0);
+        entrega.setMontoCheque(entrega.getMontoCheque() != null ? entrega.getMontoCheque() : 0.0);
+        entrega.setMontoDeposito(entrega.getMontoDeposito() != null ? entrega.getMontoDeposito() : 0.0);
+        Double sumaDesglose = entrega.getMontoEfectivo() + entrega.getMontoTransferencia() + entrega.getMontoCheque() + entrega.getMontoDeposito();
+        if (Math.abs(sumaDesglose - (entrega.getMontoEntregado() != null ? entrega.getMontoEntregado() : 0.0)) > 0.01) {
+            throw new IllegalArgumentException("La suma del desglose no coincide con el monto entregado");
+        }
+
         // Guardar la entrega primero
         EntregaDinero entregaGuardada = entregaDineroRepository.save(entrega);
 
@@ -160,7 +170,8 @@ public class EntregaDineroService {
             montoEsperado = entregaDetalleService.calcularDineroRealEntrega(
                 entregaGuardada.getId(), 
                 entrega.getFechaDesde(), 
-                entrega.getFechaHasta()
+                entrega.getFechaHasta(),
+                entrega.getSede() != null ? entrega.getSede().getId() : null
             );
             entregaGuardada.setMontoEsperado(montoEsperado != null ? montoEsperado : 0.0);
         }
@@ -184,6 +195,14 @@ public class EntregaDineroService {
                 .map(entrega -> {
                     entrega.setFechaEntrega(entregaActualizada.getFechaEntrega());
                     entrega.setMontoEntregado(entregaActualizada.getMontoEntregado());
+                    entrega.setMontoEfectivo(entregaActualizada.getMontoEfectivo() != null ? entregaActualizada.getMontoEfectivo() : 0.0);
+                    entrega.setMontoTransferencia(entregaActualizada.getMontoTransferencia() != null ? entregaActualizada.getMontoTransferencia() : 0.0);
+                    entrega.setMontoCheque(entregaActualizada.getMontoCheque() != null ? entregaActualizada.getMontoCheque() : 0.0);
+                    entrega.setMontoDeposito(entregaActualizada.getMontoDeposito() != null ? entregaActualizada.getMontoDeposito() : 0.0);
+                    Double sumaDesglose = entrega.getMontoEfectivo() + entrega.getMontoTransferencia() + entrega.getMontoCheque() + entrega.getMontoDeposito();
+                    if (Math.abs(sumaDesglose - (entrega.getMontoEntregado() != null ? entrega.getMontoEntregado() : 0.0)) > 0.01) {
+                        throw new IllegalArgumentException("La suma del desglose no coincide con el monto entregado");
+                    }
                     entrega.setObservaciones(entregaActualizada.getObservaciones());
                     
                     if (entregaActualizada.getSede() != null && sedeRepository.existsById(entregaActualizada.getSede().getId())) {
@@ -206,6 +225,14 @@ public class EntregaDineroService {
                     entrega.setMontoEntregado(montoEntregado);
                     entrega.setObservaciones(observaciones);
                     entrega.setEstado(EntregaDinero.EstadoEntrega.ENTREGADA);
+                    // Validar desglose con montoEntregado
+                    Double sumaDesglose = (entrega.getMontoEfectivo() != null ? entrega.getMontoEfectivo() : 0.0)
+                            + (entrega.getMontoTransferencia() != null ? entrega.getMontoTransferencia() : 0.0)
+                            + (entrega.getMontoCheque() != null ? entrega.getMontoCheque() : 0.0)
+                            + (entrega.getMontoDeposito() != null ? entrega.getMontoDeposito() : 0.0);
+                    if (Math.abs(sumaDesglose - (montoEntregado != null ? montoEntregado : 0.0)) > 0.01) {
+                        throw new IllegalArgumentException("La suma del desglose no coincide con el monto entregado");
+                    }
                     return entregaDineroRepository.save(entrega);
                 })
                 .orElseThrow(() -> new RuntimeException("Entrega no encontrada con id: " + id));

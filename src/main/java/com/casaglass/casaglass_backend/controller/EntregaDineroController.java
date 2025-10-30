@@ -163,6 +163,10 @@ public class EntregaDineroController {
             entrega.setMontoEsperado(entregaDTO.getMontoEsperado() != null ? entregaDTO.getMontoEsperado() : 0.0);
             entrega.setMontoGastos(entregaDTO.getMontoGastos() != null ? entregaDTO.getMontoGastos() : 0.0);
             entrega.setMontoEntregado(entregaDTO.getMontoEntregado() != null ? entregaDTO.getMontoEntregado() : 0.0);
+            entrega.setMontoEfectivo(entregaDTO.getMontoEfectivo() != null ? entregaDTO.getMontoEfectivo() : 0.0);
+            entrega.setMontoTransferencia(entregaDTO.getMontoTransferencia() != null ? entregaDTO.getMontoTransferencia() : 0.0);
+            entrega.setMontoCheque(entregaDTO.getMontoCheque() != null ? entregaDTO.getMontoCheque() : 0.0);
+            entrega.setMontoDeposito(entregaDTO.getMontoDeposito() != null ? entregaDTO.getMontoDeposito() : 0.0);
             
             System.out.println("🔍 DEBUG: Entrega configurada: " + entrega);
             System.out.println("🔍 DEBUG: Órdenes a incluir: " + entregaDTO.getOrdenesIds());
@@ -266,6 +270,10 @@ public class EntregaDineroController {
             entrega.setModalidadEntrega(EntregaDinero.ModalidadEntrega.valueOf(entregaDTO.getModalidadEntrega()));
             entrega.setObservaciones(entregaDTO.getObservaciones());
             entrega.setMontoEntregado(entregaDTO.getMontoEntregado() != null ? entregaDTO.getMontoEntregado() : 0.0);
+            entrega.setMontoEfectivo(entregaDTO.getMontoEfectivo() != null ? entregaDTO.getMontoEfectivo() : 0.0);
+            entrega.setMontoTransferencia(entregaDTO.getMontoTransferencia() != null ? entregaDTO.getMontoTransferencia() : 0.0);
+            entrega.setMontoCheque(entregaDTO.getMontoCheque() != null ? entregaDTO.getMontoCheque() : 0.0);
+            entrega.setMontoDeposito(entregaDTO.getMontoDeposito() != null ? entregaDTO.getMontoDeposito() : 0.0);
             
             EntregaDinero entregaActualizada = service.actualizarEntrega(id, entrega);
             

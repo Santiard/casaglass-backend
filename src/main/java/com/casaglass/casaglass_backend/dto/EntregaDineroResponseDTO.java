@@ -23,6 +23,10 @@ public class EntregaDineroResponseDTO {
     private Double montoEsperado;
     private Double montoGastos;
     private Double montoEntregado;
+    private Double montoEfectivo;
+    private Double montoTransferencia;
+    private Double montoCheque;
+    private Double montoDeposito;
     private Double diferencia;
     private String modalidadEntrega;
     private String estado;
@@ -49,6 +53,10 @@ public class EntregaDineroResponseDTO {
         this.montoEsperado = entrega.getMontoEsperado();
         this.montoGastos = entrega.getMontoGastos();
         this.montoEntregado = entrega.getMontoEntregado();
+        this.montoEfectivo = entrega.getMontoEfectivo();
+        this.montoTransferencia = entrega.getMontoTransferencia();
+        this.montoCheque = entrega.getMontoCheque();
+        this.montoDeposito = entrega.getMontoDeposito();
         this.diferencia = entrega.getDiferencia();
         this.modalidadEntrega = entrega.getModalidadEntrega() != null ? entrega.getModalidadEntrega().name() : null;
         this.estado = entrega.getEstado() != null ? entrega.getEstado().name() : null;

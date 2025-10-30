@@ -67,6 +67,19 @@ public class EntregaDinero {
     @Min(value = 0, message = "Monto entregado no puede ser negativo")
     private Double montoEntregado = 0.0;
 
+    /** Desglose por método de pago */
+    @Column(name = "monto_efectivo", nullable = false)
+    private Double montoEfectivo = 0.0;
+
+    @Column(name = "monto_transferencia", nullable = false)
+    private Double montoTransferencia = 0.0;
+
+    @Column(name = "monto_cheque", nullable = false)
+    private Double montoCheque = 0.0;
+
+    @Column(name = "monto_deposito", nullable = false)
+    private Double montoDeposito = 0.0;
+
     /** Diferencia entre lo esperado y lo entregado (incluyendo gastos) */
     @Column(name = "diferencia", nullable = false)
     private Double diferencia = 0.0;
