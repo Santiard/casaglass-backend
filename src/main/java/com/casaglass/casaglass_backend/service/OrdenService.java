@@ -15,6 +15,7 @@ import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
 import com.casaglass.casaglass_backend.dto.CreditoTablaDTO;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
+import com.casaglass.casaglass_backend.repository.FacturaRepository;
 import com.casaglass.casaglass_backend.repository.ClienteRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
@@ -43,6 +44,7 @@ public class OrdenService {
     private final CreditoService creditoService;
     private final CorteService corteService;
     private final InventarioCorteService inventarioCorteService;
+    private final FacturaRepository facturaRepository;
 
     public OrdenService(OrdenRepository repo, 
                        ClienteRepository clienteRepository,
@@ -53,7 +55,8 @@ public class OrdenService {
                        InventarioService inventarioService, 
                        CreditoService creditoService,
                        CorteService corteService,
-                       InventarioCorteService inventarioCorteService) { 
+                       InventarioCorteService inventarioCorteService,
+                       FacturaRepository facturaRepository) { 
         this.repo = repo; 
         this.clienteRepository = clienteRepository;
         this.sedeRepository = sedeRepository;
@@ -64,6 +67,7 @@ public class OrdenService {
         this.creditoService = creditoService;
         this.corteService = corteService;
         this.inventarioCorteService = inventarioCorteService;
+        this.facturaRepository = facturaRepository;
     }
 
     @Transactional
@@ -697,7 +701,12 @@ public class OrdenService {
         dto.setVenta(orden.isVenta());
         dto.setCredito(orden.isCredito());
         dto.setEstado(orden.getEstado());
-        dto.setFacturada(orden.getFactura() != null);  // Verifica si existe una factura asociada
+        // Facturada si existe relación en memoria o en BD
+        boolean tieneFactura = (orden.getFactura() != null);
+        if (!tieneFactura && orden.getId() != null) {
+            tieneFactura = facturaRepository.findByOrdenId(orden.getId()).isPresent();
+        }
+        dto.setFacturada(tieneFactura);
         
         // 👤 CLIENTE SIMPLIFICADO
         if (orden.getCliente() != null) {

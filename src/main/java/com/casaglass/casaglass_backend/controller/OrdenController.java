@@ -557,7 +557,7 @@ public class OrdenController {
                             ));
                         }
                     })
-                    .orElse(ResponseEntity.notFound().body(Map.of("error", "Orden no encontrada")));
+                    .orElse(ResponseEntity.status(404).body(Map.of("error", "Orden no encontrada")));
             } else {
                 // DESFACTURAR - Eliminar factura
                 return service.obtenerPorId(id)
@@ -586,7 +586,7 @@ public class OrdenController {
                             ));
                         }
                     })
-                    .orElse(ResponseEntity.notFound().body(Map.of("error", "Orden no encontrada")));
+                    .orElse(ResponseEntity.status(404).body(Map.of("error", "Orden no encontrada")));
             }
         } catch (Exception e) {
             e.printStackTrace();

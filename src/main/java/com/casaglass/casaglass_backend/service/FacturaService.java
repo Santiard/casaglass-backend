@@ -91,6 +91,14 @@ public class FacturaService {
         // Guardar factura
         Factura facturaGuardada = facturaRepo.save(factura);
 
+        // Asegurar consistencia bidireccional: enlazar en la orden
+        try {
+            orden.setFactura(facturaGuardada);
+            ordenRepository.save(orden);
+        } catch (Exception ignore) {
+            // Si el mapeo no es propietario, ignoramos el fallo; el cálculo de 'facturada' usa repo
+        }
+
         System.out.println("✅ Factura creada exitosamente - Número: " + facturaGuardada.getNumeroFactura());
 
         return facturaGuardada;
@@ -267,6 +275,15 @@ public class FacturaService {
 
         if (factura.getEstado() == Factura.EstadoFactura.PAGADA) {
             throw new IllegalArgumentException("No se puede eliminar una factura pagada");
+        }
+
+        // Romper vínculo en la orden si existe
+        Orden orden = factura.getOrden();
+        if (orden != null) {
+            try {
+                orden.setFactura(null);
+                ordenRepository.save(orden);
+            } catch (Exception ignore) {}
         }
 
         facturaRepo.deleteById(facturaId);
