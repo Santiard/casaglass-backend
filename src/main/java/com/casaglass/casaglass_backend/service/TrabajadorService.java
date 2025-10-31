@@ -125,4 +125,14 @@ public class TrabajadorService {
     public void eliminar(Long id) {
         repo.deleteById(id);
     }
+
+    public Trabajador cambiarPassword(Long id, String nuevaPassword) {
+        if (nuevaPassword == null || nuevaPassword.isBlank()) {
+            throw new IllegalArgumentException("La nueva contraseña es obligatoria");
+        }
+        return repo.findById(id).map(actual -> {
+            actual.setPassword(nuevaPassword);
+            return repo.save(actual);
+        }).orElseThrow(() -> new RuntimeException("Trabajador no encontrado con id " + id));
+    }
 }

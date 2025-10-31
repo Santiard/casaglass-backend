@@ -1,8 +1,11 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.dto.DashboardCompletoDTO;
 import com.casaglass.casaglass_backend.dto.DashboardVentasPorSedeDTO;
+import com.casaglass.casaglass_backend.service.DashboardCompletoService;
 import com.casaglass.casaglass_backend.service.DashboardService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +19,30 @@ public class DashboardController {
 
     @Autowired
     private DashboardService dashboardService;
+
+    @Autowired
+    private DashboardCompletoService dashboardCompletoService;
+
+    /**
+     * 📊 DASHBOARD COMPLETO - Endpoint consolidado
+     * Retorna todos los datos relevantes en una sola llamada
+     * 
+     * GET /api/dashboard/completo
+     * GET /api/dashboard/completo?desde=2025-01-01&hasta=2025-01-31
+     */
+    @GetMapping("/completo")
+    public ResponseEntity<DashboardCompletoDTO> obtenerDashboardCompleto(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta
+    ) {
+        try {
+            DashboardCompletoDTO dashboard = dashboardCompletoService.obtenerDashboardCompleto(desde, hasta);
+            return ResponseEntity.ok(dashboard);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
 
     @GetMapping("/ventas-por-sede")
     public ResponseEntity<List<DashboardVentasPorSedeDTO>> ventasPorSede(

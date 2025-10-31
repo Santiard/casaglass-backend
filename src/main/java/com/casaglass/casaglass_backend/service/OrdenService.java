@@ -20,6 +20,7 @@ import com.casaglass.casaglass_backend.repository.ClienteRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
+import com.casaglass.casaglass_backend.repository.CorteRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +46,7 @@ public class OrdenService {
     private final CorteService corteService;
     private final InventarioCorteService inventarioCorteService;
     private final FacturaRepository facturaRepository;
+    private final CorteRepository corteRepository;
 
     public OrdenService(OrdenRepository repo, 
                        ClienteRepository clienteRepository,
@@ -56,7 +58,8 @@ public class OrdenService {
                        CreditoService creditoService,
                        CorteService corteService,
                        InventarioCorteService inventarioCorteService,
-                       FacturaRepository facturaRepository) { 
+                       FacturaRepository facturaRepository,
+                       CorteRepository corteRepository) { 
         this.repo = repo; 
         this.clienteRepository = clienteRepository;
         this.sedeRepository = sedeRepository;
@@ -68,6 +71,7 @@ public class OrdenService {
         this.corteService = corteService;
         this.inventarioCorteService = inventarioCorteService;
         this.facturaRepository = facturaRepository;
+        this.corteRepository = corteRepository;
     }
 
     @Transactional
@@ -158,8 +162,13 @@ public class OrdenService {
         for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
             OrdenItem item = new OrdenItem();
             item.setOrden(orden);
-            item.setProducto(productoRepository.findById(itemDTO.getProductoId())
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+            // Si se envía reutilizarCorteSolicitadoId, el item vende ese CORTE específico
+            if (itemDTO.getReutilizarCorteSolicitadoId() != null) {
+                item.setProducto(entityManager.getReference(Corte.class, itemDTO.getReutilizarCorteSolicitadoId()));
+            } else {
+                item.setProducto(productoRepository.findById(itemDTO.getProductoId())
+                    .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+            }
             item.setDescripcion(itemDTO.getDescripcion());
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
@@ -231,8 +240,12 @@ public class OrdenService {
         for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
             OrdenItem item = new OrdenItem();
             item.setOrden(orden);
-            item.setProducto(productoRepository.findById(itemDTO.getProductoId())
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+            if (itemDTO.getReutilizarCorteSolicitadoId() != null) {
+                item.setProducto(entityManager.getReference(Corte.class, itemDTO.getReutilizarCorteSolicitadoId()));
+            } else {
+                item.setProducto(productoRepository.findById(itemDTO.getProductoId())
+                    .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+            }
             item.setDescripcion(itemDTO.getDescripcion());
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
@@ -890,18 +903,20 @@ public class OrdenService {
             if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
                 Long productoId = item.getProducto().getId();
                 Integer cantidadVendida = item.getCantidad();
-                
-                // 🔪 VERIFICAR SI ES UN CORTE - Los cortes NO restan stock del producto original
+
                 if (item.getProducto() instanceof Corte) {
-                    System.out.println("🔪 Item es un CORTE - Saltando actualización de inventario del producto original");
-                    System.out.println("🔪 Corte ID: " + productoId + ", cantidad: " + cantidadVendida);
-                    continue; // Saltar este item
+                    // Venta de CORTE: decrementar inventario de cortes en la sede
+                    System.out.println("📦 Procesando venta de CORTE ID: " + productoId + ", cantidad: " + cantidadVendida);
+                    try {
+                        inventarioCorteService.decrementarStock(productoId, sedeId, cantidadVendida);
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException("❌ Stock de corte insuficiente para corte ID " + productoId + " en sede ID " + sedeId + ": " + e.getMessage());
+                    }
+                } else {
+                    // Producto normal: restar del inventario normal
+                    System.out.println("📦 Procesando producto normal ID: " + productoId + ", cantidad: " + cantidadVendida);
+                    actualizarInventarioConcurrente(productoId, sedeId, cantidadVendida);
                 }
-                
-                System.out.println("📦 Procesando producto normal ID: " + productoId + ", cantidad: " + cantidadVendida);
-                
-                // 🔒 VALIDACIÓN Y ACTUALIZACIÓN CONCURRENTE SEGURA (solo para productos normales)
-                actualizarInventarioConcurrente(productoId, sedeId, cantidadVendida);
             }
         }
         
@@ -1058,7 +1073,7 @@ public class OrdenService {
      * 1. Corte solicitado (para vender)
      * 2. Corte sobrante (para inventario)
      * 
-     * También actualiza el inventario de cortes automáticamente
+     * También actualiza el inventario de cortes automáticamente por sede
      */
     @Transactional
     private void procesarCortes(Orden orden, List<OrdenVentaDTO.CorteSolicitadoDTO> cortes) {
@@ -1068,6 +1083,17 @@ public class OrdenService {
             System.out.println("🔪 Procesando corte: ProductoId=" + corteDTO.getProductoId() + 
                              ", Medida=" + corteDTO.getMedidaSolicitada() + 
                              ", Cantidad=" + corteDTO.getCantidad());
+            
+            // Validar que tenga cantidades por sede
+            if (corteDTO.getCantidadesPorSede() == null || corteDTO.getCantidadesPorSede().isEmpty()) {
+                System.err.println("⚠️ Corte sin cantidades por sede, omitiendo...");
+                continue;
+            }
+            
+            System.out.println("🔪 Cantidades por sede recibidas: " + corteDTO.getCantidadesPorSede().size());
+            corteDTO.getCantidadesPorSede().forEach(cant -> 
+                System.out.println("🔪   Sede ID: " + cant.getSedeId() + ", Cantidad: " + cant.getCantidad())
+            );
             
             // 1. Obtener producto original
             Producto productoOriginal = productoRepository.findById(corteDTO.getProductoId())
@@ -1081,34 +1107,60 @@ public class OrdenService {
                 "SOLICITADO"
             );
             
-            // 3. Crear corte sobrante (para inventario)
-            Integer medidaSobrante = 600 - corteDTO.getMedidaSolicitada();
-            Corte corteSobrante = crearCorteIndividual(
-                productoOriginal, 
-                medidaSobrante, 
-                corteDTO.getPrecioUnitarioSobrante(),
-                "SOBRANTE"
-            );
+            // 3. Determinar corte sobrante (reutilizar si llega ID, de lo contrario crear)
+            Long corteSobranteId;
+            if (corteDTO.getReutilizarCorteId() != null) {
+                corteSobranteId = corteDTO.getReutilizarCorteId();
+                System.out.println("🔁 Reutilizando corte sobrante existente ID=" + corteSobranteId);
+            } else {
+                // Usar medidaSobrante del DTO, o calcular si no viene
+                Integer medidaSobrante = corteDTO.getMedidaSobrante() != null 
+                    ? corteDTO.getMedidaSobrante() 
+                    : (600 - corteDTO.getMedidaSolicitada());
+                Corte corteSobrante = crearCorteIndividual(
+                    productoOriginal, 
+                    medidaSobrante, 
+                    corteDTO.getPrecioUnitarioSobrante(),
+                    "SOBRANTE"
+                );
+                corteSobranteId = corteSobrante.getId();
+                System.out.println("🆕 Corte sobrante creado ID=" + corteSobranteId + ", Medida: " + medidaSobrante);
+            }
             
-            // 4. Agregar cortes al inventario de la sede
-            Long sedeId = orden.getSede().getId();
+            // 4. Aplicar incremento de stock según esSobrante
+            // Si esSobrante === true: solo incrementar stock del sobrante
+            // Si esSobrante === false: NO incrementar stock del solicitado (se vende, stock queda en 0)
+            if (corteDTO.getEsSobrante() != null && corteDTO.getEsSobrante()) {
+                // Solo aplicar cantidadesPorSede al sobrante
+                if (corteDTO.getCantidadesPorSede() != null && !corteDTO.getCantidadesPorSede().isEmpty()) {
+                    for (OrdenVentaDTO.CorteSolicitadoDTO.CantidadPorSedeDTO cantidadSede : corteDTO.getCantidadesPorSede()) {
+                        if (cantidadSede.getSedeId() == null || cantidadSede.getCantidad() == null || cantidadSede.getCantidad() <= 0) {
+                            continue; // Saltar sedes con cantidad 0 o sin ID
+                        }
+                        
+                        Long sedeId = cantidadSede.getSedeId();
+                        Integer cantidad = cantidadSede.getCantidad();
+                        
+                        // Incrementar stock SOLO del corte sobrante
+                        inventarioCorteService.incrementarStock(
+                            corteSobranteId,
+                            sedeId,
+                            cantidad
+                        );
+                        System.out.println("📦 Stock sobrante incrementado en Sede ID " + sedeId + ": +" + cantidad);
+                    }
+                    System.out.println("✅ Stock del corte solicitado NO incrementado (esSobrante=true, se vende con stock 0)");
+                } else {
+                    System.out.println("⚠️ esSobrante=true pero no hay cantidadesPorSede, omitiendo incremento de stock");
+                }
+            } else {
+                // esSobrante === false o null: NO incrementar stock del solicitado
+                System.out.println("✅ Corte solicitado: NO se incrementa stock (se vende, stock queda en 0)");
+                System.out.println("✅ Corte sobrante: NO se incrementa stock (esSobrante=false, usar esSobrante=true para sobrante)");
+            }
             
-            // Agregar corte solicitado al inventario
-            inventarioCorteService.actualizarStock(
-                corteSolicitado.getId(), 
-                sedeId, 
-                corteDTO.getCantidad()
-            );
-            
-            // Agregar corte sobrante al inventario
-            inventarioCorteService.actualizarStock(
-                corteSobrante.getId(), 
-                sedeId, 
-                corteDTO.getCantidad()
-            );
-            
-            System.out.println("✅ Cortes creados: Solicitado ID=" + corteSolicitado.getId() + 
-                             ", Sobrante ID=" + corteSobrante.getId());
+            System.out.println("✅ Cortes procesados: Solicitado ID=" + corteSolicitado.getId() + 
+                             ", Sobrante ID=" + corteSobranteId);
         }
         
         System.out.println("✅ Procesamiento de cortes completado");
@@ -1120,31 +1172,46 @@ public class OrdenService {
      * Crea un corte con los datos proporcionados
      */
     private Corte crearCorteIndividual(Producto productoOriginal, Integer medida, Double precio, String tipo) {
+        // 0) Intentar reutilizar un corte existente por prefijo de código, largo, categoría y color
+        String codigoPrefix = productoOriginal.getCodigo() + "-" + medida;
+        Long categoriaId = productoOriginal.getCategoria() != null ? productoOriginal.getCategoria().getId() : null;
+        var color = productoOriginal.getColor();
+        if (categoriaId != null && color != null) {
+            var existenteOpt = corteRepository
+                .findExistingByPrefixAndSpecs(codigoPrefix, medida.doubleValue(), categoriaId, color);
+            if (existenteOpt.isPresent()) {
+                System.out.println("🔁 Reutilizando corte existente por prefijo/especificaciones: " + existenteOpt.get().getId());
+                return existenteOpt.get();
+            }
+        }
+
+        // 1) Crear nuevo corte
         Corte corte = new Corte();
-        
-        // Generar código único
-        String codigo = generarCodigoCorte(productoOriginal.getCodigo(), medida);
+
+        // Generar código con sufijo corto (4 dígitos) y verificar colisión mínima
+        String codigoBase = codigoPrefix;
+        String codigo = codigoBase + "-" + String.format("%04d", (int)(System.currentTimeMillis() % 10000));
         corte.setCodigo(codigo);
-        
+
         // Nombre descriptivo
         corte.setNombre(productoOriginal.getNombre() + " - " + medida + "cm (" + tipo + ")");
-        
+
         // Medida específica
         corte.setLargoCm(medida.doubleValue());
-        
+
         // Precio calculado por el frontend
         corte.setPrecio1(precio);
-        
+
         // Copiar datos del producto original
         corte.setCategoria(productoOriginal.getCategoria());
         corte.setTipo(productoOriginal.getTipo());
         corte.setColor(productoOriginal.getColor());
         corte.setCantidad(0); // Se maneja por inventario
         corte.setCosto(0.0); // Por ahora sin costo específico
-        
+
         // Observación descriptiva
         corte.setObservacion("Corte generado automáticamente - " + tipo.toLowerCase());
-        
+
         return corteService.guardar(corte);
     }
     

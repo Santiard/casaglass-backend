@@ -1,14 +1,19 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.dto.TrabajadorResumenDTO;
+import com.casaglass.casaglass_backend.dto.TrabajadorDashboardDTO;
 import com.casaglass.casaglass_backend.model.Rol;
 import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.service.TrabajadorService;
+import com.casaglass.casaglass_backend.service.TrabajadorDashboardService;
 import jakarta.validation.Valid;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/trabajadores")
@@ -16,9 +21,11 @@ import java.util.List;
 public class TrabajadorController {
 
     private final TrabajadorService service;
+    private final TrabajadorDashboardService dashboardService;
 
-    public TrabajadorController(TrabajadorService service) {
+    public TrabajadorController(TrabajadorService service, TrabajadorDashboardService dashboardService) {
         this.service = service;
+        this.dashboardService = dashboardService;
     }
 
     // Listado general o con filtros:
@@ -36,6 +43,17 @@ public class TrabajadorController {
         if (rol != null) return service.listarPorRol(rol);
         if (sedeId != null) return service.listarPorSede(sedeId);
         return service.listar();
+    }
+
+    // 🚀 Listado resumido para tabla: id, username, nombre, rol
+    @GetMapping("/tabla")
+    public List<TrabajadorResumenDTO> listarResumen(@RequestParam(required = false) String q,
+                                                    @RequestParam(required = false) Rol rol,
+                                                    @RequestParam(required = false) Long sedeId) {
+        List<Trabajador> base = listar(q, rol, sedeId);
+        return base.stream()
+                .map(t -> new TrabajadorResumenDTO(t.getId(), t.getUsername(), t.getNombre(), t.getRol()))
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
@@ -102,5 +120,40 @@ public class TrabajadorController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // 🔐 Cambiar contraseña
+    @PutMapping("/{id}/password")
+    public ResponseEntity<?> cambiarPassword(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String nuevaPassword = body != null ? body.get("password") : null;
+        try {
+            Trabajador actualizado = service.cambiarPassword(id, nuevaPassword);
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "Contraseña actualizada",
+                    "id", actualizado.getId()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Error inesperado"));
+        }
+    }
+
+    // 📊 Dashboard del trabajador
+    @GetMapping("/{id}/dashboard")
+    public ResponseEntity<TrabajadorDashboardDTO> obtenerDashboardTrabajador(
+            @PathVariable Long id,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta
+    ) {
+        try {
+            return ResponseEntity.ok(dashboardService.obtenerDashboard(id, desde, hasta));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 }

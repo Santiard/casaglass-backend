@@ -45,6 +45,8 @@ public class OrdenVentaDTO {
         private String descripcion; // OPCIONAL - descripción personalizada
         private Integer cantidad; // OBLIGATORIO - cantidad a vender (min: 1)
         private Double precioUnitario; // OBLIGATORIO - precio unitario
+        // Opcional: si se reutiliza un corte solicitado existente para vender
+        private Long reutilizarCorteSolicitadoId;
         
         // totalLinea se calcula automáticamente en el backend
     }
@@ -63,5 +65,32 @@ public class OrdenVentaDTO {
         // Datos ya calculados por el frontend:
         private Double precioUnitarioSolicitado;  // Precio del corte a vender
         private Double precioUnitarioSobrante;     // Precio del corte sobrante
+
+        // Opcional: reutilizar un corte sobrante existente (evita crear uno nuevo)
+        private Long reutilizarCorteId;
+        
+        // 🔧 Cantidades por sede usando IDs (más robusto que nombres)
+        // Formato: [{sedeId: 1, cantidad: 1}, {sedeId: 2, cantidad: 0}, {sedeId: 3, cantidad: 0}]
+        // IMPORTANTE: Solo se aplican al sobrante si esSobrante === true
+        private List<CantidadPorSedeDTO> cantidadesPorSede;
+        
+        // 🎯 Indica si este corte es el sobrante (true) o el solicitado (false)
+        // Si esSobrante === true: se aplica cantidadesPorSede para incrementar stock
+        // Si esSobrante === false: NO se incrementa stock (se vende, stock queda en 0)
+        private Boolean esSobrante = false;
+        
+        // Medida del corte sobrante (calculada por el frontend)
+        private Integer medidaSobrante;       // Medida en cm del corte sobrante
+        
+        /**
+         * DTO interno para cantidad por sede
+         */
+        @Data
+        @NoArgsConstructor
+        @AllArgsConstructor
+        public static class CantidadPorSedeDTO {
+            private Long sedeId;           // ID de la sede
+            private Integer cantidad;      // Cantidad a agregar en esa sede
+        }
     }
 }
