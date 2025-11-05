@@ -1,0 +1,63 @@
+# ============================================================
+# 🐳 Docker Compose - Ejemplo para Producción
+# ============================================================
+# Este es un archivo de ejemplo. Copia y ajusta según tus necesidades.
+# Renombra a docker-compose.yml para usarlo.
+
+version: '3.8'
+
+services:
+  # Base de datos MariaDB
+  mariadb:
+    image: mariadb:11.3
+    container_name: casaglass-mariadb
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=casaglassDB
+      - MYSQL_USER=casaglassuser
+      - MYSQL_PASSWORD=casaglassclave
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - casaglass-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Spring Boot
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: casaglass-backend
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/casaglassDB?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=casaglassuser
+      - SPRING_DATASOURCE_PASSWORD=casaglassclave
+    ports:
+      - "8080:8080"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - casaglass-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mariadb_data:
+    driver: local
+
+networks:
+  casaglass-network:
+    driver: bridge
+
