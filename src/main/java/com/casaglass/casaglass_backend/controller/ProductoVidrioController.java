@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/productos-vidrio")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class ProductoVidrioController {
 
     private final ProductoVidrioService service;
@@ -22,12 +22,10 @@ public class ProductoVidrioController {
     // /api/productos-vidrio
     // /api/productos-vidrio?q=templado
     // /api/productos-vidrio?mm=6.0
-    // /api/productos-vidrio?laminas=2
     // /api/productos-vidrio?categoriaId=1
     @GetMapping
     public List<ProductoVidrio> listar(@RequestParam(required = false, name = "q") String query,
                                        @RequestParam(required = false) Double mm,
-                                       @RequestParam(required = false) Integer laminas,
                                        @RequestParam(required = false) Long categoriaId) {
         if (query != null && !query.isBlank()) {
             return service.buscar(query);
@@ -37,9 +35,6 @@ public class ProductoVidrioController {
         }
         if (mm != null) {
             return service.listarPorMm(mm);
-        }
-        if (laminas != null) {
-            return service.listarPorLaminas(laminas);
         }
         return service.listar();
     }

@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/ordenes/{ordenId}/items")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class OrdenItemController {
 
     private final OrdenItemService service;

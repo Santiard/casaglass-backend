@@ -11,7 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/traslados")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class TrasladoController {
 
     private final TrasladoService service;

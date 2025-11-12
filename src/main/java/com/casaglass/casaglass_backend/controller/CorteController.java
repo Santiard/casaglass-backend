@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/cortes")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class CorteController {
 
     private final CorteService service;

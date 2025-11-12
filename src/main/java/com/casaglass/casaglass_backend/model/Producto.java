@@ -38,7 +38,7 @@ public class Producto {
     @Column(name = "tipo")
     private TipoProducto tipo;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String codigo;
 
     private String nombre;

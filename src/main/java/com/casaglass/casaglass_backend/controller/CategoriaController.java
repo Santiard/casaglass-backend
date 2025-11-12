@@ -13,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/categorias")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // opcional para permitir peticiones desde tu front
+// CORS configurado globalmente en CorsConfig.java
 public class CategoriaController {
 
     private final CategoriaService categoriaService;

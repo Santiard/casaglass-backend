@@ -212,14 +212,14 @@ public class InventarioCompletoService {
         // Verificar si es vidrio y obtener datos específicos
         Boolean esVidrio = producto instanceof ProductoVidrio;
         Double mm = null;
-        Double m1m2 = null;
-        Integer laminas = null;
+        Double m1 = null;
+        Double m2 = null;
 
         if (esVidrio) {
             ProductoVidrio vidrio = (ProductoVidrio) producto;
             mm = vidrio.getMm();
-            m1m2 = vidrio.getM1m2();
-            laminas = vidrio.getLaminas();
+            m1 = vidrio.getM1();
+            m2 = vidrio.getM2();
         }
 
         // Obtener nombre de la categoría, tipo y color
@@ -236,8 +236,8 @@ public class InventarioCompletoService {
             colorProducto,
             esVidrio,
             mm,
-            m1m2,
-            laminas,
+            m1,
+            m2,
             cantidadInsula,
             cantidadCentro,
             cantidadPatios,

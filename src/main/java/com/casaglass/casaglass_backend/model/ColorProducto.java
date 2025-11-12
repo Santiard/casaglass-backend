@@ -5,6 +5,5 @@ public enum ColorProducto {
     BLANCO,
     NEGRO,
     BRONCE,
-    NATURAL,
     NA // Equivalente a N/A pero válido para Java
 }

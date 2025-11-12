@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/inventario-cortes")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class InventarioCorteController {
 
     private final InventarioCorteService service;

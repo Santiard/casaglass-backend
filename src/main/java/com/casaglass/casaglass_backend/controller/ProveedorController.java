@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/proveedores")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class ProveedorController {
 
     private final ProveedorService proveedorService;

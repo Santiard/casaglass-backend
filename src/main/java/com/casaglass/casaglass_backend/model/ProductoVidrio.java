@@ -15,7 +15,8 @@ public class ProductoVidrio extends Producto {
     private Double mm;   // espesor en milímetros
 
     @Column(nullable = false)
-    private Double m1m2; // medida o m²
+    private Double m1;  // medida 1
 
-    private Integer laminas;
+    @Column(nullable = false)
+    private Double m2;  // medida 2
 }

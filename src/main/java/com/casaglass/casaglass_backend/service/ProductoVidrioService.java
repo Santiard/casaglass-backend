@@ -44,9 +44,6 @@ public class ProductoVidrioService {
         return repo.findByMm(mm);
     }
 
-    public List<ProductoVidrio> listarPorLaminas(Integer laminas) {
-        return repo.findByLaminas(laminas);
-    }
 
     public List<ProductoVidrio> listarPorCategoriaId(Long categoriaId) {
         return repo.findByCategoria_Id(categoriaId);
@@ -89,8 +86,8 @@ public class ProductoVidrioService {
 
             // Campos específicos de ProductoVidrio
             actual.setMm(p.getMm());
-            actual.setM1m2(p.getM1m2());
-            actual.setLaminas(p.getLaminas());
+            actual.setM1(p.getM1());
+            actual.setM2(p.getM2());
 
             return repo.save(actual);
         }).orElseThrow(() -> new RuntimeException("ProductoVidrio no encontrado con id " + id));

@@ -13,8 +13,12 @@ import java.util.Optional;
 @Repository
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
-    // Buscar por código único
+    // Buscar por código (puede haber múltiples productos con el mismo código)
+    // Retorna el primero que encuentra
     Optional<Producto> findByCodigo(String codigo);
+    
+    // Buscar todos los productos con el mismo código
+    List<Producto> findAllByCodigo(String codigo);
 
     // Buscar productos cuyo nombre o código contengan un texto (búsqueda general)
     List<Producto> findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(String nombre, String codigo);

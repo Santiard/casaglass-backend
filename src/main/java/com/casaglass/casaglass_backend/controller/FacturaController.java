@@ -15,7 +15,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/facturas")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class FacturaController {
 
     @Autowired

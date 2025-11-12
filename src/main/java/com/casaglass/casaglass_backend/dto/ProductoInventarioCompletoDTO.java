@@ -20,8 +20,8 @@ public class ProductoInventarioCompletoDTO {
     // === Datos específicos para vidrios ===
     private Boolean esVidrio;
     private Double mm;           // milímetros (Double para más precisión)
-    private Double m1m2;         // metros cuadrados
-    private Integer laminas;     // cantidad de láminas
+    private Double m1;           // medida 1
+    private Double m2;           // medida 2
     
     // === Inventario por sede ===
     private Integer cantidadInsula;
@@ -38,7 +38,7 @@ public class ProductoInventarioCompletoDTO {
     
     // Constructor principal con cálculo automático de total
     public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria, String tipo, String color,
-                                        Boolean esVidrio, Double mm, Double m1m2, Integer laminas,
+                                        Boolean esVidrio, Double mm, Double m1, Double m2,
                                         Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
                                         Double precio1, Double precio2, Double precio3) {
         this.id = id;
@@ -49,8 +49,8 @@ public class ProductoInventarioCompletoDTO {
         this.color = color;
         this.esVidrio = esVidrio;
         this.mm = mm;
-        this.m1m2 = m1m2;
-        this.laminas = laminas;
+        this.m1 = m1;
+        this.m2 = m2;
         this.cantidadInsula = cantidadInsula != null ? cantidadInsula : 0;
         this.cantidadCentro = cantidadCentro != null ? cantidadCentro : 0;
         this.cantidadPatios = cantidadPatios != null ? cantidadPatios : 0;

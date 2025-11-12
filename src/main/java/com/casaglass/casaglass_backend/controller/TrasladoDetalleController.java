@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/traslados/{trasladoId}/detalles")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class TrasladoDetalleController {
 
     private final TrasladoDetalleService service;

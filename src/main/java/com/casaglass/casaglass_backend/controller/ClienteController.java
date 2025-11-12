@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/clientes")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class ClienteController {
 
     private final ClienteService clienteService;

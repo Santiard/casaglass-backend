@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/trabajadores")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class TrabajadorController {
 
     private final TrabajadorService service;

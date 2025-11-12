@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/tipos")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class TipoProductoController {
 
     /**
@@ -66,6 +66,7 @@ public class TipoProductoController {
         return switch (tipo) {
             case UNID -> "Unidad";
             case PERFIL -> "Perfil";
+            case MT -> "MT";
         };
     }
 
@@ -75,7 +76,6 @@ public class TipoProductoController {
             case BLANCO -> "Blanco";
             case NEGRO -> "Negro";
             case BRONCE -> "Bronce";
-            case NATURAL -> "Natural";
             case NA -> "N/A";
         };
     }

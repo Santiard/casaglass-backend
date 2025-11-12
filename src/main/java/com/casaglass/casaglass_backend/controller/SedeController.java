@@ -11,7 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/sedes")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class SedeController {
 
     private final SedeService service;

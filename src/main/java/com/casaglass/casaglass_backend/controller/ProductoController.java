@@ -1,15 +1,17 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.dto.ProductoActualizarDTO;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.service.ProductoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/productos")
-@CrossOrigin(origins = "*")
+// CORS configurado globalmente en CorsConfig.java
 public class ProductoController {
 
     private final ProductoService service;
@@ -20,15 +22,30 @@ public class ProductoController {
 
     // GET /api/productos
     @GetMapping
-    public List<Producto> listar(@RequestParam(required = false) Long categoriaId,
-                                 @RequestParam(required = false, name = "q") String query) {
-        if (query != null && !query.isBlank()) {
-            return service.buscar(query);
+    public ResponseEntity<?> listar(@RequestParam(required = false) Long categoriaId,
+                                   @RequestParam(required = false, name = "q") String query) {
+        try {
+            List<Producto> productos;
+            if (query != null && !query.isBlank()) {
+                productos = service.buscar(query);
+            } else if (categoriaId != null) {
+                productos = service.listarPorCategoriaId(categoriaId);
+            } else {
+                productos = service.listar();
+            }
+            
+            System.out.println("=== DEBUG PRODUCTO CONTROLLER ===");
+            System.out.println("Query: " + query);
+            System.out.println("CategoriaId: " + categoriaId);
+            System.out.println("Productos retornados: " + productos.size());
+            System.out.println("================================");
+            
+            return ResponseEntity.ok(productos);
+        } catch (Exception e) {
+            System.err.println("ERROR en ProductoController.listar: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
-        if (categoriaId != null) {
-            return service.listarPorCategoriaId(categoriaId);
-        }
-        return service.listar();
     }
 
     @GetMapping("/{id}")
@@ -55,9 +72,9 @@ public class ProductoController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Producto producto) {
+    public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody ProductoActualizarDTO productoDTO) {
         try {
-            return ResponseEntity.ok(service.actualizar(id, producto));
+            return ResponseEntity.ok(service.actualizar(id, productoDTO));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
