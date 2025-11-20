@@ -80,6 +80,8 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
      * - Venta a crédito (credito = true)
      * - Que tengan abonos en el período especificado
      * - Estado ACTIVA
+     * - No incluidas en otra entrega (incluidaEntrega = false)
+     * - Crédito abierto (no cerrado)
      */
     @Query("SELECT DISTINCT o FROM Orden o " +
            "JOIN o.creditoDetalle c " +
@@ -88,6 +90,8 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
            "o.credito = true AND " +
            "o.venta = true AND " +
            "o.estado = 'ACTIVA' AND " +
+           "o.incluidaEntrega = false AND " +
+           "c.estado = 'ABIERTO' AND " +
            "a.fecha BETWEEN :fechaDesde AND :fechaHasta")
     List<Orden> findOrdenesConAbonosEnPeriodo(
         @Param("sedeId") Long sedeId,

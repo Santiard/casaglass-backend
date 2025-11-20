@@ -28,4 +28,30 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
     Double calcularTotalAbonosOrdenEnPeriodo(@Param("ordenId") Long ordenId, 
                                            @Param("fechaDesde") LocalDate fechaDesde, 
                                            @Param("fechaHasta") LocalDate fechaHasta);
+    
+    /**
+     * 💰 ABONOS DISPONIBLES PARA ENTREGA
+     * - De órdenes de la sede especificada
+     * - Con fecha de abono en el período
+     * - De órdenes a crédito (credito = true)
+     * - De órdenes ACTIVAS
+     * - De créditos ABIERTOS (no cerrados)
+     * - Que NO estén ya incluidos en otra entrega (verificado por LEFT JOIN con EntregaDetalle)
+     */
+    @Query("SELECT DISTINCT a FROM Abono a " +
+           "JOIN a.orden o " +
+           "JOIN a.credito c " +
+           "LEFT JOIN EntregaDetalle ed ON ed.abono.id = a.id WHERE " +
+           "o.sede.id = :sedeId AND " +
+           "a.fecha BETWEEN :fechaDesde AND :fechaHasta AND " +
+           "o.credito = true AND " +
+           "o.venta = true AND " +
+           "o.estado = 'ACTIVA' AND " +
+           "c.estado = 'ABIERTO' AND " +
+           "ed.id IS NULL")
+    List<Abono> findAbonosDisponiblesParaEntrega(
+        @Param("sedeId") Long sedeId,
+        @Param("fechaDesde") LocalDate fechaDesde,
+        @Param("fechaHasta") LocalDate fechaHasta
+    );
 }

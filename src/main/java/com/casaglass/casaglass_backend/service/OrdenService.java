@@ -139,6 +139,7 @@ public class OrdenService {
         Orden orden = new Orden();
         orden.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
         orden.setObra(ventaDTO.getObra());
+        orden.setDescripcion(ventaDTO.getDescripcion());
         orden.setVenta(ventaDTO.isVenta());
         orden.setCredito(ventaDTO.isCredito());
         orden.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
@@ -217,14 +218,25 @@ public class OrdenService {
         Orden orden = new Orden();
         orden.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
         orden.setObra(ventaDTO.getObra());
+        orden.setDescripcion(ventaDTO.getDescripcion());
         orden.setVenta(ventaDTO.isVenta());
         orden.setCredito(ventaDTO.isCredito());
         orden.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
         // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
-        orden.setCliente(clienteRepository.findById(ventaDTO.getClienteId())
-            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId())));
+        Cliente cliente = clienteRepository.findById(ventaDTO.getClienteId())
+            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId()));
+        
+        // 💳 ACTUALIZAR CLIENTE A CRÉDITO SI ES NECESARIO
+        // Si se crea una venta a crédito, el cliente debe tener credito = true
+        if (cliente.getCredito() == null || !cliente.getCredito()) {
+            System.out.println("🔄 Actualizando cliente ID " + cliente.getId() + " a credito = true");
+            cliente.setCredito(true);
+            clienteRepository.save(cliente);
+        }
+        
+        orden.setCliente(cliente);
         orden.setSede(sedeRepository.findById(ventaDTO.getSedeId())
             .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + ventaDTO.getSedeId())));
         
@@ -313,13 +325,24 @@ public class OrdenService {
         // 📝 ACTUALIZAR CAMPOS BÁSICOS
         ordenExistente.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
         ordenExistente.setObra(ventaDTO.getObra());
+        ordenExistente.setDescripcion(ventaDTO.getDescripcion());
         ordenExistente.setVenta(ventaDTO.isVenta());
         ordenExistente.setCredito(ventaDTO.isCredito());
         ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
         
         // 🔗 ACTUALIZAR RELACIONES
-        ordenExistente.setCliente(clienteRepository.findById(ventaDTO.getClienteId())
-            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId())));
+        Cliente cliente = clienteRepository.findById(ventaDTO.getClienteId())
+            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId()));
+        
+        // 💳 ACTUALIZAR CLIENTE A CRÉDITO SI ES NECESARIO
+        // Si se actualiza a venta a crédito, el cliente debe tener credito = true
+        if (ventaDTO.isCredito() && (cliente.getCredito() == null || !cliente.getCredito())) {
+            System.out.println("🔄 Actualizando cliente ID " + cliente.getId() + " a credito = true");
+            cliente.setCredito(true);
+            clienteRepository.save(cliente);
+        }
+        
+        ordenExistente.setCliente(cliente);
         ordenExistente.setSede(sedeRepository.findById(ventaDTO.getSedeId())
             .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + ventaDTO.getSedeId())));
         
@@ -392,13 +415,24 @@ public class OrdenService {
         // 📝 ACTUALIZAR CAMPOS BÁSICOS
         ordenExistente.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
         ordenExistente.setObra(ventaDTO.getObra());
+        ordenExistente.setDescripcion(ventaDTO.getDescripcion());
         ordenExistente.setVenta(ventaDTO.isVenta());
         ordenExistente.setCredito(ventaDTO.isCredito());
         ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
         
         // 🔗 ACTUALIZAR RELACIONES
-        ordenExistente.setCliente(clienteRepository.findById(ventaDTO.getClienteId())
-            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId())));
+        Cliente cliente = clienteRepository.findById(ventaDTO.getClienteId())
+            .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId()));
+        
+        // 💳 ACTUALIZAR CLIENTE A CRÉDITO SI ES NECESARIO
+        // Si se actualiza a venta a crédito, el cliente debe tener credito = true
+        if (ventaDTO.isCredito() && (cliente.getCredito() == null || !cliente.getCredito())) {
+            System.out.println("🔄 Actualizando cliente ID " + cliente.getId() + " a credito = true");
+            cliente.setCredito(true);
+            clienteRepository.save(cliente);
+        }
+        
+        ordenExistente.setCliente(cliente);
         ordenExistente.setSede(sedeRepository.findById(ventaDTO.getSedeId())
             .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + ventaDTO.getSedeId())));
         
@@ -711,6 +745,7 @@ public class OrdenService {
         dto.setNumero(orden.getNumero());
         dto.setFecha(orden.getFecha());
         dto.setObra(orden.getObra());
+        dto.setDescripcion(orden.getDescripcion());
         dto.setVenta(orden.isVenta());
         dto.setCredito(orden.isCredito());
         dto.setEstado(orden.getEstado());
@@ -800,6 +835,7 @@ public class OrdenService {
         // 2️⃣ Actualizar campos básicos de la orden
         orden.setFecha(dto.getFecha());
         orden.setObra(dto.getObra());
+        orden.setDescripcion(dto.getDescripcion());
         orden.setVenta(dto.isVenta());
         orden.setCredito(dto.isCredito());
 
@@ -928,8 +964,11 @@ public class OrdenService {
      * 
      * Implementa:
      * - Lock pesimista para evitar race conditions
-     * - Validación de stock en tiempo real
+     * - Permite valores negativos (ventas anticipadas)
      * - Manejo de errores específicos
+     * 
+     * Nota: Se permiten valores negativos en el inventario para manejar ventas
+     * anticipadas (productos vendidos antes de tenerlos en tienda)
      */
     @Transactional
     private void actualizarInventarioConcurrente(Long productoId, Long sedeId, Integer cantidadVendida) {
@@ -948,29 +987,14 @@ public class OrdenService {
             
             System.out.println("📊 Stock actual: " + cantidadActual + ", cantidad a vender: " + cantidadVendida);
             
-            // 🛡️ VALIDAR STOCK SUFICIENTE
-            if (cantidadActual < cantidadVendida) {
-                throw new IllegalArgumentException(
-                    String.format("❌ Stock insuficiente para producto ID %d en sede ID %d. Disponible: %d, Requerido: %d", 
-                                productoId, sedeId, cantidadActual, cantidadVendida)
-                );
-            }
-            
-            // ➖ ACTUALIZAR CANTIDAD CON VALIDACIÓN ADICIONAL
+            // ➖ ACTUALIZAR CANTIDAD (permite valores negativos para ventas anticipadas)
             int nuevaCantidad = cantidadActual - cantidadVendida;
-            
-            // 🔒 DOBLE VERIFICACIÓN PARA CONCURRENCIA
-            if (nuevaCantidad < 0) {
-                throw new IllegalArgumentException(
-                    String.format("❌ Error de concurrencia: Stock insuficiente después de validación. Disponible: %d, Requerido: %d", 
-                                cantidadActual, cantidadVendida)
-                );
-            }
             
             inventario.setCantidad(nuevaCantidad);
             inventarioService.actualizar(inventario.getId(), inventario);
             
-            System.out.println("✅ Stock actualizado: " + cantidadActual + " → " + nuevaCantidad);
+            System.out.println("✅ Stock actualizado: " + cantidadActual + " → " + nuevaCantidad + 
+                             (nuevaCantidad < 0 ? " (⚠️ Stock negativo - venta anticipada)" : ""));
             
         } catch (IllegalArgumentException e) {
             // Re-lanzar errores de validación

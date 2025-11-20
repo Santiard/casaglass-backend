@@ -19,6 +19,7 @@ public class OrdenVentaDTO {
     // INFORMACIÓN BÁSICA DE LA ORDEN
     private LocalDate fecha; // opcional - si no se envía, se usa la fecha actual
     private String obra; // opcional - descripción del proyecto/obra
+    private String descripcion; // opcional - descripción/observaciones adicionales de la orden
     private boolean venta = true; // por defecto true para ventas
     private boolean credito = false; // si es venta a crédito
     private boolean incluidaEntrega = false; // si incluye entrega

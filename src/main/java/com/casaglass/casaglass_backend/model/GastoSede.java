@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -30,8 +31,9 @@ public class GastoSede {
     private EntregaDinero entrega;
 
     /** Sede donde se realizó el gasto */
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(optional = false, fetch = FetchType.EAGER)
     @JoinColumn(name = "sede_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Sede sede;
 
     /** Fecha en que se realizó el gasto */
@@ -65,13 +67,15 @@ public class GastoSede {
     private TipoGasto tipo = TipoGasto.OPERATIVO;
 
     /** Empleado que autorizó o realizó el gasto */
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "empleado_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Trabajador empleado;
 
     /** Proveedor del gasto (si aplica) */
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "proveedor_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Proveedor proveedor;
 
     /** Indica si el gasto fue aprobado */

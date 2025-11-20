@@ -30,4 +30,5 @@ public class OrdenParaEntregaDTO {
     // Información adicional para validación
     private boolean esContado; // true si NO es crédito
     private String estado; // ACTIVA, ANULADA
+    private boolean venta; // true si es una venta (no compra)
 }

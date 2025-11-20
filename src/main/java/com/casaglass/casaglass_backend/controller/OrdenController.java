@@ -229,7 +229,10 @@ public class OrdenController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Orden> obtener(@PathVariable Long id) {
-        return service.obtenerPorId(id).map(ResponseEntity::ok)
+        return service.obtenerPorId(id)
+                .map(orden -> ResponseEntity.ok()
+                        .header("Content-Type", "application/json")
+                        .body(orden))
                 .orElse(ResponseEntity.notFound().build());
     }
 

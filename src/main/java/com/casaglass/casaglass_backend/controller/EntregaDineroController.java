@@ -3,12 +3,16 @@ package com.casaglass.casaglass_backend.controller;
 import com.casaglass.casaglass_backend.dto.EntregaDineroCreateDTO;
 import com.casaglass.casaglass_backend.dto.EntregaDineroResponseDTO;
 import com.casaglass.casaglass_backend.dto.OrdenParaEntregaDTO;
+import com.casaglass.casaglass_backend.dto.EntregaDetalleSimpleDTO;
+import com.casaglass.casaglass_backend.dto.AbonoParaEntregaDTO;
 import com.casaglass.casaglass_backend.model.EntregaDinero;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.service.EntregaDineroService;
 import com.casaglass.casaglass_backend.service.EntregaDetalleService;
+import com.casaglass.casaglass_backend.service.AbonoService;
+import com.casaglass.casaglass_backend.model.Abono;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -30,6 +34,9 @@ public class EntregaDineroController {
 
     @Autowired
     private EntregaDetalleService entregaDetalleService;
+    
+    @Autowired
+    private AbonoService abonoService;
 
     public EntregaDineroController(EntregaDineroService service) {
         this.service = service;
@@ -79,7 +86,21 @@ public class EntregaDineroController {
     @Transactional(readOnly = true)
     public ResponseEntity<EntregaDineroResponseDTO> obtener(@PathVariable Long id) {
         return service.obtenerPorId(id)
-                .map(entrega -> ResponseEntity.ok(new EntregaDineroResponseDTO(entrega)))
+                .map(entrega -> {
+                    EntregaDineroResponseDTO dto = new EntregaDineroResponseDTO(entrega);
+                    // Calcular abonos del período para cada detalle
+                    if (dto.getDetalles() != null && entrega.getFechaDesde() != null && entrega.getFechaHasta() != null) {
+                        dto.setDetalles(entrega.getDetalles().stream()
+                                .map(detalle -> new EntregaDetalleSimpleDTO(
+                                    detalle, 
+                                    entrega.getFechaDesde(), 
+                                    entrega.getFechaHasta(),
+                                    abonoService
+                                ))
+                                .collect(Collectors.toList()));
+                    }
+                    return ResponseEntity.ok(dto);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -170,15 +191,23 @@ public class EntregaDineroController {
             
             System.out.println("🔍 DEBUG: Entrega configurada: " + entrega);
             System.out.println("🔍 DEBUG: Órdenes a incluir: " + entregaDTO.getOrdenesIds());
-            System.out.println("🔍 DEBUG: Gastos a incluir: " + (entregaDTO.getGastos() != null ? entregaDTO.getGastos().size() : 0));
+            System.out.println("🔍 DEBUG: Gastos IDs a incluir: " + (entregaDTO.getGastosIds() != null ? entregaDTO.getGastosIds().size() : 0));
             
-            // Preparar IDs de gastos (por ahora vacío ya que gastos está vacío en tu ejemplo)
-            List<Long> gastosIds = null; // TODO: Implementar conversión de gastos si es necesario
+            // Obtener IDs de gastos del DTO (los gastos deben estar creados y aprobados previamente)
+            List<Long> gastosIds = entregaDTO.getGastosIds() != null && !entregaDTO.getGastosIds().isEmpty() 
+                ? entregaDTO.getGastosIds() 
+                : null;
+            
+            // Obtener IDs de abonos del DTO (para órdenes a crédito)
+            List<Long> abonosIds = entregaDTO.getAbonosIds() != null && !entregaDTO.getAbonosIds().isEmpty() 
+                ? entregaDTO.getAbonosIds() 
+                : null;
             
             // Llamar al servicio para crear la entrega
             EntregaDinero entregaCreada = service.crearEntrega(
                 entrega, 
                 entregaDTO.getOrdenesIds(), 
+                abonosIds,
                 gastosIds
             );
             
@@ -306,37 +335,38 @@ public class EntregaDineroController {
     /* ========== MÉTODOS AUXILIARES ========== */
 
     /**
-     * 📋 OBTENER ÓRDENES DISPONIBLES PARA ENTREGA
-     * Solo muestra órdenes A CONTADO de un período que aún no han sido entregadas
+     * 📋 OBTENER ÓRDENES Y ABONOS DISPONIBLES PARA ENTREGA
+     * - Órdenes A CONTADO: Se muestran las órdenes completas
+     * - Órdenes A CRÉDITO: Se muestran los ABONOS individuales (no las órdenes)
      */
     @GetMapping("/ordenes-disponibles")
     public ResponseEntity<?> obtenerOrdenesDisponibles(@RequestParam Long sedeId,
                                                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
                                                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         try {
-            System.out.println("🔍 DEBUG: Buscando órdenes disponibles para entrega");
+            System.out.println("🔍 DEBUG: Buscando órdenes y abonos disponibles para entrega");
             System.out.println("🔍 DEBUG: Sede " + sedeId + ", período " + desde + " a " + hasta);
             
             // Obtener órdenes A CONTADO disponibles
             List<Orden> ordenesContado = entregaDetalleService.obtenerOrdenesContadoDisponibles(sedeId, desde, hasta);
             
-            // Obtener órdenes A CRÉDITO con abonos en el período
-            List<Orden> ordenesConAbonos = entregaDetalleService.obtenerOrdenesConAbonosEnPeriodo(sedeId, desde, hasta);
+            // Obtener ABONOS disponibles (no órdenes) de créditos en el período
+            List<Abono> abonosDisponibles = abonoService.obtenerAbonosDisponiblesParaEntrega(sedeId, desde, hasta);
             
             System.out.println("🔍 DEBUG: Encontradas " + ordenesContado.size() + " órdenes a contado");
-            System.out.println("🔍 DEBUG: Encontradas " + ordenesConAbonos.size() + " órdenes con abonos");
+            System.out.println("🔍 DEBUG: Encontrados " + abonosDisponibles.size() + " abonos disponibles");
             
             return ResponseEntity.ok(Map.of(
                 "ordenesContado", ordenesContado.stream()
                     .map(this::convertirAOrdenParaEntregaDTO)
                     .collect(Collectors.toList()),
-                "ordenesConAbonos", ordenesConAbonos.stream()
-                    .map(this::convertirAOrdenParaEntregaDTO)
+                "abonosDisponibles", abonosDisponibles.stream()
+                    .map(this::convertirAAbonoParaEntregaDTO)
                     .collect(Collectors.toList()),
                 "totales", Map.of(
                     "contado", ordenesContado.size(),
-                    "credito", ordenesConAbonos.size(),
-                    "total", ordenesContado.size() + ordenesConAbonos.size()
+                    "credito", abonosDisponibles.size(),
+                    "total", ordenesContado.size() + abonosDisponibles.size()
                 )
             ));
         } catch (Exception e) {
@@ -363,6 +393,41 @@ public class EntregaDineroController {
         dto.setYaEntregada(orden.isIncluidaEntrega());
         dto.setEsContado(!orden.isCredito());
         dto.setEstado(orden.getEstado().name());
+        dto.setVenta(orden.isVenta()); // ✅ Campo venta agregado
+        
+        return dto;
+    }
+    
+    /**
+     * Convierte un Abono a AbonoParaEntregaDTO
+     */
+    private AbonoParaEntregaDTO convertirAAbonoParaEntregaDTO(Abono abono) {
+        AbonoParaEntregaDTO dto = new AbonoParaEntregaDTO();
+        dto.setId(abono.getId());
+        dto.setFechaAbono(abono.getFecha());
+        dto.setMontoAbono(abono.getTotal());
+        dto.setMetodoPago(abono.getMetodoPago() != null ? abono.getMetodoPago().name() : null);
+        dto.setFactura(abono.getFactura());
+        
+        // Información de la orden
+        if (abono.getOrden() != null) {
+            dto.setOrdenId(abono.getOrden().getId());
+            dto.setNumeroOrden(abono.getNumeroOrden() != null ? abono.getNumeroOrden() : abono.getOrden().getNumero());
+            dto.setFechaOrden(abono.getOrden().getFecha());
+            dto.setMontoOrden(abono.getOrden().getTotal());
+            dto.setObra(abono.getOrden().getObra());
+            dto.setSedeNombre(abono.getOrden().getSede() != null ? abono.getOrden().getSede().getNombre() : null);
+            dto.setTrabajadorNombre(abono.getOrden().getTrabajador() != null ? abono.getOrden().getTrabajador().getNombre() : null);
+            dto.setYaEntregado(abono.getOrden().isIncluidaEntrega());
+            dto.setEstadoOrden(abono.getOrden().getEstado() != null ? abono.getOrden().getEstado().name() : null);
+            dto.setVentaOrden(abono.getOrden().isVenta()); // ✅ Campo ventaOrden agregado
+        }
+        
+        // Información del cliente
+        if (abono.getCliente() != null) {
+            dto.setClienteNombre(abono.getCliente().getNombre());
+            dto.setClienteNit(abono.getCliente().getNit());
+        }
         
         return dto;
     }

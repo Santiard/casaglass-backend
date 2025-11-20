@@ -21,6 +21,7 @@ public class OrdenActualizarDTO {
     private Long numero; // Solo lectura, no se actualiza
     private LocalDate fecha;
     private String obra;
+    private String descripcion; // Descripción/observaciones adicionales
     private boolean venta;
     private boolean credito;
     

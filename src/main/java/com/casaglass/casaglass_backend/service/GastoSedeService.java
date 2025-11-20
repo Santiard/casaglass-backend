@@ -5,6 +5,7 @@ import com.casaglass.casaglass_backend.repository.GastoSedeRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,46 +20,57 @@ public class GastoSedeService {
     @Autowired
     private SedeRepository sedeRepository;
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerTodos() {
         return gastoSedeRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public Optional<GastoSede> obtenerPorId(Long id) {
         return gastoSedeRepository.findById(id);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerPorSede(Long sedeId) {
         return gastoSedeRepository.findBySedeId(sedeId);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerPorTipo(GastoSede.TipoGasto tipo) {
         return gastoSedeRepository.findByTipo(tipo);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerPorSedeYTipo(Long sedeId, GastoSede.TipoGasto tipo) {
         return gastoSedeRepository.findBySedeIdAndTipo(sedeId, tipo);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerPorPeriodo(LocalDate desde, LocalDate hasta) {
         return gastoSedeRepository.findByFechaGastoBetween(desde, hasta);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerPorSedeYPeriodo(Long sedeId, LocalDate desde, LocalDate hasta) {
         return gastoSedeRepository.findBySedeIdAndFechaGastoBetween(sedeId, desde, hasta);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerGastosAprobados() {
         return gastoSedeRepository.findByAprobado(true);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerGastosPendientes() {
         return gastoSedeRepository.findByAprobado(false);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerGastosPendientesAprobacion(Long sedeId) {
         return gastoSedeRepository.findBySedeIdAndAprobado(sedeId, false);
     }
 
+    @Transactional(readOnly = true)
     public List<GastoSede> obtenerGastosSinEntrega(Long sedeId) {
         return gastoSedeRepository.findGastosSinEntregaBySede(sedeId);
     }
@@ -92,8 +104,9 @@ public class GastoSedeService {
             gasto.setFechaGasto(LocalDate.now());
         }
 
+        // Aprobación no es necesaria, se puede usar directamente
         if (gasto.getAprobado() == null) {
-            gasto.setAprobado(false);
+            gasto.setAprobado(true); // Por defecto aprobado para simplificar
         }
 
         return gastoSedeRepository.save(gasto);
@@ -145,7 +158,8 @@ public class GastoSedeService {
 
     public boolean validarGastoParaEntrega(Long gastoId) {
         Optional<GastoSede> gasto = gastoSedeRepository.findById(gastoId);
-        return gasto.isPresent() && gasto.get().getAprobado() && gasto.get().getEntrega() == null;
+        // Solo validar que el gasto exista y no tenga entrega asociada (no requiere aprobación)
+        return gasto.isPresent() && gasto.get().getEntrega() == null;
     }
 
     public List<GastoSede> obtenerPorEntrega(Long entregaId) {

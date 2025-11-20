@@ -1,7 +1,6 @@
 package com.casaglass.casaglass_backend.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Min;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -55,6 +54,6 @@ public class Inventario {
     private Sede sede;
 
     @Column(nullable = false)
-    @Min(0)
+    // Permite valores negativos para manejar ventas anticipadas (productos vendidos antes de tenerlos en tienda)
     private Integer cantidad;
 }

@@ -63,7 +63,7 @@ public class EntregaDineroResponseDTO {
         this.observaciones = entrega.getObservaciones();
         this.numeroComprobante = entrega.getNumeroComprobante();
         
-        // Convertir detalles y gastos a DTOs
+        // Convertir detalles y gastos a DTOs (sin cálculo de abonos por defecto)
         this.detalles = entrega.getDetalles() != null ? entrega.getDetalles().stream()
                 .map(EntregaDetalleSimpleDTO::new)
                 .collect(Collectors.toList()) : List.of();

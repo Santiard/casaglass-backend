@@ -169,6 +169,8 @@ public class ProductoService {
     /**
      * 📦 ACTUALIZAR INVENTARIO CON VALORES ESPECÍFICOS DEL FRONTEND
      * Actualiza el inventario en las 3 sedes con los valores exactos enviados desde el frontend
+     * 
+     * Nota: Permite valores negativos para manejar ventas anticipadas
      */
     private void actualizarInventarioConValores(Long productoId, Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios) {
         // Obtener IDs de las 3 sedes
@@ -181,15 +183,18 @@ public class ProductoService {
             return;
         }
         
-        // Asegurar que no haya valores negativos
-        cantidadInsula = Math.max(0, cantidadInsula != null ? cantidadInsula : 0);
-        cantidadCentro = Math.max(0, cantidadCentro != null ? cantidadCentro : 0);
-        cantidadPatios = Math.max(0, cantidadPatios != null ? cantidadPatios : 0);
+        // Permitir valores negativos (ventas anticipadas) - usar 0 como default solo si es null
+        cantidadInsula = cantidadInsula != null ? cantidadInsula : 0;
+        cantidadCentro = cantidadCentro != null ? cantidadCentro : 0;
+        cantidadPatios = cantidadPatios != null ? cantidadPatios : 0;
         
         System.out.println("📦 Actualizando inventario para producto " + productoId + " con valores del frontend:");
-        System.out.println("   Insula (ID " + insulaId + "): " + cantidadInsula);
-        System.out.println("   Centro (ID " + centroId + "): " + cantidadCentro);
-        System.out.println("   Patios (ID " + patiosId + "): " + cantidadPatios);
+        System.out.println("   Insula (ID " + insulaId + "): " + cantidadInsula + 
+                         (cantidadInsula < 0 ? " (⚠️ negativo)" : ""));
+        System.out.println("   Centro (ID " + centroId + "): " + cantidadCentro + 
+                         (cantidadCentro < 0 ? " (⚠️ negativo)" : ""));
+        System.out.println("   Patios (ID " + patiosId + "): " + cantidadPatios + 
+                         (cantidadPatios < 0 ? " (⚠️ negativo)" : ""));
         System.out.println("   Total: " + (cantidadInsula + cantidadCentro + cantidadPatios));
         
         // Actualizar o crear inventario para cada sede

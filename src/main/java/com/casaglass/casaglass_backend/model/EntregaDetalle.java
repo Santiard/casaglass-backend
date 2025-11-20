@@ -32,6 +32,11 @@ public class EntregaDetalle {
     @JoinColumn(name = "orden_id", nullable = false)
     private Orden orden;
 
+    /** Abono específico incluido en la entrega (opcional - solo para órdenes a crédito) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "abono_id")
+    private Abono abono;
+
     /** Monto de la orden al momento de la entrega (snapshot para auditoría) */
     @Column(name = "monto_orden", nullable = false)
     @NotNull
@@ -61,12 +66,32 @@ public class EntregaDetalle {
     /** Método para inicializar campos snapshot desde la orden */
     public void inicializarDesdeOrden() {
         if (this.orden != null) {
-            this.montoOrden = this.orden.getTotal();
+            // Si hay un abono específico, usar su monto; si no, usar el monto de la orden
+            if (this.abono != null && this.abono.getTotal() != null) {
+                this.montoOrden = this.abono.getTotal(); // Monto del abono, no de la orden completa
+            } else {
+                this.montoOrden = this.orden.getTotal();
+            }
             this.numeroOrden = this.orden.getNumero();
             this.fechaOrden = this.orden.getFecha();
             this.ventaCredito = this.orden.isCredito();
             if (this.orden.getCliente() != null) {
                 this.clienteNombre = this.orden.getCliente().getNombre();
+            }
+        }
+    }
+    
+    /** Método para inicializar desde un abono específico */
+    public void inicializarDesdeAbono(Abono abono) {
+        if (abono != null && abono.getOrden() != null) {
+            this.abono = abono;
+            this.orden = abono.getOrden();
+            this.montoOrden = abono.getTotal(); // Monto del abono
+            this.numeroOrden = abono.getNumeroOrden() != null ? abono.getNumeroOrden() : abono.getOrden().getNumero();
+            this.fechaOrden = abono.getOrden().getFecha();
+            this.ventaCredito = true; // Los abonos siempre son de órdenes a crédito
+            if (abono.getCliente() != null) {
+                this.clienteNombre = abono.getCliente().getNombre();
             }
         }
     }

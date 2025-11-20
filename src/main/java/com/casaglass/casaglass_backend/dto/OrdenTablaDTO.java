@@ -22,6 +22,7 @@ public class OrdenTablaDTO {
     private Long numero;
     private LocalDate fecha;
     private String obra;
+    private String descripcion; // Descripción/observaciones adicionales
     private boolean venta;
     private boolean credito;
     private Orden.EstadoOrden estado;

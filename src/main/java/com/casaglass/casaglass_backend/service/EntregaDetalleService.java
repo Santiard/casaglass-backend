@@ -2,8 +2,10 @@ package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.EntregaDetalle;
 import com.casaglass.casaglass_backend.model.Orden;
+import com.casaglass.casaglass_backend.model.Abono;
 import com.casaglass.casaglass_backend.repository.EntregaDetalleRepository;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
+import com.casaglass.casaglass_backend.repository.AbonoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,9 @@ public class EntregaDetalleService {
 
     @Autowired
     private AbonoService abonoService;
+    
+    @Autowired
+    private AbonoRepository abonoRepository;
 
     public List<EntregaDetalle> obtenerTodos() {
         return entregaDetalleRepository.findAll();
@@ -66,16 +71,117 @@ public class EntregaDetalleService {
         Orden orden = ordenRepository.findById(detalle.getOrden().getId())
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
-        detalle.setMontoOrden(orden.getTotal());
-        detalle.setNumeroOrden(orden.getNumero());
-        detalle.setFechaOrden(orden.getFecha());
+        // ✅ VALIDACIÓN 1: Verificar que la orden no esté ya incluida en OTRA entrega
+        if (orden.isIncluidaEntrega()) {
+            // Verificar si está en esta entrega o en otra
+            if (detalle.getEntrega() == null || 
+                !entregaDetalleRepository.existsByEntregaIdAndOrdenId(detalle.getEntrega().getId(), orden.getId())) {
+                throw new RuntimeException("La orden ya está incluida en otra entrega");
+            }
+        }
+
+        // ✅ VALIDACIÓN 2: Si es orden a crédito, validar que tenga abonos en el período
+        if (orden.isCredito()) {
+            if (detalle.getEntrega() == null || detalle.getEntrega().getFechaDesde() == null || 
+                detalle.getEntrega().getFechaHasta() == null) {
+                throw new RuntimeException("Para órdenes a crédito, la entrega debe tener fechas definidas");
+            }
+            
+            // Verificar que el crédito no esté cerrado (completamente saldado)
+            if (orden.getCreditoDetalle() != null) {
+                if (orden.getCreditoDetalle().getEstado() == com.casaglass.casaglass_backend.model.Credito.EstadoCredito.CERRADO) {
+                    throw new RuntimeException("No se puede agregar una orden a crédito completamente saldada. El dinero ya fue entregado en entregas anteriores.");
+                }
+            }
+            
+            // Verificar que tenga abonos en el período
+            Double abonosDelPeriodo = abonoService.calcularAbonosOrdenEnPeriodo(
+                orden.getId(), 
+                detalle.getEntrega().getFechaDesde(), 
+                detalle.getEntrega().getFechaHasta()
+            );
+            
+            if (abonosDelPeriodo == null || abonosDelPeriodo <= 0) {
+                throw new RuntimeException("La orden a crédito no tiene abonos en el período especificado (" + 
+                    detalle.getEntrega().getFechaDesde() + " a " + detalle.getEntrega().getFechaHasta() + ")");
+            }
+        }
+
+        // Establecer la orden en el detalle para que inicializarDesdeOrden() funcione
+        detalle.setOrden(orden);
+        
+        // Inicializar todos los campos snapshot desde la orden (incluye clienteNombre y ventaCredito)
+        detalle.inicializarDesdeOrden();
 
         EntregaDetalle detalleCreado = entregaDetalleRepository.save(detalle);
 
-        // Marcar la orden como incluida en entrega
-        orden.setIncluidaEntrega(true);
-        ordenRepository.save(orden);
+        // ✅ IMPORTANTE: Solo marcar la orden como incluida si es ORDEN A CONTADO
+        // Para órdenes a crédito, NO se marca como incluida porque se pueden agregar múltiples abonos
+        if (!orden.isCredito()) {
+            orden.setIncluidaEntrega(true);
+            ordenRepository.save(orden);
+        }
 
+        return detalleCreado;
+    }
+    
+    /**
+     * Crea un detalle de entrega desde un ABONO específico
+     * Permite agregar abonos individuales de órdenes a crédito a diferentes entregas
+     */
+    public EntregaDetalle crearDetalleDesdeAbono(EntregaDetalle detalle, Long abonoId) {
+        // Validar que el abono existe
+        Abono abono = abonoRepository.findById(abonoId)
+                .orElseThrow(() -> new RuntimeException("Abono no encontrado con ID: " + abonoId));
+        
+        // Validar que el abono tiene orden asociada
+        if (abono.getOrden() == null) {
+            throw new RuntimeException("El abono no tiene una orden asociada");
+        }
+        
+        Orden orden = abono.getOrden();
+        
+        // Verificar que la orden no esté ya incluida en esta entrega (para evitar duplicados)
+        if (detalle.getEntrega() != null && 
+            entregaDetalleRepository.existsByEntregaIdAndOrdenId(detalle.getEntrega().getId(), orden.getId())) {
+            // Verificar si ya existe un detalle con este mismo abono
+            boolean existeAbono = entregaDetalleRepository.findByEntregaId(detalle.getEntrega().getId()).stream()
+                    .anyMatch(d -> d.getAbono() != null && d.getAbono().getId().equals(abonoId));
+            if (existeAbono) {
+                throw new RuntimeException("Este abono ya está incluido en esta entrega");
+            }
+        }
+        
+        // Validar que el crédito esté abierto
+        if (orden.getCreditoDetalle() == null) {
+            throw new RuntimeException("La orden no tiene un crédito asociado");
+        }
+        if (orden.getCreditoDetalle().getEstado() == com.casaglass.casaglass_backend.model.Credito.EstadoCredito.CERRADO) {
+            throw new RuntimeException("No se puede agregar un abono de una orden a crédito completamente saldada");
+        }
+        
+        // Validar que el abono esté en el período de la entrega
+        if (detalle.getEntrega() != null && 
+            detalle.getEntrega().getFechaDesde() != null && 
+            detalle.getEntrega().getFechaHasta() != null) {
+            if (abono.getFecha().isBefore(detalle.getEntrega().getFechaDesde()) || 
+                abono.getFecha().isAfter(detalle.getEntrega().getFechaHasta())) {
+                throw new RuntimeException("El abono no está en el período de la entrega (" + 
+                    detalle.getEntrega().getFechaDesde() + " a " + detalle.getEntrega().getFechaHasta() + ")");
+            }
+        }
+        
+        // Establecer el abono y la orden en el detalle
+        detalle.setAbono(abono);
+        detalle.setOrden(orden);
+        
+        // Inicializar desde el abono
+        detalle.inicializarDesdeAbono(abono);
+        
+        EntregaDetalle detalleCreado = entregaDetalleRepository.save(detalle);
+        
+        // ✅ NO marcar la orden como incluida - permite agregar otros abonos de la misma orden
+        
         return detalleCreado;
     }
 
@@ -96,8 +202,9 @@ public class EntregaDetalleService {
         EntregaDetalle detalle = entregaDetalleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Detalle de entrega no encontrado con id: " + id));
 
-        // Desmarcar la orden como no incluida en entrega
-        if (detalle.getOrden() != null) {
+        // Desmarcar la orden como no incluida en entrega SOLO si es orden a contado
+        // Para órdenes a crédito con abonos, no se marca como incluida, así que no hay que desmarcar
+        if (detalle.getOrden() != null && !detalle.getOrden().isCredito()) {
             Orden orden = detalle.getOrden();
             orden.setIncluidaEntrega(false);
             ordenRepository.save(orden);
@@ -109,9 +216,10 @@ public class EntregaDetalleService {
     public void eliminarDetallesPorEntrega(Long entregaId) {
         List<EntregaDetalle> detalles = entregaDetalleRepository.findByEntregaId(entregaId);
         
-        // Desmarcar todas las órdenes como no incluidas
+        // Desmarcar todas las órdenes como no incluidas SOLO si son órdenes a contado
+        // Para órdenes a crédito con abonos, no se marca como incluida, así que no hay que desmarcar
         for (EntregaDetalle detalle : detalles) {
-            if (detalle.getOrden() != null) {
+            if (detalle.getOrden() != null && !detalle.getOrden().isCredito()) {
                 Orden orden = detalle.getOrden();
                 orden.setIncluidaEntrega(false);
                 ordenRepository.save(orden);
@@ -123,7 +231,30 @@ public class EntregaDetalleService {
 
     public boolean validarOrdenParaEntrega(Long ordenId) {
         Optional<Orden> orden = ordenRepository.findById(ordenId);
-        return orden.isPresent() && !orden.get().isIncluidaEntrega();
+        if (!orden.isPresent()) {
+            return false;
+        }
+        
+        Orden ordenObj = orden.get();
+        
+        // ✅ VALIDACIÓN 1: No debe estar incluida en otra entrega
+        if (ordenObj.isIncluidaEntrega()) {
+            return false;
+        }
+        
+        // ✅ VALIDACIÓN 2: Si es orden a crédito, debe tener crédito abierto y abonos
+        if (ordenObj.isCredito()) {
+            if (ordenObj.getCreditoDetalle() == null) {
+                return false; // No tiene crédito asociado
+            }
+            
+            // No debe estar completamente saldada
+            if (ordenObj.getCreditoDetalle().getEstado() == com.casaglass.casaglass_backend.model.Credito.EstadoCredito.CERRADO) {
+                return false; // Ya está completamente pagada
+            }
+        }
+        
+        return true;
     }
 
     public Double calcularMontoTotalEntrega(Long entregaId) {
@@ -132,8 +263,8 @@ public class EntregaDetalleService {
 
     /**
      * 💰 CALCULA EL DINERO REAL A ENTREGAR
-     * - Órdenes A CONTADO: Monto completo
-     * - Órdenes A CRÉDITO: Solo abonos del período
+     * - Órdenes A CONTADO: Monto completo de la orden
+     * - Órdenes A CRÉDITO: Monto del abono específico (si hay abono) o abonos del período
      */
     public Double calcularDineroRealEntrega(Long entregaId, java.time.LocalDate fechaDesde, java.time.LocalDate fechaHasta, Long sedeId) {
         List<EntregaDetalle> detalles = entregaDetalleRepository.findByEntregaId(entregaId);
@@ -141,16 +272,18 @@ public class EntregaDetalleService {
         
         for (EntregaDetalle detalle : detalles) {
             if (detalle.getVentaCredito() != null && detalle.getVentaCredito()) {
-                // Es venta a CRÉDITO: Solo sumar abonos del período
-                if (detalle.getOrden() != null) {
-                    // Verificar que la orden pertenezca a la misma sede de la entrega
+                // Es venta a CRÉDITO
+                if (detalle.getAbono() != null) {
+                    // Si hay un abono específico, usar su monto directamente
+                    total += (detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0);
+                } else if (detalle.getOrden() != null) {
+                    // Si no hay abono específico, calcular abonos del período (compatibilidad con lógica antigua)
                     Long ordenId = detalle.getOrden().getId();
                     if (ordenId != null && sedeId != null) {
                         java.util.Optional<Orden> ordenOpt = ordenRepository.findById(ordenId);
                         if (ordenOpt.isPresent()) {
                             Orden orden = ordenOpt.get();
                             if (orden.getSede() == null || !sedeId.equals(orden.getSede().getId())) {
-                                // Si la orden no pertenece a la sede de la entrega, no sumar sus abonos
                                 continue;
                             }
                         }

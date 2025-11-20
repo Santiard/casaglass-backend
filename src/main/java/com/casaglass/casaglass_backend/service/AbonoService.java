@@ -283,4 +283,12 @@ public class AbonoService {
                 .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
                 .sum();
     }
+    
+    /**
+     * 📋 OBTIENE ABONOS DISPONIBLES PARA ENTREGA
+     * Solo abonos de órdenes a crédito que no han sido incluidos en entregas
+     */
+    public List<Abono> obtenerAbonosDisponiblesParaEntrega(Long sedeId, LocalDate fechaDesde, LocalDate fechaHasta) {
+        return abonoRepo.findAbonosDisponiblesParaEntrega(sedeId, fechaDesde, fechaHasta);
+    }
 }

@@ -47,6 +47,10 @@ public class Orden {
   @Column(length = 150)
   private String obra;
 
+  @Lob
+  @Column(name = "descripcion", columnDefinition = "TEXT")
+  private String descripcion; // Descripción/observaciones adicionales de la orden
+
   @Column(nullable = false)
   private boolean venta = false;
 

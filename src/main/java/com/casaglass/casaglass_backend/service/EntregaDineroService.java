@@ -94,7 +94,7 @@ public class EntregaDineroService {
     }
 
     @Transactional
-    public EntregaDinero crearEntrega(EntregaDinero entrega, List<Long> ordenIds, List<Long> gastoIds) {
+    public EntregaDinero crearEntrega(EntregaDinero entrega, List<Long> ordenIds, List<Long> abonoIds, List<Long> gastoIds) {
         // Validar que la sede existe
         if (entrega.getSede() == null || !sedeRepository.existsById(entrega.getSede().getId())) {
             throw new RuntimeException("La sede especificada no existe");
@@ -152,7 +152,7 @@ public class EntregaDineroService {
         // Guardar la entrega primero
         EntregaDinero entregaGuardada = entregaDineroRepository.save(entrega);
 
-        // Crear detalles de entrega para cada orden
+        // Crear detalles de entrega para cada orden A CONTADO
         if (ordenIds != null && !ordenIds.isEmpty()) {
             for (Long ordenId : ordenIds) {
                 EntregaDetalle detalle = new EntregaDetalle();
@@ -165,8 +165,20 @@ public class EntregaDineroService {
                 
                 entregaDetalleService.crearDetalle(detalle);
             }
-            
-            // Recalcular monto esperado USANDO LA NUEVA LÓGICA
+        }
+        
+        // Crear detalles de entrega para cada ABONO (órdenes a crédito)
+        if (abonoIds != null && !abonoIds.isEmpty()) {
+            for (Long abonoId : abonoIds) {
+                EntregaDetalle detalle = new EntregaDetalle();
+                detalle.setEntrega(entregaGuardada);
+                
+                entregaDetalleService.crearDetalleDesdeAbono(detalle, abonoId);
+            }
+        }
+        
+        // Recalcular monto esperado USANDO LA NUEVA LÓGICA
+        if ((ordenIds != null && !ordenIds.isEmpty()) || (abonoIds != null && !abonoIds.isEmpty())) {
             montoEsperado = entregaDetalleService.calcularDineroRealEntrega(
                 entregaGuardada.getId(), 
                 entrega.getFechaDesde(), 

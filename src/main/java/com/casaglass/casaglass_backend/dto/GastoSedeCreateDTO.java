@@ -14,6 +14,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class GastoSedeCreateDTO {
     
+    @NotNull(message = "La sede es obligatoria")
+    private Long sedeId;
+    
     @NotNull(message = "La fecha del gasto es obligatoria")
     private LocalDate fechaGasto;
     
@@ -26,9 +29,8 @@ public class GastoSedeCreateDTO {
     
     private String descripcion;
     private String comprobante;
-    private String tipo = "OPERATIVO"; // OPERATIVO, COMBUSTIBLE, etc.
-    private Long empleadoId; // Quien autorizó el gasto
+    private String tipo = "OPERATIVO"; // OPERATIVO, COMBUSTIBLE, MANTENIMIENTO, SERVICIOS, EMERGENCIA, ALIMENTACION, OTRO
+    private Long empleadoId; // Quien realizó el gasto (opcional)
     private Long proveedorId; // Opcional
-    private Boolean aprobado = false;
     private String observaciones;
 }

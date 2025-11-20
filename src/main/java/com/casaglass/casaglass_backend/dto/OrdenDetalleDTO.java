@@ -20,6 +20,7 @@ public class OrdenDetalleDTO {
     private Long numero;
     private LocalDate fecha;
     private String obra;
+    private String descripcion; // Descripción/observaciones adicionales
     private Double total;
     private ClienteDetalleDTO cliente;
     private List<ItemDetalleDTO> items;
@@ -84,6 +85,7 @@ public class OrdenDetalleDTO {
         this.numero = orden.getNumero();
         this.fecha = orden.getFecha();
         this.obra = orden.getObra();
+        this.descripcion = orden.getDescripcion();
         this.total = orden.getTotal();
         this.cliente = new ClienteDetalleDTO(orden.getCliente());
         
