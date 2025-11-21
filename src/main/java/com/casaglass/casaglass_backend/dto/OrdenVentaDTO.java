@@ -23,6 +23,7 @@ public class OrdenVentaDTO {
     private boolean venta = true; // por defecto true para ventas
     private boolean credito = false; // si es venta a crédito
     private boolean incluidaEntrega = false; // si incluye entrega
+    private Double descuentos = 0.0; // Descuentos aplicados a la orden
     
     // IDs DE ENTIDADES RELACIONADAS (requeridos)
     private Long clienteId; // OBLIGATORIO

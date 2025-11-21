@@ -27,6 +27,9 @@ public class OrdenTablaDTO {
     private boolean credito;
     private Orden.EstadoOrden estado;
     private boolean facturada;  // Indica si la orden tiene una factura asociada
+    private Double subtotal; // Subtotal de la orden (suma de items)
+    private Double descuentos; // Descuentos aplicados
+    private Double total; // Total final (subtotal - descuentos)
     
     // INFORMACION SIMPLIFICADA DE ENTIDADES RELACIONADAS
     private ClienteTablaDTO cliente;

@@ -1,0 +1,200 @@
+================================================================================
+RESPUESTA: ENDPOINTS GET /api/ordenes/{id} vs GET /api/ordenes/{id}/detalle
+================================================================================
+
+ANÁLISIS DE AMBOS ENDPOINTS:
+
+================================================================================
+ENDPOINT 1: GET /api/ordenes/{id}
+================================================================================
+
+✅ SÍ DEVUELVE LA ESTRUCTURA COMPLETA CON ITEMS Y PRODUCTOS COMPLETOS
+
+RESPUESTA:
+- Devuelve la entidad Orden directamente (sin DTO)
+- Incluye items (FetchType.EAGER en Orden)
+- Cada item incluye producto completo (FetchType.EAGER en OrdenItem)
+- El producto incluye: id, codigo, nombre, y todos los demás campos
+
+ESTRUCTURA DE RESPUESTA:
+{
+  "id": 100,
+  "numero": 1001,
+  "fecha": "2025-01-15",
+  "obra": "Casa nueva",
+  "descripcion": "Venta de vidrios",
+  "venta": true,
+  "credito": false,
+  "subtotal": 135000.0,
+  "descuentos": 50000.0,
+  "total": 85000.0,
+  "incluidaEntrega": false,
+  "estado": "ACTIVA",
+  "cliente": {
+    "id": 1,
+    "nombre": "Juan Pérez",
+    "nit": "1234567-8",
+    ...
+  },
+  "sede": {
+    "id": 1,
+    "nombre": "Sede Central",
+    ...
+  },
+  "trabajador": {
+    "id": 5,
+    "nombre": "María González",
+    ...
+  },
+  "items": [
+    {
+      "id": 500,
+      "producto": {
+        "id": 10,
+        "codigo": "VID001",        // ✅ SÍ INCLUYE CÓDIGO
+        "nombre": "Vidrio templado 6mm",
+        "categoria": {...},
+        "tipo": "MT",
+        "color": "TRANSPARENTE",
+        "cantidad": 100,
+        "costo": 5000.0,
+        "precio1": 15000.0,
+        "precio2": 14000.0,
+        "precio3": 13000.0,
+        ... (todos los campos del producto)
+      },
+      "descripcion": "Vidrio templado 6mm",
+      "cantidad": 5,
+      "precioUnitario": 15000.0,
+      "totalLinea": 75000.0
+    }
+  ],
+  "creditoDetalle": {...},
+  "factura": {...}
+}
+
+VENTAJAS:
+✅ Incluye TODOS los campos del producto (id, codigo, nombre, categoria, tipo, color, etc.)
+✅ No requiere conversión a DTO
+✅ Estructura completa y rica
+
+DESVENTAJAS:
+⚠️ Puede incluir información innecesaria si solo necesitas datos básicos
+⚠️ Puede tener referencias circulares si no están bien configuradas
+
+================================================================================
+ENDPOINT 2: GET /api/ordenes/{id}/detalle
+================================================================================
+
+✅ DEVUELVE ESTRUCTURA SIMPLIFICADA CON CÓDIGO DEL PRODUCTO (CORREGIDO)
+
+RESPUESTA:
+- Devuelve OrdenDetalleDTO (estructura simplificada)
+- Incluye items con productos
+- El producto incluye: id, codigo y nombre
+
+ESTRUCTURA DE RESPUESTA:
+{
+  "id": 100,
+  "numero": 1001,
+  "fecha": "2025-01-15",
+  "obra": "Casa nueva",
+  "descripcion": "Venta de vidrios",
+  "subtotal": 135000.0,
+  "descuentos": 50000.0,
+  "total": 85000.0,
+  "cliente": {
+    "id": 1,
+    "nombre": "Juan Pérez",
+    "nit": "1234567-8",
+    "direccion": "Calle Principal 123",
+    "telefono": "555-1234"
+  },
+  "items": [
+    {
+      "id": 500,
+      "producto": {
+        "id": 10,
+        "codigo": "VID001",        // ✅ AHORA INCLUYE CÓDIGO
+        "nombre": "Vidrio templado 6mm"
+      },
+      "descripcion": "Vidrio templado 6mm",
+      "cantidad": 5,
+      "precioUnitario": 15000.0,
+      "totalLinea": 75000.0
+    }
+  ]
+}
+
+VENTAJAS:
+✅ Estructura limpia y controlada
+✅ Solo incluye datos necesarios (id, codigo, nombre del producto)
+✅ Sin referencias circulares
+✅ Incluye codigo del producto (necesario para reembolsos)
+
+================================================================================
+RECOMENDACIÓN
+================================================================================
+
+PARA REEMBOLSOS, PUEDES USAR CUALQUIERA DE LOS DOS:
+
+✅ OPCIÓN 1: GET /api/ordenes/{id}
+   - Incluye items con producto COMPLETO (id, codigo, nombre, categoria, tipo, color, etc.)
+   - Perfecto si necesitas TODA la información del producto
+   - Devuelve la entidad Orden directamente
+
+✅ OPCIÓN 2: GET /api/ordenes/{id}/detalle
+   - Incluye items con producto SIMPLIFICADO (id, codigo, nombre)
+   - Perfecto si solo necesitas datos básicos del producto
+   - Estructura más limpia y controlada
+   - ✅ CORREGIDO: Ahora incluye codigo del producto
+
+RECOMENDACIÓN:
+- Para reembolsos: Usa GET /api/ordenes/{id}/detalle (más limpio, incluye codigo)
+- Si necesitas más datos del producto: Usa GET /api/ordenes/{id}
+
+================================================================================
+RESPUESTA DIRECTA
+================================================================================
+
+PREGUNTA: ¿El endpoint GET /api/ordenes/{id} devuelve la estructura completa 
+con items y cada item.producto (con id, codigo, nombre)?
+
+RESPUESTA: ✅ SÍ, GET /api/ordenes/{id} devuelve TODO:
+- ✅ Items completos
+- ✅ Producto completo con id, codigo, nombre y todos los demás campos
+
+PREGUNTA: ¿Debemos usar GET /api/ordenes/{id}/detalle?
+
+RESPUESTA: 
+- ✅ SÍ, ahora también incluye codigo del producto (CORREGIDO)
+- ✅ Estructura más limpia y controlada
+- ✅ Perfecto para reembolsos
+
+AMBOS ENDPOINTS FUNCIONAN PARA REEMBOLSOS:
+- GET /api/ordenes/{id} → Producto completo (más datos)
+- GET /api/ordenes/{id}/detalle → Producto simplificado (id, codigo, nombre)
+
+================================================================================
+CORRECCIÓN APLICADA
+================================================================================
+
+✅ Se agregó el campo codigo a ProductoItemDTO en OrdenDetalleDTO.java
+
+ANTES:
+public static class ProductoItemDTO {
+    private Long id;
+    private String nombre;  // ❌ Faltaba codigo
+}
+
+AHORA:
+public static class ProductoItemDTO {
+    private Long id;
+    private String codigo;  // ✅ Agregado
+    private String nombre;
+}
+
+Ahora GET /api/ordenes/{id}/detalle incluye codigo del producto.
+
+================================================================================
+

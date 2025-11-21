@@ -21,7 +21,9 @@ public class OrdenDetalleDTO {
     private LocalDate fecha;
     private String obra;
     private String descripcion; // Descripción/observaciones adicionales
-    private Double total;
+    private Double subtotal; // Subtotal de la orden (suma de items)
+    private Double descuentos; // Descuentos aplicados
+    private Double total; // Total final (subtotal - descuentos)
     private ClienteDetalleDTO cliente;
     private List<ItemDetalleDTO> items;
     
@@ -50,10 +52,12 @@ public class OrdenDetalleDTO {
     @AllArgsConstructor
     public static class ProductoItemDTO {
         private Long id;
+        private String codigo;
         private String nombre;
         
         public ProductoItemDTO(Producto producto) {
             this.id = producto.getId();
+            this.codigo = producto.getCodigo();
             this.nombre = producto.getNombre();
         }
     }
@@ -86,6 +90,8 @@ public class OrdenDetalleDTO {
         this.fecha = orden.getFecha();
         this.obra = orden.getObra();
         this.descripcion = orden.getDescripcion();
+        this.subtotal = orden.getSubtotal();
+        this.descuentos = orden.getDescuentos();
         this.total = orden.getTotal();
         this.cliente = new ClienteDetalleDTO(orden.getCliente());
         

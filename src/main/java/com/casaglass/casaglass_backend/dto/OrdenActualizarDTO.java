@@ -24,6 +24,7 @@ public class OrdenActualizarDTO {
     private String descripcion; // Descripción/observaciones adicionales
     private boolean venta;
     private boolean credito;
+    private Double descuentos = 0.0; // Descuentos aplicados a la orden
     
     // IDs DE ENTIDADES RELACIONADAS (para actualizar referencias)
     private Long clienteId;

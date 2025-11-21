@@ -80,6 +80,12 @@ public class Orden {
   @Column(nullable = false)
   private Double subtotal = 0.0;
 
+  /**
+   * Descuentos aplicados a la orden
+   */
+  @Column(nullable = false)
+  private Double descuentos = 0.0;
+
   @Column(nullable = false)
   private Double total = 0.0;
 

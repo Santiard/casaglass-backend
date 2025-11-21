@@ -536,7 +536,7 @@ public class OrdenController {
                             facturaDTO.setOrdenId(orden.getId());
                             facturaDTO.setFecha(LocalDate.now());
                             facturaDTO.setSubtotal(orden.getSubtotal());
-                            facturaDTO.setDescuentos(0.0);
+                            facturaDTO.setDescuentos(orden.getDescuentos() != null ? orden.getDescuentos() : 0.0);
                             facturaDTO.setIva(0.0);
                             facturaDTO.setRetencionFuente(0.0);
                             facturaDTO.setTotal(orden.getTotal());

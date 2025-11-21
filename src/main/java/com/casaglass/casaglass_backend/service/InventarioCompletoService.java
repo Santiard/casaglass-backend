@@ -241,6 +241,7 @@ public class InventarioCompletoService {
             cantidadInsula,
             cantidadCentro,
             cantidadPatios,
+            producto.getCosto(),
             producto.getPrecio1(),
             producto.getPrecio2(),
             producto.getPrecio3()

@@ -78,17 +78,6 @@ public class ProductoService {
     public Producto actualizar(Long id, ProductoActualizarDTO dto) {
         return repo.findById(id).map(actual -> {
             try {
-                // 🐛 DEBUG: Logging para identificar problemas
-                System.out.println("=== ACTUALIZANDO PRODUCTO ===");
-                System.out.println("ID: " + id);
-                System.out.println("Version actual en DB: " + actual.getVersion());
-                System.out.println("Version recibida: " + dto.getVersion());
-                System.out.println("Tipo recibido: " + dto.getTipo());
-                System.out.println("Color recibido: " + dto.getColor());
-                System.out.println("Categoria recibida: " + (dto.getCategoria() != null ? dto.getCategoria().getId() : "null"));
-                System.out.println("Cantidad recibida: " + dto.getCantidad());
-                System.out.println("Inventario - Insula: " + dto.getCantidadInsula() + ", Centro: " + dto.getCantidadCentro() + ", Patios: " + dto.getCantidadPatios());
-                
                 // 🔧 NO TOCAR el version - Hibernate lo maneja automáticamente
                 // actual.setVersion(dto.getVersion()); // ❌ NO hacer esto
                 
@@ -120,16 +109,10 @@ public class ProductoService {
                     actual.setCategoria(null);
                 }
 
-                System.out.println("Producto antes de guardar: " + actual);
                 Producto saved = repo.save(actual);
-                System.out.println("Producto guardado exitosamente con version: " + saved.getVersion());
                 
                 // 📦 ACTUALIZAR INVENTARIO EN LAS 3 SEDES si se enviaron las cantidades
                 if (dto.getCantidadInsula() != null || dto.getCantidadCentro() != null || dto.getCantidadPatios() != null) {
-                    System.out.println("🔄 Actualizando inventario con valores del frontend:");
-                    System.out.println("   Insula: " + dto.getCantidadInsula());
-                    System.out.println("   Centro: " + dto.getCantidadCentro());
-                    System.out.println("   Patios: " + dto.getCantidadPatios());
                     actualizarInventarioConValores(saved.getId(), 
                         dto.getCantidadInsula() != null ? dto.getCantidadInsula() : 0,
                         dto.getCantidadCentro() != null ? dto.getCantidadCentro() : 0,

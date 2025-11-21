@@ -28,7 +28,8 @@ public class ProductoInventarioCompletoDTO {
     private Integer cantidadCentro;
     private Integer cantidadPatios;
     
-    // === Precios ===
+    // === Precios y Costo ===
+    private Double costo;
     private Double precio1;
     private Double precio2;
     private Double precio3;
@@ -40,7 +41,7 @@ public class ProductoInventarioCompletoDTO {
     public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, String categoria, String tipo, String color,
                                         Boolean esVidrio, Double mm, Double m1, Double m2,
                                         Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
-                                        Double precio1, Double precio2, Double precio3) {
+                                        Double costo, Double precio1, Double precio2, Double precio3) {
         this.id = id;
         this.codigo = codigo;
         this.nombre = nombre;
@@ -54,6 +55,7 @@ public class ProductoInventarioCompletoDTO {
         this.cantidadInsula = cantidadInsula != null ? cantidadInsula : 0;
         this.cantidadCentro = cantidadCentro != null ? cantidadCentro : 0;
         this.cantidadPatios = cantidadPatios != null ? cantidadPatios : 0;
+        this.costo = costo;
         this.precio1 = precio1;
         this.precio2 = precio2;
         this.precio3 = precio3;

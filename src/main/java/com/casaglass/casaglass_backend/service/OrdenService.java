@@ -112,7 +112,12 @@ public class OrdenService {
         }
         subtotal = Math.round(subtotal * 100.0) / 100.0;
         orden.setSubtotal(subtotal);
-        orden.setTotal(subtotal); // impuestos/desc. si aplica más adelante
+        // Calcular descuentos (si no viene, usar 0.0)
+        Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
+        orden.setDescuentos(descuentos);
+        // Calcular total: subtotal - descuentos
+        Double total = subtotal - descuentos;
+        orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // Establecer estado activa por defecto
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
@@ -184,7 +189,12 @@ public class OrdenService {
         
         orden.setItems(items);
         orden.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
-        orden.setTotal(orden.getSubtotal()); // Por ahora sin impuestos/descuentos
+        // Calcular descuentos (si no viene, usar 0.0)
+        Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
+        orden.setDescuentos(descuentos);
+        // Calcular total: subtotal - descuentos
+        Double total = orden.getSubtotal() - descuentos;
+        orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 🔢 GENERAR NÚMERO AUTOMÁTICO
         orden.setNumero(generarNumeroOrden());
@@ -272,7 +282,12 @@ public class OrdenService {
         
         orden.setItems(items);
         orden.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
-        orden.setTotal(orden.getSubtotal()); // Por ahora sin impuestos/descuentos
+        // Calcular descuentos (si no viene, usar 0.0)
+        Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
+        orden.setDescuentos(descuentos);
+        // Calcular total: subtotal - descuentos
+        Double total = orden.getSubtotal() - descuentos;
+        orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 🔢 GENERAR NÚMERO AUTOMÁTICO
         orden.setNumero(generarNumeroOrden());
@@ -376,7 +391,12 @@ public class OrdenService {
         }
         
         ordenExistente.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
-        ordenExistente.setTotal(ordenExistente.getSubtotal());
+        // Calcular descuentos (si no viene, usar el valor actual o 0.0)
+        Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
+        ordenExistente.setDescuentos(descuentos);
+        // Calcular total: subtotal - descuentos
+        Double total = ordenExistente.getSubtotal() - descuentos;
+        ordenExistente.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 💾 GUARDAR ORDEN ACTUALIZADA
         Orden ordenActualizada = repo.save(ordenExistente);
@@ -466,7 +486,12 @@ public class OrdenService {
         }
         
         ordenExistente.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
-        ordenExistente.setTotal(ordenExistente.getSubtotal());
+        // Calcular descuentos (si no viene, usar el valor actual o 0.0)
+        Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
+        ordenExistente.setDescuentos(descuentos);
+        // Calcular total: subtotal - descuentos
+        Double total = ordenExistente.getSubtotal() - descuentos;
+        ordenExistente.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 💾 GUARDAR ORDEN ACTUALIZADA PRIMERO
         Orden ordenActualizada = repo.save(ordenExistente);
@@ -749,6 +774,9 @@ public class OrdenService {
         dto.setVenta(orden.isVenta());
         dto.setCredito(orden.isCredito());
         dto.setEstado(orden.getEstado());
+        dto.setSubtotal(orden.getSubtotal());
+        dto.setDescuentos(orden.getDescuentos());
+        dto.setTotal(orden.getTotal());
         // Facturada si existe relación en memoria o en BD
         boolean tieneFactura = (orden.getFactura() != null);
         if (!tieneFactura && orden.getId() != null) {
@@ -838,6 +866,9 @@ public class OrdenService {
         orden.setDescripcion(dto.getDescripcion());
         orden.setVenta(dto.isVenta());
         orden.setCredito(dto.isCredito());
+        // Actualizar descuentos
+        Double descuentos = dto.getDescuentos() != null ? dto.getDescuentos() : (orden.getDescuentos() != null ? orden.getDescuentos() : 0.0);
+        orden.setDescuentos(descuentos);
 
         // 3️⃣ Actualizar referencias de entidades
         if (dto.getClienteId() != null) {
@@ -854,8 +885,22 @@ public class OrdenService {
         if (dto.getItems() != null) {
             actualizarItemsDeOrden(orden, dto.getItems());
         }
+        
+        // 5️⃣ Recalcular subtotal y total después de actualizar items
+        double subtotal = 0.0;
+        if (orden.getItems() != null) {
+            for (OrdenItem item : orden.getItems()) {
+                if (item.getTotalLinea() != null) {
+                    subtotal += item.getTotalLinea();
+                }
+            }
+        }
+        orden.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        // Calcular total: subtotal - descuentos
+        Double total = orden.getSubtotal() - orden.getDescuentos();
+        orden.setTotal(Math.round(total * 100.0) / 100.0);
 
-        // 5️⃣ Guardar orden actualizada
+        // 6️⃣ Guardar orden actualizada
         Orden ordenActualizada = repo.save(orden);
 
         // 6️⃣ Retornar DTO optimizado para tabla
