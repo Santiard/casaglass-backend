@@ -93,12 +93,13 @@ public class SedeDashboardService {
             return new FaltanteEntregaInfo(0.0, null, 0.0, "SIN_ENTREGAS");
         }
         
-        Double montoFaltante = ultimaEntrega.getDiferencia() != null ? ultimaEntrega.getDiferencia() : 0.0;
+        // Ya no hay diferencia porque siempre se entrega todo el dinero
+        Double montoFaltante = 0.0;
         
         return new FaltanteEntregaInfo(
                 montoFaltante,
                 ultimaEntrega.getFechaEntrega().atStartOfDay(), // Convertir LocalDate a LocalDateTime
-                ultimaEntrega.getMontoEntregado(),
+                ultimaEntrega.getMonto() != null ? ultimaEntrega.getMonto() : 0.0,
                 ultimaEntrega.getEstado().name()
         );
     }

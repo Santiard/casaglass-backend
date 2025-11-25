@@ -20,27 +20,19 @@ public class EntregaDineroResponseDTO {
     private LocalDate fechaEntrega;
     private LocalDate fechaDesde;
     private LocalDate fechaHasta;
-    private Double montoEsperado;
-    private Double montoGastos;
-    private Double montoEntregado;
+    private Double monto;
     private Double montoEfectivo;
     private Double montoTransferencia;
     private Double montoCheque;
     private Double montoDeposito;
-    private Double diferencia;
     private String modalidadEntrega;
     private String estado;
-    private String observaciones;
-    private String numeroComprobante;
     
-    // Detalles y gastos como DTOs simples
+    // Detalles como DTOs simples
     private List<EntregaDetalleSimpleDTO> detalles;
-    private List<GastoSedeSimpleDTO> gastos;
     
     // Información adicional calculada
     private Integer totalOrdenes;
-    private Integer totalGastos;
-    private Double porcentajeGastos; // gastos/esperado * 100
     
     // Constructor desde entidad
     public EntregaDineroResponseDTO(EntregaDinero entrega) {
@@ -50,32 +42,20 @@ public class EntregaDineroResponseDTO {
         this.fechaEntrega = entrega.getFechaEntrega();
         this.fechaDesde = entrega.getFechaDesde();
         this.fechaHasta = entrega.getFechaHasta();
-        this.montoEsperado = entrega.getMontoEsperado();
-        this.montoGastos = entrega.getMontoGastos();
-        this.montoEntregado = entrega.getMontoEntregado();
+        this.monto = entrega.getMonto();
         this.montoEfectivo = entrega.getMontoEfectivo();
         this.montoTransferencia = entrega.getMontoTransferencia();
         this.montoCheque = entrega.getMontoCheque();
         this.montoDeposito = entrega.getMontoDeposito();
-        this.diferencia = entrega.getDiferencia();
         this.modalidadEntrega = entrega.getModalidadEntrega() != null ? entrega.getModalidadEntrega().name() : null;
         this.estado = entrega.getEstado() != null ? entrega.getEstado().name() : null;
-        this.observaciones = entrega.getObservaciones();
-        this.numeroComprobante = entrega.getNumeroComprobante();
         
-        // Convertir detalles y gastos a DTOs (sin cálculo de abonos por defecto)
+        // Convertir detalles a DTOs (sin cálculo de abonos por defecto)
         this.detalles = entrega.getDetalles() != null ? entrega.getDetalles().stream()
                 .map(EntregaDetalleSimpleDTO::new)
                 .collect(Collectors.toList()) : List.of();
         
-        this.gastos = entrega.getGastos() != null ? entrega.getGastos().stream()
-                .map(GastoSedeSimpleDTO::new)
-                .collect(Collectors.toList()) : List.of();
-        
         // Calcular información adicional
         this.totalOrdenes = this.detalles.size();
-        this.totalGastos = this.gastos.size();
-        this.porcentajeGastos = this.montoEsperado != null && this.montoEsperado > 0 ? 
-            (this.montoGastos != null ? this.montoGastos : 0.0) / this.montoEsperado * 100 : 0.0;
     }
 }

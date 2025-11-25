@@ -22,6 +22,7 @@ public class OrdenParaEntregaDTO {
     private String clienteNit;
     private Double total;
     private String obra;
+    private String descripcion; // Descripción/observaciones adicionales de la orden
     private String sedeNombre;
     private String trabajadorNombre;
     private boolean yaEntregada; // Si ya está en otra entrega

@@ -1,0 +1,328 @@
+================================================================================
+CAMBIOS EN ENTREGAS DE DINERO - SIMPLIFICACIÓN DE MONTO
+================================================================================
+
+FECHA: 2025-01-XX
+DESCRIPCIÓN: Se eliminaron los campos montoEsperado y montoEntregado, 
+             reemplazándolos por un único campo "monto". También se eliminó 
+             el campo "diferencia" ya que siempre se entrega todo el dinero.
+
+================================================================================
+CAMBIOS EN MODELO Y LÓGICA
+================================================================================
+
+ANTES:
+- montoEsperado: Monto calculado desde las órdenes
+- montoEntregado: Monto realmente entregado
+- diferencia: montoEsperado - montoEntregado
+
+AHORA:
+- monto: Único campo que representa el monto de la entrega
+- diferencia: ELIMINADO (siempre es 0 porque se entrega todo)
+
+LÓGICA:
+- El monto se calcula automáticamente desde las órdenes/abonos
+- El monto debe coincidir con la suma del desglose (efectivo + transferencia + cheque + depósito)
+- Si no se proporciona monto, se calcula desde el desglose
+- Si se proporciona monto, debe coincidir con el desglose
+
+================================================================================
+ENDPOINTS MODIFICADOS
+================================================================================
+
+1. POST /api/entregas-dinero
+   CAMBIOS EN REQUEST BODY:
+   
+   ANTES:
+   {
+     "sedeId": 1,
+     "empleadoId": 1,
+     "fechaEntrega": "2025-01-15",
+     "fechaDesde": "2025-01-01",
+     "fechaHasta": "2025-01-15",
+     "ordenesIds": [1, 2, 3],
+     "abonosIds": [4, 5],
+     "montoEsperado": 1000.0,        // ❌ ELIMINAR
+     "montoEntregado": 1000.0,        // ❌ ELIMINAR
+     "montoEfectivo": 1000.0,
+     "montoTransferencia": 0.0,
+     "montoCheque": 0.0,
+     "montoDeposito": 0.0
+   }
+   
+   AHORA:
+   {
+     "sedeId": 1,
+     "empleadoId": 1,
+     "fechaEntrega": "2025-01-15",
+     "fechaDesde": "2025-01-01",
+     "fechaHasta": "2025-01-15",
+     "ordenesIds": [1, 2, 3],
+     "abonosIds": [4, 5],
+     "monto": 1000.0,                 // ✅ NUEVO (opcional, se calcula automáticamente)
+     "montoEfectivo": 1000.0,
+     "montoTransferencia": 0.0,
+     "montoCheque": 0.0,
+     "montoDeposito": 0.0
+   }
+   
+   CAMBIOS EN RESPONSE:
+   
+   ANTES:
+   {
+     "mensaje": "Entrega creada exitosamente",
+     "entrega": {
+       "id": 1,
+       "montoEsperado": 1000.0,       // ❌ YA NO EXISTE
+       "montoEntregado": 1000.0,      // ❌ YA NO EXISTE
+       "diferencia": 0.0,             // ❌ YA NO EXISTE
+       "montoEfectivo": 1000.0,
+       "montoTransferencia": 0.0,
+       "montoCheque": 0.0,
+       "montoDeposito": 0.0,
+       "detalles": [...],
+       "totalOrdenes": 3
+     }
+   }
+   
+   AHORA:
+   {
+     "mensaje": "Entrega creada exitosamente",
+     "entrega": {
+       "id": 1,
+       "monto": 1000.0,               // ✅ NUEVO
+       "montoEfectivo": 1000.0,
+       "montoTransferencia": 0.0,
+       "montoCheque": 0.0,
+       "montoDeposito": 0.0,
+       "detalles": [...],
+       "totalOrdenes": 3
+     }
+   }
+
+2. PUT /api/entregas-dinero/{id}/confirmar
+   CAMBIOS EN REQUEST:
+   
+   ANTES:
+   PUT /api/entregas-dinero/1/confirmar?montoEntregado=1000.0&observaciones=...
+   
+   AHORA:
+   PUT /api/entregas-dinero/1/confirmar?observaciones=...
+   
+   NOTA: Ya no se requiere el parámetro montoEntregado. El monto se toma 
+         del desglose o del campo monto de la entrega.
+
+3. GET /api/entregas-dinero/{id}
+   CAMBIOS EN RESPONSE:
+   
+   ANTES:
+   {
+     "id": 1,
+     "montoEsperado": 1000.0,         // ❌ YA NO EXISTE
+     "montoEntregado": 1000.0,        // ❌ YA NO EXISTE
+     "diferencia": 0.0,               // ❌ YA NO EXISTE
+     "montoEfectivo": 1000.0,
+     ...
+   }
+   
+   AHORA:
+   {
+     "id": 1,
+     "monto": 1000.0,                 // ✅ NUEVO
+     "montoEfectivo": 1000.0,
+     ...
+   }
+
+4. GET /api/entregas-dinero
+   CAMBIOS EN RESPONSE:
+   - Mismo cambio que GET /api/entregas-dinero/{id}
+   - Cada objeto en el array ahora tiene "monto" en lugar de "montoEsperado" y "montoEntregado"
+   - Ya no incluye "diferencia"
+
+5. GET /api/entregas-dinero/{id}/diferencia
+   - ELIMINADO COMPLETAMENTE
+   - Este endpoint ya no existe
+
+6. GET /api/entregas-dinero/con-diferencias
+   - ELIMINADO COMPLETAMENTE
+   - Este endpoint ya no existe
+
+================================================================================
+CAMBIOS REQUERIDOS EN EL FRONTEND
+================================================================================
+
+1. ACTUALIZAR INTERFACES/TIPOS TypeScript
+   - Eliminar campos de las interfaces:
+     * montoEsperado: Double
+     * montoEntregado: Double
+     * diferencia: Double
+   - Agregar campo:
+     * monto: Double
+
+2. ACTUALIZAR POST /api/entregas-dinero
+   - Eliminar "montoEsperado" del request body
+   - Eliminar "montoEntregado" del request body
+   - Agregar "monto" (opcional, se calcula automáticamente)
+   - El monto se puede calcular desde el desglose o enviarse explícitamente
+
+3. ACTUALIZAR PUT /api/entregas-dinero/{id}/confirmar
+   - Eliminar el parámetro "montoEntregado" de la query string
+   - Solo enviar "observaciones" (opcional)
+
+4. ACTUALIZAR COMPONENTES QUE MUESTRAN ENTREGAS
+   - Eliminar visualización de "montoEsperado"
+   - Eliminar visualización de "montoEntregado"
+   - Eliminar visualización de "diferencia"
+   - Mostrar solo "monto"
+   - Ajustar cualquier cálculo que use estos campos
+
+5. ACTUALIZAR FORMULARIOS DE ENTREGA
+   - Eliminar campos para "montoEsperado"
+   - Eliminar campos para "montoEntregado"
+   - Agregar campo opcional para "monto" (si se desea ingresar manualmente)
+   - El monto se puede calcular automáticamente desde el desglose
+
+6. ELIMINAR LLAMADAS A ENDPOINTS ELIMINADOS
+   - Eliminar llamadas a GET /api/entregas-dinero/{id}/diferencia
+   - Eliminar llamadas a GET /api/entregas-dinero/con-diferencias
+
+7. ACTUALIZAR CÁLCULOS EN EL FRONTEND
+   - Si se estaba calculando diferencia, eliminar ese cálculo
+   - El monto se calcula automáticamente desde las órdenes o desde el desglose
+   - Validar que monto = suma del desglose (efectivo + transferencia + cheque + depósito)
+
+================================================================================
+RESUMEN DE CAMPOS ELIMINADOS Y AGREGADOS
+================================================================================
+
+CAMPOS ELIMINADOS:
+- montoEsperado: Double
+- montoEntregado: Double
+- diferencia: Double
+
+CAMPO AGREGADO:
+- monto: Double (reemplaza a montoEsperado y montoEntregado)
+
+EN REQUEST (POST /api/entregas-dinero):
+- monto: Double (opcional, se calcula automáticamente desde órdenes o desglose)
+
+EN RESPONSE (GET /api/entregas-dinero):
+- monto: Double
+- diferencia: ELIMINADO
+
+EN ENTIDAD EntregaDinero:
+- monto: Double (reemplaza montoEsperado y montoEntregado)
+- diferencia: ELIMINADO
+
+================================================================================
+EJEMPLO DE CÓDIGO FRONTEND - ANTES Y DESPUÉS
+================================================================================
+
+ANTES (crear entrega):
+const crearEntrega = async (data) => {
+  const payload = {
+    sedeId: data.sedeId,
+    empleadoId: data.empleadoId,
+    fechaEntrega: data.fechaEntrega,
+    fechaDesde: data.fechaDesde,
+    fechaHasta: data.fechaHasta,
+    ordenesIds: data.ordenesIds,
+    abonosIds: data.abonosIds,
+    montoEsperado: data.montoEsperado,    // ❌ ELIMINAR
+    montoEntregado: data.montoEntregado,  // ❌ ELIMINAR
+    montoEfectivo: data.montoEfectivo,
+    montoTransferencia: data.montoTransferencia,
+    montoCheque: data.montoCheque,
+    montoDeposito: data.montoDeposito
+  };
+  return await api.post('/entregas-dinero', payload);
+};
+
+DESPUÉS (crear entrega):
+const crearEntrega = async (data) => {
+  // Calcular monto desde el desglose si no se proporciona
+  const monto = data.monto || (
+    (data.montoEfectivo || 0) +
+    (data.montoTransferencia || 0) +
+    (data.montoCheque || 0) +
+    (data.montoDeposito || 0)
+  );
+  
+  const payload = {
+    sedeId: data.sedeId,
+    empleadoId: data.empleadoId,
+    fechaEntrega: data.fechaEntrega,
+    fechaDesde: data.fechaDesde,
+    fechaHasta: data.fechaHasta,
+    ordenesIds: data.ordenesIds,
+    abonosIds: data.abonosIds,
+    monto: monto,                          // ✅ NUEVO
+    montoEfectivo: data.montoEfectivo,
+    montoTransferencia: data.montoTransferencia,
+    montoCheque: data.montoCheque,
+    montoDeposito: data.montoDeposito
+  };
+  return await api.post('/entregas-dinero', payload);
+};
+
+ANTES (confirmar entrega):
+const confirmarEntrega = async (id, montoEntregado, observaciones) => {
+  return await api.put(`/entregas-dinero/${id}/confirmar`, null, {
+    params: {
+      montoEntregado: montoEntregado,      // ❌ ELIMINAR
+      observaciones: observaciones
+    }
+  });
+};
+
+DESPUÉS (confirmar entrega):
+const confirmarEntrega = async (id, observaciones) => {
+  return await api.put(`/entregas-dinero/${id}/confirmar`, null, {
+    params: {
+      observaciones: observaciones
+    }
+  });
+};
+
+ANTES (mostrar entrega):
+<div>
+  <p>Monto Esperado: {entrega.montoEsperado}</p>
+  <p>Monto Entregado: {entrega.montoEntregado}</p>
+  <p>Diferencia: {entrega.diferencia}</p>
+  <p>Efectivo: {entrega.montoEfectivo}</p>
+  ...
+</div>
+
+DESPUÉS (mostrar entrega):
+<div>
+  <p>Monto: {entrega.monto}</p>
+  <p>Efectivo: {entrega.montoEfectivo}</p>
+  <p>Transferencia: {entrega.montoTransferencia}</p>
+  <p>Cheque: {entrega.montoCheque}</p>
+  <p>Depósito: {entrega.montoDeposito}</p>
+</div>
+
+================================================================================
+NOTAS IMPORTANTES
+================================================================================
+
+1. El campo "monto" es opcional en el request. Si no se envía:
+   - Se calcula automáticamente desde las órdenes/abonos
+   - O se calcula desde el desglose (efectivo + transferencia + cheque + depósito)
+
+2. El monto debe coincidir con la suma del desglose. Si no coincide:
+   - El backend ajustará el monto a la suma del desglose
+   - O lanzará un error si el monto fue proporcionado explícitamente
+
+3. Ya no existe el concepto de "diferencia" porque siempre se entrega todo el dinero.
+
+4. El endpoint de confirmar entrega ya no requiere montoEntregado porque:
+   - El monto ya está calculado desde las órdenes
+   - O se toma del desglose
+
+5. Los endpoints de diferencias fueron eliminados porque ya no aplican.
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================
+

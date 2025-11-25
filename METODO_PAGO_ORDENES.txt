@@ -1,0 +1,204 @@
+================================================================================
+METODO DE PAGO DE LAS ORDENES - DONDE SE MANEJA
+================================================================================
+
+RESUMEN:
+================================================================================
+
+El metodo de pago NO se guarda directamente en la entidad Orden.
+Se maneja de forma diferente segun el tipo de orden:
+
+1. ORDENES A CREDITO: El metodo de pago se guarda en ABONO
+2. ORDENES A CONTADO: El metodo de pago se guarda en FACTURA
+
+================================================================================
+
+1. ORDENES A CREDITO (credito = true)
+================================================================================
+
+UBICACION:
+- Entidad: Abono.java
+- Campo: metodoPago (enum)
+- Tabla: abonos
+- Columna: metodo_pago
+
+CODIGO:
+@Enumerated(EnumType.STRING)
+@Column(name = "metodo_pago", length = 20, nullable = false)
+private MetodoPago metodoPago = MetodoPago.TRANSFERENCIA;
+
+public enum MetodoPago {
+    EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO
+}
+
+COMO FUNCIONA:
+- Cada vez que se registra un pago (abono) de una orden a credito, se guarda el metodo de pago
+- Una orden a credito puede tener MULTIPLES abonos, cada uno con su propio metodo de pago
+- Ejemplo: Orden #100 a credito puede tener:
+  * Abono 1: $50,000 en EFECTIVO
+  * Abono 2: $30,000 en TRANSFERENCIA
+  * Abono 3: $20,000 en TARJETA
+
+UBICACION EN EL CODIGO:
+- Modelo: src/main/java/com/casaglass/casaglass_backend/model/Abono.java (linea 55-56)
+- Servicio: src/main/java/com/casaglass/casaglass_backend/service/AbonoService.java
+- Controller: src/main/java/com/casaglass/casaglass_backend/controller/AbonoController.java
+
+EJEMPLO DE USO:
+Cuando se crea un abono para una orden a credito:
+POST /api/abonos
+{
+  "creditoId": 1,
+  "total": 50000.0,
+  "metodoPago": "EFECTIVO",  // ✅ AQUI SE GUARDA EL METODO DE PAGO
+  "fecha": "2025-01-15",
+  "factura": "REC-001"
+}
+
+================================================================================
+
+2. ORDENES A CONTADO (credito = false)
+================================================================================
+
+UBICACION:
+- Entidad: Factura.java
+- Campo: formaPago (String)
+- Tabla: facturas
+- Columna: forma_pago
+
+CODIGO:
+@Column(length = 50)
+private String formaPago; // EFECTIVO, TRANSFERENCIA, CHEQUE, etc.
+
+COMO FUNCIONA:
+- Cuando se factura una orden de contado, se guarda el metodo de pago en la factura
+- Una orden de contado tiene UNA factura, y esa factura tiene UN metodo de pago
+- Si la orden aun no esta facturada, NO hay metodo de pago registrado
+
+UBICACION EN EL CODIGO:
+- Modelo: src/main/java/com/casaglass/casaglass_backend/model/Factura.java (linea 91-92)
+- Servicio: src/main/java/com/casaglass/casaglass_backend/service/FacturaService.java
+- Controller: src/main/java/com/casaglass/casaglass_backend/controller/FacturaController.java
+
+EJEMPLO DE USO:
+Cuando se factura una orden de contado:
+PUT /api/ordenes/{id}/facturar
+{
+  "subtotal": 100000.0,
+  "descuentos": 0.0,
+  "iva": 19000.0,
+  "retencionFuente": 0.0,
+  "formaPago": "EFECTIVO",  // ✅ AQUI SE GUARDA EL METODO DE PAGO
+  "observaciones": "Factura de contado"
+}
+
+O crear factura directamente:
+POST /api/facturas
+{
+  "ordenId": 100,
+  "subtotal": 100000.0,
+  "descuentos": 0.0,
+  "iva": 19000.0,
+  "retencionFuente": 0.0,
+  "formaPago": "TRANSFERENCIA",  // ✅ AQUI SE GUARDA EL METODO DE PAGO
+  "observaciones": "Pago por transferencia"
+}
+
+================================================================================
+
+3. ENTIDAD ORDEN - NO TIENE METODO DE PAGO
+================================================================================
+
+La entidad Orden NO tiene un campo de metodo de pago directamente.
+
+Para obtener el metodo de pago de una orden:
+
+ORDEN A CREDITO:
+- Consultar los Abonos relacionados: orden.creditoDetalle.abonos[].metodoPago
+- Cada abono tiene su propio metodo de pago
+
+ORDEN A CONTADO:
+- Consultar la Factura relacionada: orden.factura.formaPago
+- Solo si la orden esta facturada
+
+================================================================================
+
+CONSULTAS PARA OBTENER METODO DE PAGO
+================================================================================
+
+PARA ORDEN A CREDITO:
+- Obtener la orden: GET /api/ordenes/{id}
+- La respuesta incluye: orden.creditoDetalle.abonos[]
+- Cada abono tiene: abono.metodoPago (enum: EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO)
+
+PARA ORDEN A CONTADO:
+- Obtener la orden: GET /api/ordenes/{id}
+- La respuesta incluye: orden.factura
+- La factura tiene: factura.formaPago (String: "EFECTIVO", "TRANSFERENCIA", etc.)
+
+================================================================================
+
+RESUMEN DE UBICACIONES
+================================================================================
+
+1. ABONO (para ordenes a credito):
+   - Archivo: src/main/java/com/casaglass/casaglass_backend/model/Abono.java
+   - Campo: metodoPago (enum MetodoPago)
+   - Valores: EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO
+   - Tabla: abonos, columna: metodo_pago
+
+2. FACTURA (para ordenes a contado):
+   - Archivo: src/main/java/com/casaglass/casaglass_backend/model/Factura.java
+   - Campo: formaPago (String)
+   - Valores: Texto libre (ej: "EFECTIVO", "TRANSFERENCIA", "CHEQUE")
+   - Tabla: facturas, columna: forma_pago
+
+3. ORDEN:
+   - NO tiene campo de metodo de pago
+   - Se obtiene indirectamente a traves de Abono o Factura
+
+================================================================================
+
+EJEMPLOS PRACTICOS
+================================================================================
+
+EJEMPLO 1: Orden a Credito con 2 abonos
+Orden #100 (credito = true)
+  - Abono 1: $50,000 - metodoPago: EFECTIVO
+  - Abono 2: $30,000 - metodoPago: TRANSFERENCIA
+  - Saldo pendiente: $20,000
+
+Para ver los metodos de pago:
+GET /api/ordenes/100
+Respuesta incluye:
+  orden.creditoDetalle.abonos[0].metodoPago = "EFECTIVO"
+  orden.creditoDetalle.abonos[1].metodoPago = "TRANSFERENCIA"
+
+EJEMPLO 2: Orden a Contado facturada
+Orden #200 (credito = false)
+  - Factura #FAC-001
+  - formaPago: "EFECTIVO"
+
+Para ver el metodo de pago:
+GET /api/ordenes/200
+Respuesta incluye:
+  orden.factura.formaPago = "EFECTIVO"
+
+EJEMPLO 3: Orden a Contado NO facturada
+Orden #300 (credito = false)
+  - Aun no facturada
+  - orden.factura = null
+  - NO hay metodo de pago registrado aun
+
+================================================================================
+
+IMPORTANTE
+================================================================================
+
+- Las ordenes a CREDITO pueden tener MULTIPLES metodos de pago (uno por cada abono)
+- Las ordenes a CONTADO tienen UN SOLO metodo de pago (en la factura)
+- Si una orden a contado no esta facturada, NO hay metodo de pago registrado
+- El metodo de pago NO se guarda en la orden directamente, sino en Abono o Factura
+
+================================================================================
+

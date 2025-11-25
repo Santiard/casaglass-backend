@@ -1,0 +1,305 @@
+================================================================================
+ENDPOINTS: GET /api/productos y POST /api/ingresos
+================================================================================
+
+ENDPOINT 1: GET /api/productos
+================================================================================
+
+DESCRIPCION:
+Obtener lista de productos. Permite filtrar por categoria o buscar por texto.
+
+UBICACION EN BACKEND:
+- Controller: ProductoController.java, metodo listar()
+- Service: ProductoService.java
+
+REQUEST:
+- Metodo: GET
+- URL: /api/productos
+- Query Parameters (opcionales):
+  * categoriaId (Long): Filtrar por ID de categoria
+    Ejemplo: /api/productos?categoriaId=5
+  * q (String): Buscar productos por texto (busca en codigo, nombre, descripcion)
+    Ejemplo: /api/productos?q=vidrio
+
+- Body: NINGUNO (es GET)
+
+EJEMPLOS DE REQUEST:
+GET /api/productos
+GET /api/productos?categoriaId=5
+GET /api/productos?q=vidrio
+GET /api/productos?categoriaId=5&q=templado
+
+RESPONSE (200 OK):
+Array de objetos Producto. Cada producto incluye:
+
+[
+  {
+    "id": 1,
+    "codigo": "VID001",
+    "nombre": "Vidrio templado 6mm",
+    "posicion": null,
+    "categoria": {
+      "id": 1,
+      "nombre": "Vidrios"
+    },
+    "tipo": "MT",
+    "color": "TRANSPARENTE",
+    "cantidad": 100,
+    "costo": 5000.0,
+    "precio1": 15000.0,
+    "precio2": 14000.0,
+    "precio3": 13000.0,
+    "descripcion": "Vidrio templado de 6mm de espesor"
+  },
+  {
+    "id": 2,
+    "codigo": "VID002",
+    "nombre": "Vidrio laminado 8mm",
+    "posicion": null,
+    "categoria": {
+      "id": 1,
+      "nombre": "Vidrios"
+    },
+    "tipo": "ML",
+    "color": "TRANSPARENTE",
+    "cantidad": 50,
+    "costo": 8000.0,
+    "precio1": 20000.0,
+    "precio2": 19000.0,
+    "precio3": 18000.0,
+    "descripcion": "Vidrio laminado de 8mm"
+  }
+]
+
+CAMPOS DEL PRODUCTO EN LA RESPUESTA:
+- id (Long): ID del producto
+- codigo (String): Codigo del producto
+- nombre (String): Nombre del producto
+- posicion (String): Posicion del producto (puede ser null)
+- categoria (Object): Objeto con id y nombre de la categoria
+  * id (Long): ID de la categoria
+  * nombre (String): Nombre de la categoria
+- tipo (String): Tipo de producto (enum: MT, ML, etc.)
+- color (String): Color del producto (enum: TRANSPARENTE, etc.)
+- cantidad (Integer): Cantidad en stock
+- costo (Double): Costo del producto
+- precio1 (Double): Precio nivel 1
+- precio2 (Double): Precio nivel 2
+- precio3 (Double): Precio nivel 3
+- descripcion (String): Descripcion del producto
+
+ERROR RESPONSE (500 Internal Server Error):
+{
+  "error": "Mensaje de error"
+}
+
+NOTAS:
+- Si no se envia ningun query parameter, retorna todos los productos
+- Si se envia categoriaId, retorna solo productos de esa categoria
+- Si se envia q (query), busca en codigo, nombre y descripcion
+- Si se envia categoriaId y q, filtra por categoria y luego busca por texto
+
+================================================================================
+
+ENDPOINT 2: POST /api/ingresos
+================================================================================
+
+DESCRIPCION:
+Crear un nuevo ingreso (compra de productos a proveedor). Actualiza el inventario si procesado=true.
+
+UBICACION EN BACKEND:
+- Controller: IngresoController.java, metodo crearIngreso()
+- Service: IngresoService.java, metodo crearIngresoDesdeDTO()
+- DTO: IngresoCreateDTO.java
+
+REQUEST:
+- Metodo: POST
+- URL: /api/ingresos
+- Headers:
+  Content-Type: application/json
+
+- Body (JSON): IngresoCreateDTO
+
+ESTRUCTURA DEL BODY:
+
+{
+  "fecha": "2025-01-15",                    // Opcional: fecha del ingreso (formato yyyy-MM-dd). Si no se envia, usa fecha actual
+  "proveedor": {                             // OBLIGATORIO: objeto con ID del proveedor
+    "id": 1                                  // ID del proveedor
+  },
+  "numeroFactura": "FAC-001",                // Opcional: numero de factura del proveedor
+  "observaciones": "Ingreso de vidrios",     // Opcional: observaciones adicionales
+  "detalles": [                              // OBLIGATORIO: lista de productos ingresados
+    {
+      "producto": {                          // OBLIGATORIO: objeto con ID del producto
+        "id": 1                              // ID del producto
+      },
+      "cantidad": 10,                        // OBLIGATORIO: cantidad ingresada (debe ser >= 1)
+      "costoUnitario": 5000.0,               // OBLIGATORIO: costo unitario del producto
+      "totalLinea": 50000.0                  // Opcional: total de la linea (cantidad * costoUnitario). Se calcula automaticamente si no se envia
+    },
+    {
+      "producto": {
+        "id": 2
+      },
+      "cantidad": 5,
+      "costoUnitario": 8000.0,
+      "totalLinea": 40000.0
+    }
+  ],
+  "totalCosto": 90000.0,                     // Opcional: costo total del ingreso. Se calcula automaticamente si no se envia
+  "procesado": false                         // Opcional: si ya se proceso el inventario (default: false)
+}
+
+EJEMPLO COMPLETO DE REQUEST BODY:
+
+{
+  "fecha": "2025-01-15",
+  "proveedor": {
+    "id": 1
+  },
+  "numeroFactura": "FAC-2025-001",
+  "observaciones": "Ingreso de vidrios templados y laminados",
+  "detalles": [
+    {
+      "producto": {
+        "id": 1
+      },
+      "cantidad": 10,
+      "costoUnitario": 5000.0,
+      "totalLinea": 50000.0
+    },
+    {
+      "producto": {
+        "id": 2
+      },
+      "cantidad": 5,
+      "costoUnitario": 8000.0,
+      "totalLinea": 40000.0
+    }
+  ],
+  "totalCosto": 90000.0,
+  "procesado": false
+}
+
+CAMPOS OBLIGATORIOS:
+- proveedor.id: ID del proveedor (debe existir en la base de datos)
+- detalles: Array con al menos un detalle
+- detalles[].producto.id: ID del producto (debe existir en la base de datos)
+- detalles[].cantidad: Cantidad ingresada (debe ser >= 1)
+- detalles[].costoUnitario: Costo unitario (debe ser > 0)
+
+CAMPOS OPCIONALES:
+- fecha: Si no se envia, usa fecha actual
+- numeroFactura: Puede ser null
+- observaciones: Puede ser null
+- detalles[].totalLinea: Se calcula automaticamente como cantidad * costoUnitario
+- totalCosto: Se calcula automaticamente como suma de todos los totalLinea
+- procesado: Default false. Si es true, el inventario se actualiza automaticamente
+
+RESPONSE (200 OK):
+Objeto Ingreso completo con todos sus detalles:
+
+{
+  "id": 100,                                 // ID del ingreso creado
+  "fecha": "2025-01-15",                     // Fecha del ingreso
+  "proveedor": {                             // Objeto Proveedor completo
+    "id": 1,
+    "nombre": "Proveedor ABC",
+    "nit": "1234567-8",
+    "direccion": "Calle Principal 123",
+    "telefono": "555-1234",
+    "correo": "proveedor@example.com"
+  },
+  "numeroFactura": "FAC-2025-001",
+  "observaciones": "Ingreso de vidrios templados y laminados",
+  "detalles": [                              // Lista de detalles del ingreso
+    {
+      "id": 200,                             // ID del detalle
+      "producto": {                          // Objeto Producto completo
+        "id": 1,
+        "codigo": "VID001",
+        "nombre": "Vidrio templado 6mm",
+        "categoria": {
+          "id": 1,
+          "nombre": "Vidrios"
+        },
+        "tipo": "MT",
+        "color": "TRANSPARENTE",
+        "cantidad": 100,
+        "costo": 5000.0,
+        "precio1": 15000.0,
+        "precio2": 14000.0,
+        "precio3": 13000.0,
+        "descripcion": "Vidrio templado de 6mm"
+      },
+      "cantidad": 10,
+      "costoUnitario": 5000.0,
+      "totalLinea": 50000.0
+    },
+    {
+      "id": 201,
+      "producto": {
+        "id": 2,
+        "codigo": "VID002",
+        "nombre": "Vidrio laminado 8mm",
+        "categoria": {
+          "id": 1,
+          "nombre": "Vidrios"
+        },
+        "tipo": "ML",
+        "color": "TRANSPARENTE",
+        "cantidad": 50,
+        "costo": 8000.0,
+        "precio1": 20000.0,
+        "precio2": 19000.0,
+        "precio3": 18000.0,
+        "descripcion": "Vidrio laminado de 8mm"
+      },
+      "cantidad": 5,
+      "costoUnitario": 8000.0,
+      "totalLinea": 40000.0
+    }
+  ],
+  "totalCosto": 90000.0,
+  "procesado": false
+}
+
+ERROR RESPONSE (400 Bad Request):
+Mensaje de error como string:
+
+"Proveedor con ID 1 no encontrado"
+"El proveedor es obligatorio"
+"Producto con ID 1 no encontrado"
+"La cantidad debe ser mayor a 0"
+"El costo unitario debe ser mayor a 0"
+
+ERROR RESPONSE (500 Internal Server Error):
+"Error interno: [mensaje de error]"
+"Error inesperado: [mensaje de error]"
+
+NOTAS IMPORTANTES:
+1. El proveedor debe existir en la base de datos antes de crear el ingreso
+2. Todos los productos en detalles[] deben existir en la base de datos
+3. Si procesado=false, el inventario NO se actualiza automaticamente. Debes llamar a PUT /api/ingresos/{id}/procesar para actualizar el inventario
+4. Si procesado=true, el inventario se actualiza automaticamente al crear el ingreso
+5. El totalCosto se calcula automaticamente como suma de todos los totalLinea de los detalles
+6. El totalLinea de cada detalle se calcula automaticamente como cantidad * costoUnitario
+7. La fecha se establece automaticamente a la fecha actual si no se envia
+
+================================================================================
+
+RESUMEN
+================================================================================
+
+GET /api/productos
+- Body esperado: NINGUNO
+- Query params opcionales: categoriaId, q
+- Respuesta: Array de Producto con todos sus campos
+
+POST /api/ingresos
+- Body esperado: IngresoCreateDTO con proveedor.id, detalles[] (con producto.id, cantidad, costoUnitario)
+- Respuesta: Ingreso completo con proveedor y detalles completos (incluyendo productos completos)
+
+================================================================================
+

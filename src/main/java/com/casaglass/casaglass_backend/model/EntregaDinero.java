@@ -49,23 +49,11 @@ public class EntregaDinero {
     @Column(name = "fecha_hasta")
     private LocalDate fechaHasta;
 
-    /** Monto esperado basado en la suma de órdenes */
-    @Column(name = "monto_esperado", nullable = false)
+    /** Monto de la entrega (calculado automáticamente desde las órdenes) */
+    @Column(name = "monto", nullable = false)
     @NotNull
-    @Min(value = 0, message = "Monto esperado no puede ser negativo")
-    private Double montoEsperado = 0.0;
-
-    /** Total de gastos operativos de la sede */
-    @Column(name = "monto_gastos", nullable = false)
-    @NotNull
-    @Min(value = 0, message = "Monto gastos no puede ser negativo")
-    private Double montoGastos = 0.0;
-
-    /** Monto real entregado (esperado - gastos) */
-    @Column(name = "monto_entregado", nullable = false)
-    @NotNull
-    @Min(value = 0, message = "Monto entregado no puede ser negativo")
-    private Double montoEntregado = 0.0;
+    @Min(value = 0, message = "Monto no puede ser negativo")
+    private Double monto = 0.0;
 
     /** Desglose por método de pago */
     @Column(name = "monto_efectivo", nullable = false)
@@ -80,10 +68,6 @@ public class EntregaDinero {
     @Column(name = "monto_deposito", nullable = false)
     private Double montoDeposito = 0.0;
 
-    /** Diferencia entre lo esperado y lo entregado (incluyendo gastos) */
-    @Column(name = "diferencia", nullable = false)
-    private Double diferencia = 0.0;
-
     /** Modalidad de entrega */
     @Enumerated(EnumType.STRING)
     @Column(name = "modalidad_entrega", length = 20, nullable = false)
@@ -94,22 +78,9 @@ public class EntregaDinero {
     @Column(name = "estado", length = 20, nullable = false)
     private EstadoEntrega estado = EstadoEntrega.PENDIENTE;
 
-    /** Observaciones adicionales */
-    @Lob
-    @Column(name = "observaciones")
-    private String observaciones;
-
-    /** Número de comprobante o recibo de entrega */
-    @Column(name = "numero_comprobante", length = 50)
-    private String numeroComprobante;
-
     /** Órdenes incluidas en esta entrega */
-    @OneToMany(mappedBy = "entrega", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "entrega", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<EntregaDetalle> detalles = new ArrayList<>();
-
-    /** Gastos operativos asociados a esta entrega */
-    @OneToMany(mappedBy = "entrega", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<GastoSede> gastos = new ArrayList<>();
 
     /** Enumeración para modalidad de entrega */
     public enum ModalidadEntrega {
@@ -128,16 +99,19 @@ public class EntregaDinero {
         RECHAZADA       // Hay discrepancias que requieren revisión
     }
 
-    /** Método de conveniencia para calcular automáticamente la diferencia */
+    /** Método de conveniencia para validar que el desglose coincida con el monto */
     @PrePersist
     @PreUpdate
-    public void calcularDiferencia() {
-        Double esperado = this.montoEsperado != null ? this.montoEsperado : 0.0;
-        Double gastos = this.montoGastos != null ? this.montoGastos : 0.0;
-        Double entregado = this.montoEntregado != null ? this.montoEntregado : 0.0;
+    public void validarDesglose() {
+        Double sumaDesglose = (this.montoEfectivo != null ? this.montoEfectivo : 0.0)
+                + (this.montoTransferencia != null ? this.montoTransferencia : 0.0)
+                + (this.montoCheque != null ? this.montoCheque : 0.0)
+                + (this.montoDeposito != null ? this.montoDeposito : 0.0);
         
-        // Diferencia = (Esperado - Gastos) - Entregado
-        Double montoNetoEsperado = esperado - gastos;
-        this.diferencia = montoNetoEsperado - entregado;
+        // El monto debe coincidir con la suma del desglose
+        if (this.monto != null && Math.abs(sumaDesglose - this.monto) > 0.01) {
+            // Si no coincide, ajustar el monto a la suma del desglose
+            this.monto = sumaDesglose;
+        }
     }
 }

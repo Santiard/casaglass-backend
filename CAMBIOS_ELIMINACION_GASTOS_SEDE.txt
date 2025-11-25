@@ -1,0 +1,348 @@
+================================================================================
+CAMBIOS POR ELIMINACIÓN DE GASTOS SEDE - FRONTEND
+================================================================================
+
+FECHA: 2025-01-XX
+DESCRIPCIÓN: Se eliminó completamente la entidad GastoSede y todas sus 
+             funcionalidades relacionadas con entregas de dinero.
+
+================================================================================
+ENDPOINTS ELIMINADOS (YA NO EXISTEN)
+================================================================================
+
+TODOS los endpoints bajo /api/gastos-sede han sido eliminados:
+
+1. GET    /api/gastos-sede
+   - Listar todos los gastos
+   - ELIMINADO
+
+2. GET    /api/gastos-sede/{id}
+   - Obtener gasto por ID
+   - ELIMINADO
+
+3. GET    /api/gastos-sede/sede/{sedeId}
+   - Listar gastos por sede
+   - ELIMINADO
+
+4. GET    /api/gastos-sede/sede/{sedeId}/sin-entrega
+   - Listar gastos disponibles para entrega
+   - ELIMINADO
+
+5. GET    /api/gastos-sede/aprobados
+   - Listar gastos aprobados
+   - ELIMINADO
+
+6. GET    /api/gastos-sede/pendientes
+   - Listar gastos pendientes
+   - ELIMINADO
+
+7. GET    /api/gastos-sede/sede/{sedeId}/pendientes
+   - Listar gastos pendientes por sede
+   - ELIMINADO
+
+8. POST   /api/gastos-sede
+   - Crear nuevo gasto
+   - ELIMINADO
+
+9. PUT    /api/gastos-sede/{id}/aprobar
+   - Aprobar gasto
+   - ELIMINADO
+
+10. PUT   /api/gastos-sede/{id}/rechazar
+    - Rechazar gasto
+    - ELIMINADO
+
+11. PUT   /api/gastos-sede/{id}
+    - Actualizar gasto
+    - ELIMINADO
+
+12. DELETE /api/gastos-sede/{id}
+    - Eliminar gasto
+    - ELIMINADO
+
+13. GET    /api/gastos-sede/sede/{sedeId}/total
+    - Obtener total gastos por sede en período
+    - ELIMINADO
+
+================================================================================
+ENDPOINTS MODIFICADOS (CAMBIOS EN REQUEST/RESPONSE)
+================================================================================
+
+1. POST /api/entregas-dinero
+   CAMBIOS EN REQUEST BODY:
+   
+   ANTES:
+   {
+     "sedeId": 1,
+     "empleadoId": 1,
+     "fechaEntrega": "2025-01-15",
+     "fechaDesde": "2025-01-01",
+     "fechaHasta": "2025-01-15",
+     "modalidadEntrega": "EFECTIVO",
+     "observaciones": "...",
+     "numeroComprobante": "...",
+     "ordenesIds": [1, 2, 3],
+     "abonosIds": [4, 5],
+     "gastosIds": [10, 11],        // ❌ ELIMINAR ESTE CAMPO
+     "montoEsperado": 1000.0,
+     "montoGastos": 50.0,          // ❌ ELIMINAR ESTE CAMPO
+     "montoEntregado": 950.0,
+     "montoEfectivo": 950.0,
+     "montoTransferencia": 0.0,
+     "montoCheque": 0.0,
+     "montoDeposito": 0.0
+   }
+   
+   AHORA:
+   {
+     "sedeId": 1,
+     "empleadoId": 1,
+     "fechaEntrega": "2025-01-15",
+     "fechaDesde": "2025-01-01",
+     "fechaHasta": "2025-01-15",
+     "modalidadEntrega": "EFECTIVO",
+     "observaciones": "...",
+     "numeroComprobante": "...",
+     "ordenesIds": [1, 2, 3],
+     "abonosIds": [4, 5],
+     "montoEsperado": 1000.0,
+     "montoEntregado": 1000.0,      // ✅ Ya no se resta gastos
+     "montoEfectivo": 1000.0,
+     "montoTransferencia": 0.0,
+     "montoCheque": 0.0,
+     "montoDeposito": 0.0
+   }
+   
+   CAMBIOS EN RESPONSE:
+   
+   ANTES:
+   {
+     "mensaje": "Entrega creada exitosamente",
+     "entrega": {
+       "id": 1,
+       "montoEsperado": 1000.0,
+       "montoGastos": 50.0,         // ❌ YA NO EXISTE
+       "montoEntregado": 950.0,
+       "diferencia": 0.0,
+       "detalles": [...],
+       "gastos": [...],             // ❌ YA NO EXISTE
+       "totalOrdenes": 3,
+       "totalGastos": 2,            // ❌ YA NO EXISTE
+       "porcentajeGastos": 5.0      // ❌ YA NO EXISTE
+     }
+   }
+   
+   AHORA:
+   {
+     "mensaje": "Entrega creada exitosamente",
+     "entrega": {
+       "id": 1,
+       "montoEsperado": 1000.0,
+       "montoEntregado": 1000.0,
+       "diferencia": 0.0,
+       "detalles": [...],
+       "totalOrdenes": 3
+     }
+   }
+
+2. GET /api/entregas-dinero/{id}
+   CAMBIOS EN RESPONSE:
+   
+   ANTES:
+   {
+     "id": 1,
+     "montoEsperado": 1000.0,
+     "montoGastos": 50.0,           // ❌ YA NO EXISTE
+     "montoEntregado": 950.0,
+     "diferencia": 0.0,
+     "detalles": [...],
+     "gastos": [...],               // ❌ YA NO EXISTE
+     "totalOrdenes": 3,
+     "totalGastos": 2,              // ❌ YA NO EXISTE
+     "porcentajeGastos": 5.0        // ❌ YA NO EXISTE
+   }
+   
+   AHORA:
+   {
+     "id": 1,
+     "montoEsperado": 1000.0,
+     "montoEntregado": 1000.0,
+     "diferencia": 0.0,
+     "detalles": [...],
+     "totalOrdenes": 3
+   }
+
+3. GET /api/entregas-dinero
+   CAMBIOS EN RESPONSE:
+   - Mismo cambio que GET /api/entregas-dinero/{id}
+   - Cada objeto en el array ya no tiene: montoGastos, gastos, totalGastos, porcentajeGastos
+
+4. GET /api/entregas-dinero/sede/{sedeId}/total-gastos
+   - ELIMINADO COMPLETAMENTE
+   - Este endpoint ya no existe
+
+================================================================================
+CAMBIOS EN LÓGICA DE CÁLCULO
+================================================================================
+
+1. CÁLCULO DE DIFERENCIA:
+   
+   ANTES:
+   diferencia = (montoEsperado - montoGastos) - montoEntregado
+   
+   AHORA:
+   diferencia = montoEsperado - montoEntregado
+   
+   NOTA: Ya no se restan gastos del monto esperado.
+
+2. CÁLCULO DE MONTO ESPERADO:
+   - NO CAMBIA: Se sigue calculando sumando los totales de las órdenes y abonos
+   - Ya no se resta ningún monto de gastos
+
+3. CÁLCULO DE MONTO ENTREGADO:
+   - NO CAMBIA: Sigue siendo la suma del desglose (efectivo + transferencia + cheque + depósito)
+   - Ya no se considera montoGastos en ningún cálculo
+
+================================================================================
+CAMBIOS REQUERIDOS EN EL FRONTEND
+================================================================================
+
+1. ELIMINAR TODAS LAS LLAMADAS A /api/gastos-sede
+   - Eliminar servicios que llamen a estos endpoints
+   - Eliminar componentes que muestren/editen gastos
+   - Eliminar rutas relacionadas con gastos
+
+2. ACTUALIZAR POST /api/entregas-dinero
+   - Eliminar el campo "gastosIds" del request body
+   - Eliminar el campo "montoGastos" del request body
+   - Ajustar la lógica de cálculo si se estaba usando montoGastos
+
+3. ACTUALIZAR COMPONENTES QUE MUESTRAN ENTREGAS
+   - Eliminar visualización de "montoGastos"
+   - Eliminar visualización de "gastos" (array)
+   - Eliminar visualización de "totalGastos"
+   - Eliminar visualización de "porcentajeGastos"
+   - Ajustar el cálculo de diferencia si se estaba mostrando
+
+4. ACTUALIZAR FORMULARIOS DE ENTREGA
+   - Eliminar campos para seleccionar gastos
+   - Eliminar campos para ingresar montoGastos
+   - Eliminar validaciones relacionadas con gastos
+   - Ajustar la UI para que no muestre secciones de gastos
+
+5. ACTUALIZAR TIPOS/INTERFACES TypeScript
+   - Eliminar campos relacionados con gastos de las interfaces:
+     * EntregaDineroCreateDTO: eliminar gastosIds, montoGastos
+     * EntregaDineroResponseDTO: eliminar montoGastos, gastos, totalGastos, porcentajeGastos
+   - Eliminar interfaces relacionadas con GastoSede:
+     * GastoSede
+     * GastoSedeCreateDTO
+     * GastoSedeSimpleDTO
+
+6. ACTUALIZAR CÁLCULOS EN EL FRONTEND
+   - Si se estaba calculando diferencia en el frontend, actualizar:
+     diferencia = montoEsperado - montoEntregado
+   - Ya no restar gastos de ningún cálculo
+
+7. ELIMINAR SERVICIOS/API CLIENT
+   - Eliminar cualquier servicio que llame a /api/gastos-sede
+   - Eliminar funciones como:
+     * obtenerGastos()
+     * crearGasto()
+     * actualizarGasto()
+     * aprobarGasto()
+     * obtenerGastosSinEntrega()
+     * etc.
+
+================================================================================
+RESUMEN DE CAMPOS ELIMINADOS
+================================================================================
+
+EN REQUEST (POST /api/entregas-dinero):
+- gastosIds: List<Long>
+- montoGastos: Double
+
+EN RESPONSE (GET /api/entregas-dinero):
+- montoGastos: Double
+- gastos: List<GastoSedeSimpleDTO>
+- totalGastos: Integer
+- porcentajeGastos: Double
+
+EN ENTIDAD EntregaDinero:
+- montoGastos: Double (campo de base de datos se mantiene pero siempre será 0.0)
+- gastos: List<GastoSede> (relación eliminada)
+
+================================================================================
+NOTAS IMPORTANTES
+================================================================================
+
+1. El campo "monto_gastos" en la base de datos NO se elimina, pero siempre 
+   será 0.0. No es necesario hacer cambios en la base de datos.
+
+2. La diferencia ahora se calcula simplemente como:
+   diferencia = montoEsperado - montoEntregado
+   
+3. Ya no hay validaciones relacionadas con gastos en el backend.
+
+4. Todos los endpoints de gastos-sede retornarán 404 Not Found.
+
+5. Si el frontend intenta enviar "gastosIds" o "montoGastos" en el request,
+   estos campos serán ignorados (no causarán error, pero no se procesarán).
+
+================================================================================
+EJEMPLO DE CÓDIGO FRONTEND - ANTES Y DESPUÉS
+================================================================================
+
+ANTES (crear entrega):
+const crearEntrega = async (data) => {
+  const payload = {
+    sedeId: data.sedeId,
+    empleadoId: data.empleadoId,
+    fechaEntrega: data.fechaEntrega,
+    fechaDesde: data.fechaDesde,
+    fechaHasta: data.fechaHasta,
+    ordenesIds: data.ordenesIds,
+    abonosIds: data.abonosIds,
+    gastosIds: data.gastosIds,        // ❌ ELIMINAR
+    montoGastos: data.montoGastos,    // ❌ ELIMINAR
+    montoEntregado: data.montoEntregado
+  };
+  return await api.post('/entregas-dinero', payload);
+};
+
+DESPUÉS (crear entrega):
+const crearEntrega = async (data) => {
+  const payload = {
+    sedeId: data.sedeId,
+    empleadoId: data.empleadoId,
+    fechaEntrega: data.fechaEntrega,
+    fechaDesde: data.fechaDesde,
+    fechaHasta: data.fechaHasta,
+    ordenesIds: data.ordenesIds,
+    abonosIds: data.abonosIds,
+    montoEntregado: data.montoEntregado
+  };
+  return await api.post('/entregas-dinero', payload);
+};
+
+ANTES (mostrar entrega):
+<div>
+  <p>Monto Esperado: {entrega.montoEsperado}</p>
+  <p>Gastos: {entrega.montoGastos}</p>              {/* ❌ ELIMINAR */}
+  <p>Monto Entregado: {entrega.montoEntregado}</p>
+  <p>Diferencia: {(entrega.montoEsperado - entrega.montoGastos) - entrega.montoEntregado}</p>
+  <p>Total Gastos: {entrega.totalGastos}</p>       {/* ❌ ELIMINAR */}
+  <p>% Gastos: {entrega.porcentajeGastos}%</p>      {/* ❌ ELIMINAR */}
+</div>
+
+DESPUÉS (mostrar entrega):
+<div>
+  <p>Monto Esperado: {entrega.montoEsperado}</p>
+  <p>Monto Entregado: {entrega.montoEntregado}</p>
+  <p>Diferencia: {entrega.montoEsperado - entrega.montoEntregado}</p>
+</div>
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================
+

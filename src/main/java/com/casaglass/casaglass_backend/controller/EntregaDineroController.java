@@ -127,16 +127,6 @@ public class EntregaDineroController {
     }
 
     /**
-     * 📊 ENTREGAS CON DIFERENCIAS (para auditoría)
-     */
-    @GetMapping("/con-diferencias")
-    public List<EntregaDineroResponseDTO> listarConDiferencias() {
-        return service.obtenerEntregasConDiferencias().stream()
-                .map(EntregaDineroResponseDTO::new)
-                .collect(Collectors.toList());
-    }
-
-    /**
      * 📈 RESUMEN POR EMPLEADO
      */
     @GetMapping("/resumen/empleado")
@@ -177,13 +167,9 @@ public class EntregaDineroController {
             
             // Configurar modalidad y otros campos
             entrega.setModalidadEntrega(EntregaDinero.ModalidadEntrega.valueOf(entregaDTO.getModalidadEntrega()));
-            entrega.setObservaciones(entregaDTO.getObservaciones());
-            entrega.setNumeroComprobante(entregaDTO.getNumeroComprobante());
             
             // Configurar montos (el servicio puede recalcular si es necesario)
-            entrega.setMontoEsperado(entregaDTO.getMontoEsperado() != null ? entregaDTO.getMontoEsperado() : 0.0);
-            entrega.setMontoGastos(entregaDTO.getMontoGastos() != null ? entregaDTO.getMontoGastos() : 0.0);
-            entrega.setMontoEntregado(entregaDTO.getMontoEntregado() != null ? entregaDTO.getMontoEntregado() : 0.0);
+            entrega.setMonto(entregaDTO.getMonto() != null ? entregaDTO.getMonto() : 0.0);
             entrega.setMontoEfectivo(entregaDTO.getMontoEfectivo() != null ? entregaDTO.getMontoEfectivo() : 0.0);
             entrega.setMontoTransferencia(entregaDTO.getMontoTransferencia() != null ? entregaDTO.getMontoTransferencia() : 0.0);
             entrega.setMontoCheque(entregaDTO.getMontoCheque() != null ? entregaDTO.getMontoCheque() : 0.0);
@@ -191,12 +177,6 @@ public class EntregaDineroController {
             
             System.out.println("🔍 DEBUG: Entrega configurada: " + entrega);
             System.out.println("🔍 DEBUG: Órdenes a incluir: " + entregaDTO.getOrdenesIds());
-            System.out.println("🔍 DEBUG: Gastos IDs a incluir: " + (entregaDTO.getGastosIds() != null ? entregaDTO.getGastosIds().size() : 0));
-            
-            // Obtener IDs de gastos del DTO (los gastos deben estar creados y aprobados previamente)
-            List<Long> gastosIds = entregaDTO.getGastosIds() != null && !entregaDTO.getGastosIds().isEmpty() 
-                ? entregaDTO.getGastosIds() 
-                : null;
             
             // Obtener IDs de abonos del DTO (para órdenes a crédito)
             List<Long> abonosIds = entregaDTO.getAbonosIds() != null && !entregaDTO.getAbonosIds().isEmpty() 
@@ -207,8 +187,7 @@ public class EntregaDineroController {
             EntregaDinero entregaCreada = service.crearEntrega(
                 entrega, 
                 entregaDTO.getOrdenesIds(), 
-                abonosIds,
-                gastosIds
+                abonosIds
             );
             
             System.out.println("✅ DEBUG: Entrega creada con ID: " + entregaCreada.getId());
@@ -239,11 +218,9 @@ public class EntregaDineroController {
      * ✅ CONFIRMAR ENTREGA (cambiar estado a ENTREGADA)
      */
     @PutMapping("/{id}/confirmar")
-    public ResponseEntity<?> confirmar(@PathVariable Long id,
-                                     @RequestParam Double montoEntregado,
-                                     @RequestParam(required = false) String observaciones) {
+    public ResponseEntity<?> confirmar(@PathVariable Long id) {
         try {
-            EntregaDinero entregaConfirmada = service.confirmarEntrega(id, montoEntregado, observaciones);
+            EntregaDinero entregaConfirmada = service.confirmarEntrega(id);
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Entrega confirmada exitosamente",
                 "entrega", new EntregaDineroResponseDTO(entregaConfirmada)
@@ -259,10 +236,9 @@ public class EntregaDineroController {
      * ❌ CANCELAR ENTREGA (cambiar estado a RECHAZADA)
      */
     @PutMapping("/{id}/cancelar")
-    public ResponseEntity<?> cancelar(@PathVariable Long id,
-                                    @RequestParam String motivo) {
+    public ResponseEntity<?> cancelar(@PathVariable Long id) {
         try {
-            EntregaDinero entregaCancelada = service.cancelarEntrega(id, motivo);
+            EntregaDinero entregaCancelada = service.cancelarEntrega(id);
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Entrega cancelada exitosamente",
                 "entrega", new EntregaDineroResponseDTO(entregaCancelada)
@@ -297,8 +273,7 @@ public class EntregaDineroController {
             // Configurar fechas y otros campos
             entrega.setFechaEntrega(entregaDTO.getFechaEntrega());
             entrega.setModalidadEntrega(EntregaDinero.ModalidadEntrega.valueOf(entregaDTO.getModalidadEntrega()));
-            entrega.setObservaciones(entregaDTO.getObservaciones());
-            entrega.setMontoEntregado(entregaDTO.getMontoEntregado() != null ? entregaDTO.getMontoEntregado() : 0.0);
+            entrega.setMonto(entregaDTO.getMonto() != null ? entregaDTO.getMonto() : 0.0);
             entrega.setMontoEfectivo(entregaDTO.getMontoEfectivo() != null ? entregaDTO.getMontoEfectivo() : 0.0);
             entrega.setMontoTransferencia(entregaDTO.getMontoTransferencia() != null ? entregaDTO.getMontoTransferencia() : 0.0);
             entrega.setMontoCheque(entregaDTO.getMontoCheque() != null ? entregaDTO.getMontoCheque() : 0.0);
@@ -388,6 +363,7 @@ public class EntregaDineroController {
         dto.setClienteNit(orden.getCliente() != null ? orden.getCliente().getNit() : null);
         dto.setTotal(orden.getTotal());
         dto.setObra(orden.getObra());
+        dto.setDescripcion(orden.getDescripcion());
         dto.setSedeNombre(orden.getSede() != null ? orden.getSede().getNombre() : null);
         dto.setTrabajadorNombre(orden.getTrabajador() != null ? orden.getTrabajador().getNombre() : null);
         dto.setYaEntregada(orden.isIncluidaEntrega());
@@ -433,17 +409,6 @@ public class EntregaDineroController {
     }
 
     /**
-     * 🧮 CALCULAR DIFERENCIA DE ENTREGA
-     */
-    @GetMapping("/{id}/diferencia")
-    public ResponseEntity<Double> calcularDiferencia(@PathVariable Long id) {
-        try {
-            Double diferencia = service.calcularDiferenciaEntrega(id);
-            return ResponseEntity.ok(diferencia);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
 
     /**
      * ✔️ VALIDAR SI ENTREGA ESTÁ COMPLETA
@@ -469,14 +434,4 @@ public class EntregaDineroController {
         return ResponseEntity.ok(total);
     }
 
-    /**
-     * 💸 OBTENER TOTAL GASTOS POR SEDE EN PERÍODO
-     */
-    @GetMapping("/sede/{sedeId}/total-gastos")
-    public ResponseEntity<Double> obtenerTotalGastos(@PathVariable Long sedeId,
-                                                    @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-                                                    @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
-        Double total = service.obtenerTotalGastosPorSedeEnPeriodo(sedeId, desde, hasta);
-        return ResponseEntity.ok(total);
-    }
 }

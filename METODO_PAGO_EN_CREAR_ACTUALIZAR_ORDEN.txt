@@ -1,0 +1,234 @@
+================================================================================
+METODO DE PAGO EN CREAR/ACTUALIZAR ORDEN - RESPUESTA
+================================================================================
+
+RESPUESTA DIRECTA:
+================================================================================
+
+NO, los endpoints POST /api/ordenes/venta y PUT /api/ordenes/venta/{id} 
+NO aceptan campos metodoPago ni formaPago en el payload.
+
+El metodo de pago NO se registra al crear o actualizar la orden.
+Se registra DESPUES, en un paso separado.
+
+================================================================================
+
+VERIFICACION DEL CODIGO
+================================================================================
+
+DTO USADO: OrdenVentaDTO.java
+
+CAMPOS ACEPTADOS:
+- fecha
+- obra
+- descripcion
+- venta
+- credito
+- incluidaEntrega
+- descuentos
+- clienteId
+- sedeId
+- trabajadorId (opcional)
+- items[]
+- cortes[] (opcional)
+
+CAMPOS QUE NO EXISTEN:
+- metodoPago ❌
+- formaPago ❌
+- metodo_pago ❌
+- forma_pago ❌
+
+UBICACION DEL CODIGO:
+- DTO: src/main/java/com/casaglass/casaglass_backend/dto/OrdenVentaDTO.java
+- Controller: src/main/java/com/casaglass/casaglass_backend/controller/OrdenController.java
+  * POST /api/ordenes/venta (linea 112)
+  * PUT /api/ordenes/venta/{id} (linea 44)
+
+================================================================================
+
+COMO SE REGISTRA EL METODO DE PAGO
+================================================================================
+
+1. ORDENES A CREDITO (credito = true):
+================================================================================
+
+El metodo de pago se registra cuando se crea un ABONO.
+
+ENDPOINT: POST /api/abonos
+
+PAYLOAD:
+{
+  "creditoId": 1,
+  "total": 50000.0,
+  "metodoPago": "EFECTIVO",  // ✅ AQUI SE REGISTRA EL METODO DE PAGO
+  "fecha": "2025-01-15",
+  "factura": "REC-001"
+}
+
+VALORES ACEPTADOS (enum):
+- "EFECTIVO"
+- "TRANSFERENCIA"
+- "TARJETA"
+- "CHEQUE"
+- "OTRO"
+
+UBICACION:
+- Modelo: Abono.java, campo metodoPago (enum MetodoPago)
+- DTO: AbonoDTO.java
+- Controller: AbonoController.java
+
+NOTA:
+- Una orden a credito puede tener MULTIPLES abonos
+- Cada abono puede tener su propio metodo de pago
+- Ejemplo: Orden #100 puede tener:
+  * Abono 1: $50,000 en EFECTIVO
+  * Abono 2: $30,000 en TRANSFERENCIA
+
+================================================================================
+
+2. ORDENES A CONTADO (credito = false):
+================================================================================
+
+El metodo de pago se registra cuando se FACTURA la orden.
+
+OPCION 1: Facturar la orden
+ENDPOINT: PUT /api/ordenes/{id}/facturar
+
+PAYLOAD:
+{
+  "subtotal": 100000.0,
+  "descuentos": 0.0,
+  "iva": 19000.0,
+  "retencionFuente": 0.0,
+  "formaPago": "EFECTIVO",  // ✅ AQUI SE REGISTRA EL METODO DE PAGO
+  "observaciones": "Pago de contado"
+}
+
+OPCION 2: Crear factura directamente
+ENDPOINT: POST /api/facturas
+
+PAYLOAD:
+{
+  "ordenId": 100,
+  "subtotal": 100000.0,
+  "descuentos": 0.0,
+  "iva": 19000.0,
+  "retencionFuente": 0.0,
+  "formaPago": "TRANSFERENCIA",  // ✅ AQUI SE REGISTRA EL METODO DE PAGO
+  "observaciones": "Pago por transferencia"
+}
+
+VALORES ACEPTADOS (String libre):
+- "EFECTIVO"
+- "TRANSFERENCIA"
+- "CHEQUE"
+- "TARJETA"
+- Cualquier otro texto
+
+UBICACION:
+- Modelo: Factura.java, campo formaPago (String)
+- DTO: FacturaCreateDTO.java
+- Controller: FacturaController.java y OrdenController.java (metodo facturar)
+
+NOTA:
+- Una orden a contado tiene UNA factura
+- El metodo de pago se registra cuando se factura
+- Si la orden aun no esta facturada, NO hay metodo de pago registrado
+
+================================================================================
+
+FLUJO COMPLETO
+================================================================================
+
+FLUJO PARA ORDEN A CREDITO:
+
+1. Crear orden:
+   POST /api/ordenes/venta
+   {
+     "credito": true,
+     "clienteId": 1,
+     "sedeId": 1,
+     "items": [...]
+     // ❌ NO se envia metodoPago aqui
+   }
+
+2. Registrar pago (abono):
+   POST /api/abonos
+   {
+     "creditoId": 1,
+     "total": 50000.0,
+     "metodoPago": "EFECTIVO"  // ✅ AQUI se registra el metodo de pago
+   }
+
+FLUJO PARA ORDEN A CONTADO:
+
+1. Crear orden:
+   POST /api/ordenes/venta
+   {
+     "credito": false,
+     "clienteId": 1,
+     "sedeId": 1,
+     "items": [...]
+     // ❌ NO se envia formaPago aqui
+   }
+
+2. Facturar orden:
+   PUT /api/ordenes/{id}/facturar
+   {
+     "subtotal": 100000.0,
+     "descuentos": 0.0,
+     "iva": 19000.0,
+     "retencionFuente": 0.0,
+     "formaPago": "EFECTIVO"  // ✅ AQUI se registra el metodo de pago
+   }
+
+================================================================================
+
+RESUMEN
+================================================================================
+
+PREGUNTA: ¿Los endpoints POST /api/ordenes/venta y PUT /api/ordenes/venta/{id} 
+aceptan metodoPago o formaPago?
+
+RESPUESTA: NO
+
+El metodo de pago NO se registra al crear o actualizar la orden.
+Se registra DESPUES en un paso separado:
+
+- ORDENES A CREDITO: Al crear el abono (POST /api/abonos)
+  Campo: metodoPago (enum: EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO)
+
+- ORDENES A CONTADO: Al facturar (PUT /api/ordenes/{id}/facturar o POST /api/facturas)
+  Campo: formaPago (String libre)
+
+================================================================================
+
+RECOMENDACION PARA EL FRONTEND
+================================================================================
+
+NO agregues metodoPago/formaPago al payload de crear/actualizar orden.
+
+En su lugar:
+
+1. Para ordenes a CREDITO:
+   - Crear la orden primero (sin metodoPago)
+   - Luego crear el abono con metodoPago
+
+2. Para ordenes a CONTADO:
+   - Crear la orden primero (sin formaPago)
+   - Luego facturar con formaPago
+
+O si quieres registrar el metodo de pago al crear la orden:
+
+OPCION A: Modificar el backend para aceptar metodoPago/formaPago en OrdenVentaDTO
+  - Agregar campo metodoPago o formaPago al DTO
+  - Guardarlo temporalmente y usarlo cuando se cree el abono/factura
+  - Requiere cambios en el backend
+
+OPCION B: Mantener el flujo actual (recomendado)
+  - Crear orden sin metodo de pago
+  - Registrar metodo de pago en paso separado (abono/factura)
+  - Mas flexible y permite multiples metodos de pago para creditos
+
+================================================================================
+

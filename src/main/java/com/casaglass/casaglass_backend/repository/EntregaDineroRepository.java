@@ -60,28 +60,13 @@ public interface EntregaDineroRepository extends JpaRepository<EntregaDinero, Lo
            "WHERE e.sede.id = :sedeId AND e.fechaEntrega BETWEEN :desde AND :hasta")
     List<EntregaDinero> findBySedeIdAndFechaEntregaBetween(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
-    @Query("SELECT DISTINCT e FROM EntregaDinero e " +
-           "LEFT JOIN FETCH e.sede " +
-           "LEFT JOIN FETCH e.empleado " +
-           "WHERE e.diferencia <> 0")
-    List<EntregaDinero> findEntregasWithDifferences();
-
-    @Query("SELECT DISTINCT e FROM EntregaDinero e " +
-           "LEFT JOIN FETCH e.sede " +
-           "LEFT JOIN FETCH e.empleado " +
-           "WHERE e.sede.id = :sedeId AND e.diferencia <> 0")
-    List<EntregaDinero> findEntregasConDiferenciasBySede(@Param("sedeId") Long sedeId);
-
-    @Query("SELECT SUM(e.montoEntregado) FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.estado = :estado")
+    @Query("SELECT SUM(e.monto) FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.estado = :estado")
     Double getTotalEntregadoBySede(@Param("sedeId") Long sedeId, @Param("estado") EntregaDinero.EstadoEntrega estado);
 
-    @Query("SELECT SUM(e.montoEntregado) FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.fechaEntrega BETWEEN :desde AND :hasta")
+    @Query("SELECT SUM(e.monto) FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.fechaEntrega BETWEEN :desde AND :hasta")
     Double getTotalEntregadoBySedeAndPeriodo(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
-    @Query("SELECT SUM(e.montoGastos) FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.fechaEntrega BETWEEN :desde AND :hasta")
-    Double getTotalGastosBySedeAndPeriodo(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
-
-    @Query("SELECT e.empleado.nombre, COUNT(e), SUM(e.montoEntregado), SUM(e.montoGastos) " +
+    @Query("SELECT e.empleado.nombre, COUNT(e), SUM(e.monto) " +
            "FROM EntregaDinero e WHERE e.sede.id = :sedeId AND e.fechaEntrega BETWEEN :desde AND :hasta " +
            "GROUP BY e.empleado.id, e.empleado.nombre")
     List<Object[]> getResumenByEmpleado(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
