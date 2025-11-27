@@ -35,19 +35,20 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
      * - Con fecha de abono en el período
      * - De órdenes a crédito (credito = true)
      * - De órdenes ACTIVAS
-     * - De créditos ABIERTOS (no cerrados)
      * - Que NO estén ya incluidos en otra entrega (verificado por LEFT JOIN con EntregaDetalle)
+     * 
+     * NOTA: No se filtra por estado del crédito porque un abono debe aparecer aunque
+     * el crédito se haya cerrado después, ya que el abono fue realizado en el período
+     * y necesita ser entregado.
      */
     @Query("SELECT DISTINCT a FROM Abono a " +
            "JOIN a.orden o " +
-           "JOIN a.credito c " +
            "LEFT JOIN EntregaDetalle ed ON ed.abono.id = a.id WHERE " +
            "o.sede.id = :sedeId AND " +
            "a.fecha BETWEEN :fechaDesde AND :fechaHasta AND " +
            "o.credito = true AND " +
            "o.venta = true AND " +
            "o.estado = 'ACTIVA' AND " +
-           "c.estado = 'ABIERTO' AND " +
            "ed.id IS NULL")
     List<Abono> findAbonosDisponiblesParaEntrega(
         @Param("sedeId") Long sedeId,

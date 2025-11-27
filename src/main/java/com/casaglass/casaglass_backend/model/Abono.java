@@ -50,8 +50,9 @@ public class Abono {
     @NotNull
     private LocalDate fecha;
 
-    /** Método de pago (texto libre: EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO, etc.) */
-    @Column(name = "metodo_pago", length = 20, nullable = false)
+    /** Método de pago (texto libre: EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO, etc.)
+     *  Puede incluir descripciones detalladas con múltiples métodos, retenciones y observaciones */
+    @Column(name = "metodo_pago", length = 3000, nullable = false)
     private String metodoPago = "TRANSFERENCIA";
 
     /** Número de factura/recibo/soporte del abono */
