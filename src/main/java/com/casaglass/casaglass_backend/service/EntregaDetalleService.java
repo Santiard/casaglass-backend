@@ -80,30 +80,13 @@ public class EntregaDetalleService {
             }
         }
 
-        // ✅ VALIDACIÓN 2: Si es orden a crédito, validar que tenga abonos en el período
+        // ✅ VALIDACIÓN 2: Si es orden a crédito, validar que el crédito esté abierto
         if (orden.isCredito()) {
-            if (detalle.getEntrega() == null || detalle.getEntrega().getFechaDesde() == null || 
-                detalle.getEntrega().getFechaHasta() == null) {
-                throw new RuntimeException("Para órdenes a crédito, la entrega debe tener fechas definidas");
-            }
-            
             // Verificar que el crédito no esté cerrado (completamente saldado)
             if (orden.getCreditoDetalle() != null) {
                 if (orden.getCreditoDetalle().getEstado() == com.casaglass.casaglass_backend.model.Credito.EstadoCredito.CERRADO) {
                     throw new RuntimeException("No se puede agregar una orden a crédito completamente saldada. El dinero ya fue entregado en entregas anteriores.");
                 }
-            }
-            
-            // Verificar que tenga abonos en el período
-            Double abonosDelPeriodo = abonoService.calcularAbonosOrdenEnPeriodo(
-                orden.getId(), 
-                detalle.getEntrega().getFechaDesde(), 
-                detalle.getEntrega().getFechaHasta()
-            );
-            
-            if (abonosDelPeriodo == null || abonosDelPeriodo <= 0) {
-                throw new RuntimeException("La orden a crédito no tiene abonos en el período especificado (" + 
-                    detalle.getEntrega().getFechaDesde() + " a " + detalle.getEntrega().getFechaHasta() + ")");
             }
         }
 
@@ -152,24 +135,17 @@ public class EntregaDetalleService {
             }
         }
         
-        // Validar que el crédito esté abierto
+        // Validar que la orden tenga un crédito asociado (solo para verificar estructura)
         if (orden.getCreditoDetalle() == null) {
             throw new RuntimeException("La orden no tiene un crédito asociado");
         }
-        if (orden.getCreditoDetalle().getEstado() == com.casaglass.casaglass_backend.model.Credito.EstadoCredito.CERRADO) {
-            throw new RuntimeException("No se puede agregar un abono de una orden a crédito completamente saldada");
-        }
         
-        // Validar que el abono esté en el período de la entrega
-        if (detalle.getEntrega() != null && 
-            detalle.getEntrega().getFechaDesde() != null && 
-            detalle.getEntrega().getFechaHasta() != null) {
-            if (abono.getFecha().isBefore(detalle.getEntrega().getFechaDesde()) || 
-                abono.getFecha().isAfter(detalle.getEntrega().getFechaHasta())) {
-                throw new RuntimeException("El abono no está en el período de la entrega (" + 
-                    detalle.getEntrega().getFechaDesde() + " a " + detalle.getEntrega().getFechaHasta() + ")");
-            }
-        }
+        // ✅ NO validamos el estado del crédito porque:
+        // - El abono ya fue realizado y necesita ser entregado
+        // - El abono apareció en la lista de disponibles
+        // - El estado del crédito no impide entregar un abono ya realizado
+        
+        // Ya no validamos el período de la entrega, solo verificamos que el abono no esté duplicado
         
         // Establecer el abono y la orden en el detalle
         detalle.setAbono(abono);
@@ -263,39 +239,17 @@ public class EntregaDetalleService {
 
     /**
      * 💰 CALCULA EL DINERO REAL A ENTREGAR
-     * - Órdenes A CONTADO: Monto completo de la orden
-     * - Órdenes A CRÉDITO: Monto del abono específico (si hay abono) o abonos del período
+     * - Órdenes A CONTADO: Monto completo de la orden (montoOrden)
+     * - Órdenes A CRÉDITO: Monto del abono específico (si hay abono) o montoOrden
      */
-    public Double calcularDineroRealEntrega(Long entregaId, java.time.LocalDate fechaDesde, java.time.LocalDate fechaHasta, Long sedeId) {
+    public Double calcularDineroRealEntrega(Long entregaId) {
         List<EntregaDetalle> detalles = entregaDetalleRepository.findByEntregaId(entregaId);
         Double total = 0.0;
         
         for (EntregaDetalle detalle : detalles) {
-            if (detalle.getVentaCredito() != null && detalle.getVentaCredito()) {
-                // Es venta a CRÉDITO
-                if (detalle.getAbono() != null) {
-                    // Si hay un abono específico, usar su monto directamente
-                    total += (detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0);
-                } else if (detalle.getOrden() != null) {
-                    // Si no hay abono específico, calcular abonos del período (compatibilidad con lógica antigua)
-                    Long ordenId = detalle.getOrden().getId();
-                    if (ordenId != null && sedeId != null) {
-                        java.util.Optional<Orden> ordenOpt = ordenRepository.findById(ordenId);
-                        if (ordenOpt.isPresent()) {
-                            Orden orden = ordenOpt.get();
-                            if (orden.getSede() == null || !sedeId.equals(orden.getSede().getId())) {
-                                continue;
-                            }
-                        }
-                    }
-                    Double abonosDelPeriodo = abonoService.calcularAbonosOrdenEnPeriodo(
-                        ordenId, fechaDesde, fechaHasta);
-                    total += (abonosDelPeriodo != null ? abonosDelPeriodo : 0.0);
-                }
-            } else {
-                // Es venta A CONTADO: Sumar monto completo
-                total += (detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0);
-            }
+            // Usar el montoOrden que ya está capturado en el snapshot del detalle
+            // Para créditos con abono específico, el montoOrden ya contiene el monto del abono
+            total += (detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0);
         }
         
         return Math.round(total * 100.0) / 100.0; // Redondear a 2 decimales

@@ -22,12 +22,6 @@ public class EntregaDineroCreateDTO {
     @NotNull(message = "La fecha de entrega es obligatoria")
     private LocalDate fechaEntrega;
     
-    @NotNull(message = "La fecha desde es obligatoria")
-    private LocalDate fechaDesde;
-    
-    @NotNull(message = "La fecha hasta es obligatoria")
-    private LocalDate fechaHasta;
-    
     private String modalidadEntrega = "EFECTIVO"; // EFECTIVO, TRANSFERENCIA, etc.
     
     // Lista de IDs de órdenes a incluir (para órdenes a contado)

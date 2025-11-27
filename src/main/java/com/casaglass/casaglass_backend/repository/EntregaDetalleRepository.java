@@ -10,7 +10,11 @@ import java.util.Optional;
 
 public interface EntregaDetalleRepository extends JpaRepository<EntregaDetalle, Long> {
 
-    List<EntregaDetalle> findByEntregaId(Long entregaId);
+    @Query("SELECT DISTINCT ed FROM EntregaDetalle ed " +
+           "LEFT JOIN FETCH ed.orden o " +
+           "LEFT JOIN FETCH ed.abono a " +
+           "WHERE ed.entrega.id = :entregaId")
+    List<EntregaDetalle> findByEntregaId(@Param("entregaId") Long entregaId);
 
     List<EntregaDetalle> findByOrdenId(Long ordenId);
 

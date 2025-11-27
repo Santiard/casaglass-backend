@@ -18,8 +18,6 @@ public class EntregaDineroResponseDTO {
     private SedeSimpleDTO sede;
     private TrabajadorSimpleDTO empleado;
     private LocalDate fechaEntrega;
-    private LocalDate fechaDesde;
-    private LocalDate fechaHasta;
     private Double monto;
     private Double montoEfectivo;
     private Double montoTransferencia;
@@ -40,8 +38,6 @@ public class EntregaDineroResponseDTO {
         this.sede = entrega.getSede() != null ? new SedeSimpleDTO(entrega.getSede()) : null;
         this.empleado = entrega.getEmpleado() != null ? new TrabajadorSimpleDTO(entrega.getEmpleado()) : null;
         this.fechaEntrega = entrega.getFechaEntrega();
-        this.fechaDesde = entrega.getFechaDesde();
-        this.fechaHasta = entrega.getFechaHasta();
         this.monto = entrega.getMonto();
         this.montoEfectivo = entrega.getMontoEfectivo();
         this.montoTransferencia = entrega.getMontoTransferencia();

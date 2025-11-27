@@ -41,14 +41,6 @@ public class EntregaDinero {
     @NotNull
     private LocalDate fechaEntrega;
 
-    /** Fecha desde la cual se consideran las órdenes para esta entrega */
-    @Column(name = "fecha_desde")
-    private LocalDate fechaDesde;
-
-    /** Fecha hasta la cual se consideran las órdenes para esta entrega */
-    @Column(name = "fecha_hasta")
-    private LocalDate fechaHasta;
-
     /** Monto de la entrega (calculado automáticamente desde las órdenes) */
     @Column(name = "monto", nullable = false)
     @NotNull

@@ -160,11 +160,8 @@ public class EntregaDineroService {
         
         // Recalcular monto desde las órdenes/abonos
         if ((ordenIds != null && !ordenIds.isEmpty()) || (abonoIds != null && !abonoIds.isEmpty())) {
-            Double montoCalculado = entregaDetalleService.calcularDineroRealEntrega(
-                entregaGuardada.getId(), 
-                entrega.getFechaDesde(), 
-                entrega.getFechaHasta(),
-                entrega.getSede() != null ? entrega.getSede().getId() : null
+            Double montoCalculado = entregaDetalleService.calcularMontoTotalEntrega(
+                entregaGuardada.getId()
             );
             entregaGuardada.setMonto(montoCalculado != null ? montoCalculado : 0.0);
             

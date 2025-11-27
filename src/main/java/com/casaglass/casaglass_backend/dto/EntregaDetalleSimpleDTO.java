@@ -23,6 +23,10 @@ public class EntregaDetalleSimpleDTO {
     private String observaciones;
     private Double abonosDelPeriodo; // Abonos del período para órdenes a crédito (o monto del abono específico)
     
+    // Método de pago: descripcion para órdenes a contado, metodoPago para abonos
+    private String descripcion; // Para órdenes a contado (ventaCredito = false): descripcion de la orden
+    private String metodoPago; // Para abonos (ventaCredito = true y abonoId != null): metodoPago del abono
+    
     // Constructor desde entidad (SIN referencia a entrega para evitar ciclos)
     // Sin cálculo de abonos (para compatibilidad)
     public EntregaDetalleSimpleDTO(EntregaDetalle detalle) {
@@ -39,6 +43,20 @@ public class EntregaDetalleSimpleDTO {
         this.abonosDelPeriodo = detalle.getAbono() != null && detalle.getAbono().getTotal() != null 
             ? detalle.getAbono().getTotal() 
             : null;
+        
+        // Método de pago según el tipo:
+        // - Para órdenes a contado (ventaCredito = false): descripcion de la orden
+        // - Para abonos (ventaCredito = true y abonoId != null): metodoPago del abono
+        if (detalle.getVentaCredito() != null && !detalle.getVentaCredito()) {
+            // Orden a contado: usar descripcion de la orden
+            if (detalle.getOrden() != null) {
+                this.descripcion = detalle.getOrden().getDescripcion();
+            }
+        } else if (detalle.getVentaCredito() != null && detalle.getVentaCredito() && 
+                   detalle.getAbono() != null) {
+            // Abono: usar metodoPago del abono
+            this.metodoPago = detalle.getAbono().getMetodoPago();
+        }
     }
     
     // Constructor con cálculo de abonos del período
@@ -65,6 +83,20 @@ public class EntregaDetalleSimpleDTO {
                 detalle.getOrden().getId(), fechaDesde, fechaHasta);
         } else {
             this.abonosDelPeriodo = 0.0; // Contado o sin datos
+        }
+        
+        // Método de pago según el tipo:
+        // - Para órdenes a contado (ventaCredito = false): descripcion de la orden
+        // - Para abonos (ventaCredito = true y abonoId != null): metodoPago del abono
+        if (detalle.getVentaCredito() != null && !detalle.getVentaCredito()) {
+            // Orden a contado: usar descripcion de la orden
+            if (detalle.getOrden() != null) {
+                this.descripcion = detalle.getOrden().getDescripcion();
+            }
+        } else if (detalle.getVentaCredito() != null && detalle.getVentaCredito() && 
+                   detalle.getAbono() != null) {
+            // Abono: usar metodoPago del abono
+            this.metodoPago = detalle.getAbono().getMetodoPago();
         }
     }
 }

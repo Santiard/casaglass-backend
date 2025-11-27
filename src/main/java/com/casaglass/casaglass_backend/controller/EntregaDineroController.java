@@ -88,15 +88,10 @@ public class EntregaDineroController {
         return service.obtenerPorId(id)
                 .map(entrega -> {
                     EntregaDineroResponseDTO dto = new EntregaDineroResponseDTO(entrega);
-                    // Calcular abonos del período para cada detalle
-                    if (dto.getDetalles() != null && entrega.getFechaDesde() != null && entrega.getFechaHasta() != null) {
+                    // Los detalles ya incluyen el monto del abono específico si existe
+                    if (dto.getDetalles() != null) {
                         dto.setDetalles(entrega.getDetalles().stream()
-                                .map(detalle -> new EntregaDetalleSimpleDTO(
-                                    detalle, 
-                                    entrega.getFechaDesde(), 
-                                    entrega.getFechaHasta(),
-                                    abonoService
-                                ))
+                                .map(EntregaDetalleSimpleDTO::new)
                                 .collect(Collectors.toList()));
                     }
                     return ResponseEntity.ok(dto);
@@ -162,8 +157,6 @@ public class EntregaDineroController {
             
             // Configurar fechas
             entrega.setFechaEntrega(entregaDTO.getFechaEntrega());
-            entrega.setFechaDesde(entregaDTO.getFechaDesde());
-            entrega.setFechaHasta(entregaDTO.getFechaHasta());
             
             // Configurar modalidad y otros campos
             entrega.setModalidadEntrega(EntregaDinero.ModalidadEntrega.valueOf(entregaDTO.getModalidadEntrega()));
