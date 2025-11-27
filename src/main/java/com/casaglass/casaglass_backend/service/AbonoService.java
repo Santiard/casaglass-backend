@@ -177,7 +177,7 @@ public class AbonoService {
         abono.setOrden(orden);
         abono.setNumeroOrden(orden.getNumero());
         abono.setFecha(payload.getFecha() != null ? payload.getFecha() : LocalDate.now());
-        abono.setMetodoPago(payload.getMetodoPago() != null ? payload.getMetodoPago() : Abono.MetodoPago.TRANSFERENCIA);
+        abono.setMetodoPago(payload.getMetodoPago() != null ? payload.getMetodoPago() : "TRANSFERENCIA");
         abono.setFactura(payload.getFactura());
         abono.setTotal(monto);
 

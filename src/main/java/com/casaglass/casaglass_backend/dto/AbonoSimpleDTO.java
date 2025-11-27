@@ -25,7 +25,7 @@ public class AbonoSimpleDTO {
         this.id = abono.getId();
         this.fecha = abono.getFecha();
         this.total = abono.getTotal();
-        this.metodoPago = abono.getMetodoPago().name();
+        this.metodoPago = abono.getMetodoPago();
         this.factura = abono.getFactura();
         this.saldo = abono.getSaldo();
         this.numeroOrden = abono.getNumeroOrden();

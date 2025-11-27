@@ -382,7 +382,7 @@ public class EntregaDineroController {
         dto.setId(abono.getId());
         dto.setFechaAbono(abono.getFecha());
         dto.setMontoAbono(abono.getTotal());
-        dto.setMetodoPago(abono.getMetodoPago() != null ? abono.getMetodoPago().name() : null);
+        dto.setMetodoPago(abono.getMetodoPago());
         dto.setFactura(abono.getFactura());
         
         // Información de la orden

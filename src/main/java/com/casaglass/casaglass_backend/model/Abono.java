@@ -50,10 +50,9 @@ public class Abono {
     @NotNull
     private LocalDate fecha;
 
-    /** Método de pago (TF = transferencia). Puedes usar enum o texto libre; aquí enum: */
-    @Enumerated(EnumType.STRING)
+    /** Método de pago (texto libre: EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO, etc.) */
     @Column(name = "metodo_pago", length = 20, nullable = false)
-    private MetodoPago metodoPago = MetodoPago.TRANSFERENCIA;
+    private String metodoPago = "TRANSFERENCIA";
 
     /** Número de factura/recibo/soporte del abono */
     @Column(name = "factura", length = 50)
@@ -68,8 +67,4 @@ public class Abono {
     @NotNull
     @Column(nullable = false)
     private Double saldo;
-
-    public enum MetodoPago {
-        EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO
-    }
 }

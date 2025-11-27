@@ -14,6 +14,7 @@ import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
 import com.casaglass.casaglass_backend.dto.CreditoTablaDTO;
+import com.casaglass.casaglass_backend.dto.OrdenCreditoDTO;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import com.casaglass.casaglass_backend.repository.FacturaRepository;
 import com.casaglass.casaglass_backend.repository.ClienteRepository;
@@ -756,6 +757,43 @@ public class OrdenService {
         return repo.findByClienteId(clienteId).stream()
                 .map(this::convertirAOrdenTablaDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 💳 LISTADO DE ÓRDENES A CRÉDITO POR CLIENTE
+     * Retorna solo órdenes a crédito con información del crédito
+     * Usado en GET /api/ordenes/credito?clienteId=X
+     */
+    @Transactional(readOnly = true)
+    public List<OrdenCreditoDTO> listarOrdenesCreditoPorCliente(Long clienteId) {
+        return repo.findByClienteId(clienteId).stream()
+                .filter(Orden::isCredito)  // Solo órdenes a crédito
+                .map(this::convertirAOrdenCreditoDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 🔄 CONVERSOR: Orden Entity → OrdenCreditoDTO
+     * Convierte una orden a crédito al DTO específico
+     */
+    private OrdenCreditoDTO convertirAOrdenCreditoDTO(Orden orden) {
+        OrdenCreditoDTO dto = new OrdenCreditoDTO();
+        
+        dto.setId(orden.getId());
+        dto.setNumero(orden.getNumero());
+        dto.setFecha(orden.getFecha());
+        dto.setTotal(orden.getTotal());
+        dto.setCredito(orden.isCredito());
+        
+        // Información del crédito
+        if (orden.getCreditoDetalle() != null) {
+            OrdenCreditoDTO.CreditoDetalleDTO creditoDTO = new OrdenCreditoDTO.CreditoDetalleDTO();
+            creditoDTO.setCreditoId(orden.getCreditoDetalle().getId());
+            creditoDTO.setSaldoPendiente(orden.getCreditoDetalle().getSaldoPendiente());
+            dto.setCreditoDetalle(creditoDTO);
+        }
+        
+        return dto;
     }
 
     /**

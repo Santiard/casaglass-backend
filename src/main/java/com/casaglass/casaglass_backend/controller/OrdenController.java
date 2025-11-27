@@ -6,6 +6,7 @@ import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenDetalleDTO;
 import com.casaglass.casaglass_backend.dto.FacturaCreateDTO;
+import com.casaglass.casaglass_backend.dto.OrdenCreditoDTO;
 import com.casaglass.casaglass_backend.service.OrdenService;
 import com.casaglass.casaglass_backend.service.FacturaService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -385,6 +386,22 @@ public class OrdenController {
         if (trabajadorId != null) return service.listarPorTrabajadorParaTabla(trabajadorId);
         
         return service.listarParaTabla();
+    }
+
+    /**
+     * 💳 LISTADO DE ÓRDENES A CRÉDITO POR CLIENTE
+     * GET /api/ordenes/credito?clienteId=X
+     * 
+     * Retorna solo órdenes a crédito del cliente especificado con información del crédito:
+     * - id, numero, fecha, total, credito
+     * - creditoDetalle: { creditoId, saldoPendiente }
+     */
+    @GetMapping("/credito")
+    public List<OrdenCreditoDTO> listarOrdenesCredito(@RequestParam(required = false) Long clienteId) {
+        if (clienteId == null) {
+            throw new IllegalArgumentException("El parámetro clienteId es obligatorio");
+        }
+        return service.listarOrdenesCreditoPorCliente(clienteId);
     }
 
     /**

@@ -1,6 +1,5 @@
 package com.casaglass.casaglass_backend.dto;
 
-import com.casaglass.casaglass_backend.model.Abono;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.Data;
@@ -23,9 +22,9 @@ public class AbonoDTO {
     @NotNull(message = "La fecha es obligatoria")
     private LocalDate fecha;
     
-    /** Método de pago (OBLIGATORIO) */
+    /** Método de pago (OBLIGATORIO) - Valores sugeridos: EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO */
     @NotNull(message = "El método de pago es obligatorio")
-    private Abono.MetodoPago metodoPago;
+    private String metodoPago;
     
     /** Número de factura/recibo (OBLIGATORIO - puede ser string vacío) */
     @NotNull(message = "El número de factura es obligatorio")

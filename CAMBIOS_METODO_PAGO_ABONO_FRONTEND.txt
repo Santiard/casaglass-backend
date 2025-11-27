@@ -1,0 +1,187 @@
+================================================================================
+CAMBIOS EN FRONTEND - METODO DE PAGO DE ABONOS (ENUM → STRING)
+================================================================================
+
+RESUMEN:
+================================================================================
+
+El campo `metodoPago` en los abonos cambió de ENUM a STRING.
+Ya NO es necesario usar valores específicos del enum.
+Ahora puedes enviar cualquier string como método de pago.
+
+================================================================================
+
+CAMBIOS EN LOS ENDPOINTS:
+================================================================================
+
+1. POST /api/abonos
+   ANTES:
+   {
+     "creditoId": 1,
+     "total": 50000.0,
+     "fecha": "2025-01-15",
+     "metodoPago": "TRANSFERENCIA",  // Enum: EFECTIVO, TRANSFERENCIA, TARJETA, CHEQUE, OTRO
+     "factura": "REC-001"
+   }
+   
+   AHORA:
+   {
+     "creditoId": 1,
+     "total": 50000.0,
+     "fecha": "2025-01-15",
+     "metodoPago": "TRANSFERENCIA",  // String libre (puede ser cualquier texto)
+     "factura": "REC-001"
+   }
+   
+   ✅ NO HAY CAMBIOS NECESARIOS - El formato sigue siendo el mismo
+   ✅ Puedes seguir usando los mismos valores: "EFECTIVO", "TRANSFERENCIA", "TARJETA", "CHEQUE", "OTRO"
+   ✅ PERO ahora también puedes usar otros valores como: "NEQUI", "DAVIPLATA", "PSE", etc.
+
+================================================================================
+
+2. PUT /api/abonos/{id}
+   ANTES:
+   {
+     "metodoPago": "EFECTIVO"  // Enum
+   }
+   
+   AHORA:
+   {
+     "metodoPago": "EFECTIVO"  // String libre
+   }
+   
+   ✅ NO HAY CAMBIOS NECESARIOS - El formato sigue siendo el mismo
+
+================================================================================
+
+3. RESPUESTAS DE LOS ENDPOINTS:
+   ANTES:
+   {
+     "id": 1,
+     "fecha": "2025-01-15",
+     "total": 50000.0,
+     "metodoPago": "TRANSFERENCIA",  // String (ya era string en las respuestas)
+     "factura": "REC-001",
+     "saldo": 0.0
+   }
+   
+   AHORA:
+   {
+     "id": 1,
+     "fecha": "2025-01-15",
+     "total": 50000.0,
+     "metodoPago": "TRANSFERENCIA",  // String (sin cambios)
+     "factura": "REC-001",
+     "saldo": 0.0
+   }
+   
+   ✅ NO HAY CAMBIOS NECESARIOS - Las respuestas ya eran strings
+
+================================================================================
+
+CAMBIOS OPCIONALES EN EL FRONTEND:
+================================================================================
+
+1. VALIDACIÓN DE ENUM:
+   Si tenías validación que solo permitía valores específicos del enum:
+   
+   ANTES:
+   const METODOS_PAGO = ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CHEQUE', 'OTRO'];
+   if (!METODOS_PAGO.includes(metodoPago)) {
+     throw new Error('Método de pago inválido');
+   }
+   
+   AHORA (OPCIONAL):
+   - Puedes mantener la validación si quieres limitar a valores específicos
+   - O puedes eliminarla y permitir cualquier string
+   - O puedes expandir la lista con nuevos métodos: ['EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CHEQUE', 'OTRO', 'NEQUI', 'DAVIPLATA', 'PSE']
+
+================================================================================
+
+2. SELECT/DROPDOWN DE MÉTODO DE PAGO:
+   Si tienes un dropdown con los métodos de pago:
+   
+   ANTES:
+   <select>
+     <option value="EFECTIVO">Efectivo</option>
+     <option value="TRANSFERENCIA">Transferencia</option>
+     <option value="TARJETA">Tarjeta</option>
+     <option value="CHEQUE">Cheque</option>
+     <option value="OTRO">Otro</option>
+   </select>
+   
+   AHORA:
+   - Puedes mantener el mismo dropdown
+   - O puedes agregar más opciones:
+   <select>
+     <option value="EFECTIVO">Efectivo</option>
+     <option value="TRANSFERENCIA">Transferencia</option>
+     <option value="TARJETA">Tarjeta</option>
+     <option value="CHEQUE">Cheque</option>
+     <option value="NEQUI">Nequi</option>
+     <option value="DAVIPLATA">Daviplata</option>
+     <option value="PSE">PSE</option>
+     <option value="OTRO">Otro</option>
+   </select>
+   
+   - O puedes cambiar a un input de texto libre si quieres permitir cualquier método
+
+================================================================================
+
+3. TIPOS EN TYPESCRIPT (si usas TypeScript):
+   ANTES:
+   type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CHEQUE' | 'OTRO';
+   
+   AHORA (OPCIONAL):
+   - Puedes mantener el tipo restrictivo si quieres validar en el frontend
+   - O puedes cambiarlo a:
+   type MetodoPago = string;
+   - O expandirlo:
+   type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' | 'CHEQUE' | 'OTRO' | 'NEQUI' | 'DAVIPLATA' | 'PSE' | string;
+
+================================================================================
+
+RESUMEN DE CAMBIOS NECESARIOS:
+================================================================================
+
+✅ NO HAY CAMBIOS OBLIGATORIOS
+   - Los endpoints siguen funcionando igual
+   - El formato de las peticiones y respuestas es el mismo
+   - Los valores que ya usabas siguen funcionando
+
+✅ CAMBIOS OPCIONALES (si quieres aprovechar la flexibilidad):
+   1. Expandir la lista de métodos de pago disponibles en el frontend
+   2. Cambiar validaciones de enum a string (si quieres permitir valores personalizados)
+   3. Agregar nuevos métodos de pago al dropdown/select
+
+================================================================================
+
+EJEMPLOS DE VALORES ACEPTADOS:
+================================================================================
+
+Valores que funcionaban antes (siguen funcionando):
+- "EFECTIVO"
+- "TRANSFERENCIA"
+- "TARJETA"
+- "CHEQUE"
+- "OTRO"
+
+Nuevos valores que ahora puedes usar:
+- "NEQUI"
+- "DAVIPLATA"
+- "PSE"
+- "BANCOLOMBIA"
+- "BANCO_DE_BOGOTA"
+- Cualquier otro string que necesites
+
+================================================================================
+
+NOTA IMPORTANTE:
+================================================================================
+
+La base de datos NO necesita cambios.
+El campo ya se guardaba como VARCHAR/STRING en la base de datos.
+Solo cambió el tipo en el código Java (de enum a String).
+
+================================================================================
+
