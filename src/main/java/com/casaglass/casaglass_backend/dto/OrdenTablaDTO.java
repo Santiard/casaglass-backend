@@ -43,13 +43,20 @@ public class OrdenTablaDTO {
     private List<OrdenItemTablaDTO> items;
     
     /**
-     * DTO simplificado para Cliente en tabla de órdenes
+     * DTO para Cliente en tabla de órdenes
+     * Incluye todos los campos del cliente para facturación
      */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ClienteTablaDTO {
+        private Long id;
+        private String nit;
         private String nombre;
+        private String correo;
+        private String ciudad;
+        private String direccion;
+        private String telefono;
     }
     
     /**

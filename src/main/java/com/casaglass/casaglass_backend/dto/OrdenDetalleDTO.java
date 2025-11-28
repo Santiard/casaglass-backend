@@ -54,11 +54,16 @@ public class OrdenDetalleDTO {
         private Long id;
         private String codigo;
         private String nombre;
+        private String color;  // Color del producto (enum serializado como String)
+        private String tipo;   // Tipo del producto (enum serializado como String)
         
         public ProductoItemDTO(Producto producto) {
             this.id = producto.getId();
             this.codigo = producto.getCodigo();
             this.nombre = producto.getNombre();
+            // Convertir enums a String (pueden ser null)
+            this.color = producto.getColor() != null ? producto.getColor().name() : null;
+            this.tipo = producto.getTipo() != null ? producto.getTipo().name() : null;
         }
     }
     

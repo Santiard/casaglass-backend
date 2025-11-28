@@ -61,9 +61,18 @@ public class FacturaService {
             throw new IllegalArgumentException("No se puede facturar una orden anulada");
         }
 
-        // Crear factura (el cliente viene de la orden)
+        // Buscar cliente (opcional - si no se proporciona, se usa el de la orden)
+        Cliente cliente = null;
+        if (facturaDTO.getClienteId() != null) {
+            cliente = clienteRepository.findById(facturaDTO.getClienteId())
+                    .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado con ID: " + facturaDTO.getClienteId()));
+        }
+
+        // Crear factura
         Factura factura = new Factura();
         factura.setOrden(orden);
+        // Si se proporciona un cliente, usarlo; si no, usar el de la orden (o null, se manejará en los DTOs)
+        factura.setCliente(cliente);
         factura.setFecha(facturaDTO.getFecha() != null ? facturaDTO.getFecha() : LocalDate.now());
         factura.setSubtotal(facturaDTO.getSubtotal());
         factura.setDescuentos(facturaDTO.getDescuentos() != null ? facturaDTO.getDescuentos() : 0.0);
@@ -258,6 +267,13 @@ public class FacturaService {
         factura.setRetencionFuente(facturaDTO.getRetencionFuente() != null ? facturaDTO.getRetencionFuente() : 0.0);
         factura.setFormaPago(facturaDTO.getFormaPago());
         factura.setObservaciones(facturaDTO.getObservaciones());
+        
+        // Actualizar cliente si se proporciona
+        if (facturaDTO.getClienteId() != null) {
+            Cliente cliente = clienteRepository.findById(facturaDTO.getClienteId())
+                    .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado con ID: " + facturaDTO.getClienteId()));
+            factura.setCliente(cliente);
+        }
 
         // Recalcular total
         factura.calcularTotal();
@@ -314,8 +330,11 @@ public class FacturaService {
             dto.setOrden(new FacturaTablaDTO.OrdenTabla(factura.getOrden().getNumero()));
         }
 
-        // Cliente desde la orden
-        if (factura.getOrden() != null && factura.getOrden().getCliente() != null) {
+        // Cliente: usar el de la factura si existe, sino el de la orden
+        Cliente clienteFactura = factura.getCliente();
+        if (clienteFactura != null) {
+            dto.setCliente(new FacturaTablaDTO.ClienteTabla(clienteFactura.getNombre()));
+        } else if (factura.getOrden() != null && factura.getOrden().getCliente() != null) {
             dto.setCliente(new FacturaTablaDTO.ClienteTabla(factura.getOrden().getCliente().getNombre()));
         }
 

@@ -822,9 +822,18 @@ public class OrdenService {
         }
         dto.setFacturada(tieneFactura);
         
-        // 👤 CLIENTE SIMPLIFICADO
+        // 👤 CLIENTE COMPLETO (todos los campos para facturación)
         if (orden.getCliente() != null) {
-            dto.setCliente(new OrdenTablaDTO.ClienteTablaDTO(orden.getCliente().getNombre()));
+            OrdenTablaDTO.ClienteTablaDTO clienteDTO = new OrdenTablaDTO.ClienteTablaDTO(
+                orden.getCliente().getId(),
+                orden.getCliente().getNit(),
+                orden.getCliente().getNombre(),
+                orden.getCliente().getCorreo(),
+                orden.getCliente().getCiudad(),
+                orden.getCliente().getDireccion(),
+                orden.getCliente().getTelefono()
+            );
+            dto.setCliente(clienteDTO);
         }
         
         // 👷 TRABAJADOR SIMPLIFICADO  

@@ -46,6 +46,16 @@ public class Factura {
   @JsonIgnoreProperties({"factura", "hibernateLazyInitializer", "handler"})
   private Orden orden;
 
+  /**
+   * Cliente al que se factura (opcional)
+   * Si no se especifica, se usa el cliente de la orden
+   * Permite facturar a un cliente diferente al de la orden original
+   */
+  @ManyToOne(fetch = FetchType.EAGER)
+  @JoinColumn(name = "cliente_id")
+  @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+  private Cliente cliente;
+
   // ========== CAMPOS FINANCIEROS ==========
 
   /**

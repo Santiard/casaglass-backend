@@ -23,6 +23,12 @@ public class FacturaCreateDTO {
     private Long ordenId;
 
     /**
+     * ID del cliente al que se factura (opcional)
+     * Si no se proporciona, se usa el cliente de la orden
+     */
+    private Long clienteId;
+
+    /**
      * Fecha de la factura (opcional, por defecto hoy)
      */
     private LocalDate fecha;
