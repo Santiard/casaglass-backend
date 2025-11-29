@@ -80,6 +80,34 @@ public class ProductoController {
         }
     }
 
+    /**
+     * 💰 ACTUALIZAR SOLO EL COSTO DE UN PRODUCTO
+     * PUT /api/productos/{id}/costo
+     * 
+     * Body esperado:
+     * {
+     *   "costo": 15000.0
+     * }
+     */
+    @PutMapping("/{id}/costo")
+    public ResponseEntity<Producto> actualizarCostoProducto(
+            @PathVariable Long id,
+            @RequestBody Map<String, Double> request) {
+        try {
+            Double nuevoCosto = request.get("costo");
+            if (nuevoCosto == null || nuevoCosto < 0) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            Producto producto = service.actualizarCosto(id, nuevoCosto);
+            return ResponseEntity.ok(producto);
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         service.eliminar(id);

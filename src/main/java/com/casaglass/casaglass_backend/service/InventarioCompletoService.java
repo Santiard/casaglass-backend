@@ -8,6 +8,7 @@ import com.casaglass.casaglass_backend.model.TipoProducto;
 import com.casaglass.casaglass_backend.model.ColorProducto;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
+import com.casaglass.casaglass_backend.repository.ProductoVidrioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,18 +22,28 @@ public class InventarioCompletoService {
 
     private final ProductoRepository productoRepository;
     private final InventarioRepository inventarioRepository;
+    private final ProductoVidrioRepository productoVidrioRepository;
 
     public InventarioCompletoService(ProductoRepository productoRepository, 
-                                   InventarioRepository inventarioRepository) {
+                                   InventarioRepository inventarioRepository,
+                                   ProductoVidrioRepository productoVidrioRepository) {
         this.productoRepository = productoRepository;
         this.inventarioRepository = inventarioRepository;
+        this.productoVidrioRepository = productoVidrioRepository;
     }
 
     public List<ProductoInventarioCompletoDTO> obtenerInventarioCompleto() {
-        // 🔧 TEMPORALMENTE: Usar findAll() para debug
+        // 🔧 OBTENER TODOS LOS PRODUCTOS (incluyendo ProductoVidrio)
+        // findAll() con herencia JOINED debería cargar automáticamente ProductoVidrio
         List<Producto> todosLosProductos = productoRepository.findAll();
         
-        // 🔧 FILTRAR CORTES MANUALMENTE EN JAVA
+        System.out.println("🔍 DEBUG: findAll() retornó " + todosLosProductos.size() + " productos");
+        if (!todosLosProductos.isEmpty()) {
+            System.out.println("🔍 DEBUG: Primer producto - ID: " + todosLosProductos.get(0).getId() + 
+                             ", Tipo: " + todosLosProductos.get(0).getClass().getSimpleName());
+        }
+        
+        // 🔧 FILTRAR CORTES MANUALMENTE EN JAVA (mantener ProductoVidrio)
         List<Producto> productos = todosLosProductos.stream()
             .filter(p -> !(p instanceof com.casaglass.casaglass_backend.model.Corte))
             .collect(Collectors.toList());
@@ -50,18 +61,45 @@ public class InventarioCompletoService {
                 ));
 
         // 🐛 DEBUG: Logging para verificar los datos
-        System.out.println("=== DEBUG INVENTARIO COMPLETO (FILTRO MANUAL) ===");
+        System.out.println("=== DEBUG INVENTARIO COMPLETO ===");
         System.out.println("Todos los productos: " + todosLosProductos.size());
         System.out.println("Productos sin cortes: " + productos.size());
+        
+        // Contar productos vidrio
+        long cantidadVidrios = productos.stream()
+            .filter(p -> p instanceof ProductoVidrio)
+            .count();
+        System.out.println("Productos vidrio encontrados: " + cantidadVidrios);
+        
+        // Listar IDs de productos vidrio
+        List<Long> idsVidrios = productos.stream()
+            .filter(p -> p instanceof ProductoVidrio)
+            .map(Producto::getId)
+            .collect(Collectors.toList());
+        System.out.println("IDs de productos vidrio: " + idsVidrios);
+        
         System.out.println("Inventarios por producto: " + inventariosPorProductoYSede.size());
         inventariosPorProductoYSede.forEach((productoId, sedes) -> {
             System.out.println("Producto " + productoId + " -> " + sedes);
         });
         System.out.println("================================");
 
-        // Convertir a DTOs
+        // Convertir a DTOs (incluir TODOS los productos, incluso sin inventario)
         return productos.stream()
-            .map(producto -> convertirADTO(producto, inventariosPorProductoYSede.get(producto.getId())))
+            .map(producto -> {
+                Map<Long, Integer> inventarios = inventariosPorProductoYSede.get(producto.getId());
+                ProductoInventarioCompletoDTO dto = convertirADTO(producto, inventarios);
+                
+                // 🐛 DEBUG: Log específico para productos vidrio
+                if (producto instanceof ProductoVidrio) {
+                    System.out.println("✅ Producto vidrio convertido: ID=" + producto.getId() + 
+                                     ", Codigo=" + producto.getCodigo() + 
+                                     ", Nombre=" + producto.getNombre() +
+                                     ", esVidrio=" + dto.getEsVidrio());
+                }
+                
+                return dto;
+            })
             .collect(Collectors.toList());
     }
 
@@ -246,5 +284,109 @@ public class InventarioCompletoService {
             producto.getPrecio2(),
             producto.getPrecio3()
         );
+    }
+    
+    /**
+     * 🪟 OBTENER INVENTARIO COMPLETO DE PRODUCTOS VIDRIO
+     * Endpoint exclusivo para productos vidrio usando el repositorio específico
+     * 
+     * ESTRATEGIA ALTERNATIVA: Obtener IDs desde query nativo y luego cargar productos
+     */
+    public List<ProductoInventarioCompletoDTO> obtenerInventarioCompletoVidrios() {
+        System.out.println("🪟 DEBUG: Iniciando búsqueda de productos vidrio...");
+        
+        // ESTRATEGIA 1: Intentar con findAll() normal
+        List<ProductoVidrio> productosVidrio = productoVidrioRepository.findAll();
+        System.out.println("🪟 DEBUG: productoVidrioRepository.findAll() retornó: " + productosVidrio.size() + " productos");
+        
+        // ESTRATEGIA 2: Si findAll() retorna 0, usar query nativo para obtener IDs directamente de productos_vidrio
+        if (productosVidrio.isEmpty()) {
+            System.out.println("⚠️ findAll() retornó 0, intentando con query nativo directo en productos_vidrio...");
+            List<Long> idsVidrios = productoVidrioRepository.findProductoVidrioIds();
+            System.out.println("🪟 DEBUG: Query nativo encontró " + idsVidrios.size() + " IDs en tabla productos_vidrio: " + idsVidrios);
+            
+            if (!idsVidrios.isEmpty()) {
+                // Cargar productos por IDs usando el repositorio de ProductoVidrio
+                productosVidrio = productoVidrioRepository.findAllById(idsVidrios);
+                System.out.println("🪟 DEBUG: Cargados " + productosVidrio.size() + " productos vidrio por IDs");
+                
+                // Si aún está vacío después de cargar por IDs, puede ser un problema de herencia JOINED
+                if (productosVidrio.isEmpty()) {
+                    System.out.println("⚠️ ADVERTENCIA: IDs encontrados pero no se pudieron cargar como ProductoVidrio");
+                    System.out.println("   Esto sugiere un problema con la herencia JOINED");
+                    System.out.println("   Intentando cargar como Producto y convertir...");
+                    
+                    // Intentar cargar como Producto y verificar si son ProductoVidrio
+                    List<Producto> productos = productoRepository.findAllById(idsVidrios);
+                    System.out.println("🪟 DEBUG: Cargados " + productos.size() + " productos por IDs");
+                    
+                    // Filtrar solo los que son ProductoVidrio
+                    productosVidrio = productos.stream()
+                        .filter(p -> p instanceof ProductoVidrio)
+                        .map(p -> (ProductoVidrio) p)
+                        .collect(Collectors.toList());
+                    System.out.println("🪟 DEBUG: Convertidos " + productosVidrio.size() + " productos a ProductoVidrio");
+                }
+            }
+        }
+        
+        // ESTRATEGIA 3: Si aún está vacío, intentar con query JPQL explícito
+        if (productosVidrio.isEmpty()) {
+            System.out.println("⚠️ Todas las estrategias anteriores fallaron, intentando con query JPQL explícito...");
+            productosVidrio = productoVidrioRepository.findAllWithExplicitJoin();
+            System.out.println("🪟 DEBUG: Query JPQL explícito retornó: " + productosVidrio.size() + " productos");
+        }
+        
+        if (productosVidrio.isEmpty()) {
+            System.out.println("❌ ERROR: No se encontraron productos vidrio con ninguna estrategia");
+            System.out.println("   Verificar en la base de datos:");
+            System.out.println("   1. SELECT COUNT(*) FROM productos_vidrio;");
+            System.out.println("   2. SELECT p.id, p.codigo FROM productos p INNER JOIN productos_vidrio pv ON p.id = pv.id;");
+            return new java.util.ArrayList<>();
+        }
+        
+        System.out.println("✅ Productos vidrio encontrados (" + productosVidrio.size() + "):");
+        productosVidrio.forEach(p -> {
+            System.out.println("   - ID: " + p.getId() + ", Código: " + p.getCodigo() + ", Nombre: " + p.getNombre() + 
+                             ", mm: " + p.getMm() + ", m1: " + p.getM1() + ", m2: " + p.getM2());
+        });
+        
+        // Obtener inventarios para esos productos
+        List<Long> productosIds = productosVidrio.stream()
+            .map(ProductoVidrio::getId)
+            .collect(Collectors.toList());
+        
+        System.out.println("🪟 DEBUG: Buscando inventarios para IDs: " + productosIds);
+        
+        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+            inventarioRepository.findByProductoIdIn(productosIds).stream()
+                .collect(Collectors.groupingBy(
+                    inv -> inv.getProducto().getId(),
+                    Collectors.toMap(
+                        inv -> inv.getSede().getId(),
+                        Inventario::getCantidad,
+                        Integer::sum
+                    )
+                ));
+        
+        System.out.println("🪟 DEBUG: Inventarios encontrados para " + inventariosPorProductoYSede.size() + " productos vidrio");
+        inventariosPorProductoYSede.forEach((productoId, sedes) -> {
+            System.out.println("   Producto " + productoId + " -> " + sedes);
+        });
+        
+        // Convertir a DTOs
+        List<ProductoInventarioCompletoDTO> dtos = productosVidrio.stream()
+            .map(producto -> {
+                Map<Long, Integer> inventarios = inventariosPorProductoYSede.get(producto.getId());
+                ProductoInventarioCompletoDTO dto = convertirADTO(producto, inventarios);
+                System.out.println("🪟 DEBUG: Convertido producto vidrio ID=" + producto.getId() + 
+                                 ", esVidrio=" + dto.getEsVidrio() + 
+                                 ", mm=" + dto.getMm());
+                return dto;
+            })
+            .collect(Collectors.toList());
+        
+        System.out.println("🪟 DEBUG: Total DTOs retornados: " + dtos.size());
+        return dtos;
     }
 }

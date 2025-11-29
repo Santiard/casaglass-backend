@@ -14,6 +14,7 @@ import com.casaglass.casaglass_backend.repository.SedeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +33,35 @@ public class ProductoService {
         this.categoriaRepo = categoriaRepo;
         this.inventarioRepo = inventarioRepo;
         this.sedeRepo = sedeRepo;
+    }
+    
+    /**
+     * 📦 Crea registros de inventario con cantidad 0 para las 3 sedes
+     * Esto asegura que el producto aparezca en el inventario completo
+     */
+    private void crearInventarioInicial(Producto producto) {
+        // IDs de las 3 sedes (Insula=1, Centro=2, Patios=3)
+        Long[] sedesIds = {1L, 2L, 3L};
+        
+        for (Long sedeId : sedesIds) {
+            // Verificar si ya existe un registro de inventario para este producto y sede
+            boolean existeInventario = inventarioRepo.findByProductoIdAndSedeId(producto.getId(), sedeId)
+                    .isPresent();
+            
+            if (!existeInventario) {
+                Sede sede = sedeRepo.findById(sedeId)
+                        .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + sedeId));
+                
+                Inventario inventario = new Inventario();
+                inventario.setProducto(producto);
+                inventario.setSede(sede);
+                inventario.setCantidad(0);
+                
+                inventarioRepo.save(inventario);
+                System.out.println("✅ Inventario creado: Producto ID=" + producto.getId() + 
+                                 ", Sede ID=" + sedeId + ", Cantidad=0");
+            }
+        }
     }
 
     public List<Producto> listar() {
@@ -72,7 +102,14 @@ public class ProductoService {
         } else {
             p.setCategoria(null);
         }
-        return repo.save(p);
+        
+        // Guardar el producto primero
+        Producto productoGuardado = repo.save(p);
+        
+        // ✅ Crear inventario con cantidad 0 para las 3 sedes automáticamente
+        crearInventarioInicial(productoGuardado);
+        
+        return productoGuardado;
     }
 
     public Producto actualizar(Long id, ProductoActualizarDTO dto) {
@@ -94,7 +131,10 @@ public class ProductoService {
                 }
                 
                 actual.setCantidad(dto.getCantidad());
+                // ✅ Actualizar costo explícitamente (permite null y 0)
+                System.out.println("🔧 DEBUG: Actualizando costo - DTO costo: " + dto.getCosto() + ", Costo actual antes: " + actual.getCosto());
                 actual.setCosto(dto.getCosto());
+                System.out.println("🔧 DEBUG: Costo actual después de set: " + actual.getCosto());
                 actual.setPrecio1(dto.getPrecio1());
                 actual.setPrecio2(dto.getPrecio2());
                 actual.setPrecio3(dto.getPrecio3());
@@ -109,7 +149,9 @@ public class ProductoService {
                     actual.setCategoria(null);
                 }
 
-                Producto saved = repo.save(actual);
+                // ✅ Usar saveAndFlush para forzar la persistencia inmediata
+                Producto saved = repo.saveAndFlush(actual);
+                System.out.println("🔧 DEBUG: Costo guardado en BD: " + saved.getCosto());
                 
                 // 📦 ACTUALIZAR INVENTARIO EN LAS 3 SEDES si se enviaron las cantidades
                 if (dto.getCantidadInsula() != null || dto.getCantidadCentro() != null || dto.getCantidadPatios() != null) {
@@ -147,6 +189,21 @@ public class ProductoService {
         dto.setCategoria(p.getCategoria());
         dto.setVersion(p.getVersion());
         return actualizar(id, dto);
+    }
+    
+    /**
+     * 💰 ACTUALIZAR SOLO EL COSTO DE UN PRODUCTO
+     * Endpoint específico para actualizar únicamente el costo, evitando problemas con otros campos
+     */
+    public Producto actualizarCosto(Long id, Double nuevoCosto) {
+        Producto producto = repo.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Producto no encontrado con id: " + id));
+        
+        producto.setCosto(nuevoCosto);
+        Producto saved = repo.saveAndFlush(producto);
+        
+        System.out.println("🔧 DEBUG: Costo actualizado - ID: " + id + ", Nuevo costo: " + nuevoCosto + ", Costo guardado en BD: " + saved.getCosto());
+        return saved;
     }
     
     /**

@@ -7,6 +7,7 @@ import lombok.*;
 
 @Entity
 @Table(name = "productos")
+@org.hibernate.annotations.DynamicUpdate  // ✅ Actualizar solo campos modificados
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

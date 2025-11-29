@@ -1,9 +1,13 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.Categoria;
+import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.ProductoVidrio;
+import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.repository.CategoriaRepository;
+import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import com.casaglass.casaglass_backend.repository.ProductoVidrioRepository;
+import com.casaglass.casaglass_backend.repository.SedeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +20,17 @@ public class ProductoVidrioService {
 
     private final ProductoVidrioRepository repo;
     private final CategoriaRepository categoriaRepo;
+    private final InventarioRepository inventarioRepo;
+    private final SedeRepository sedeRepo;
 
-    public ProductoVidrioService(ProductoVidrioRepository repo, CategoriaRepository categoriaRepo) {
+    public ProductoVidrioService(ProductoVidrioRepository repo, 
+                                 CategoriaRepository categoriaRepo,
+                                 InventarioRepository inventarioRepo,
+                                 SedeRepository sedeRepo) {
         this.repo = repo;
         this.categoriaRepo = categoriaRepo;
+        this.inventarioRepo = inventarioRepo;
+        this.sedeRepo = sedeRepo;
     }
 
     public List<ProductoVidrio> listar() {
@@ -50,6 +61,15 @@ public class ProductoVidrioService {
     }
 
     public ProductoVidrio guardar(ProductoVidrio p) {
+        System.out.println("🪟 DEBUG: Guardando ProductoVidrio...");
+        System.out.println("   - Código: " + p.getCodigo());
+        System.out.println("   - Nombre: " + p.getNombre());
+        System.out.println("   - mm: " + p.getMm());
+        System.out.println("   - m1: " + p.getM1());
+        System.out.println("   - m2: " + p.getM2());
+        System.out.println("   - m1m2: " + p.getM1m2());
+        System.out.println("   - ID antes de guardar: " + p.getId());
+        
         // Validar categoría si viene con ID
         if (p.getCategoria() != null && p.getCategoria().getId() != null) {
             Categoria cat = categoriaRepo.findById(p.getCategoria().getId())
@@ -58,7 +78,56 @@ public class ProductoVidrioService {
         } else {
             p.setCategoria(null);
         }
-        return repo.save(p);
+        
+        // ✅ m1m2 se calcula automáticamente mediante @PrePersist antes de guardar
+        // Solo asegurarnos de que m1m2 tenga un valor si m1 o m2 son null
+        if (p.getM1m2() == null) {
+            if (p.getM1() != null && p.getM2() != null) {
+                p.setM1m2(p.getM1() * p.getM2());
+            } else {
+                p.setM1m2(0.0);
+            }
+        }
+        
+        // Guardar el producto - Hibernate debería crear registro en productos Y productos_vidrio
+        ProductoVidrio productoGuardado = repo.save(p);
+        
+        System.out.println("✅ ProductoVidrio guardado con ID: " + productoGuardado.getId());
+        System.out.println("   - Verificar en BD que existe registro en productos_vidrio con id=" + productoGuardado.getId());
+        
+        // ✅ Crear inventario con cantidad 0 para las 3 sedes automáticamente
+        crearInventarioInicial(productoGuardado);
+        
+        return productoGuardado;
+    }
+    
+    /**
+     * 📦 Crea registros de inventario con cantidad 0 para las 3 sedes
+     * Esto asegura que el producto aparezca en el inventario completo
+     */
+    private void crearInventarioInicial(ProductoVidrio producto) {
+        // IDs de las 3 sedes (Insula=1, Centro=2, Patios=3)
+        Long[] sedesIds = {1L, 2L, 3L};
+        
+        for (Long sedeId : sedesIds) {
+            // Verificar si ya existe un registro de inventario para este producto y sede
+            boolean existeInventario = inventarioRepo.findByProductoIdAndSedeId(producto.getId(), sedeId)
+                    .isPresent();
+            
+            if (!existeInventario) {
+                Sede sede = sedeRepo.findById(sedeId)
+                        .orElseThrow(() -> new RuntimeException("Sede no encontrada con ID: " + sedeId));
+                
+                Inventario inventario = new Inventario();
+                inventario.setProducto(producto);
+                inventario.setSede(sede);
+                inventario.setCantidad(0);
+                
+                inventarioRepo.save(inventario);
+                System.out.println("✅ Inventario creado: Producto ID=" + producto.getId() + 
+                                 ", Sede ID=" + sedeId + ", Cantidad=0");
+            }
+        }
     }
 
     public ProductoVidrio actualizar(Long id, ProductoVidrio p) {
@@ -88,6 +157,7 @@ public class ProductoVidrioService {
             actual.setMm(p.getMm());
             actual.setM1(p.getM1());
             actual.setM2(p.getM2());
+            // ✅ m1m2 se calcula automáticamente mediante @PreUpdate antes de guardar
 
             return repo.save(actual);
         }).orElseThrow(() -> new RuntimeException("ProductoVidrio no encontrado con id " + id));

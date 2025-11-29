@@ -99,4 +99,16 @@ public class InventarioCompletoController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    /**
+     * 🪟 GET /api/inventario-completo/vidrios
+     * Obtiene todos los productos vidrio con su información completa de inventario
+     * Endpoint exclusivo para productos vidrio
+     */
+    @GetMapping("/vidrios")
+    public ResponseEntity<List<ProductoInventarioCompletoDTO>> obtenerInventarioVidrios() {
+        List<ProductoInventarioCompletoDTO> inventario = 
+            inventarioCompletoService.obtenerInventarioCompletoVidrios();
+        return ResponseEntity.ok(inventario);
+    }
 }
