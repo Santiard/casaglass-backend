@@ -1,7 +1,9 @@
 package com.casaglass.casaglass_backend.model;
 
+import com.casaglass.casaglass_backend.config.ProductoDeserializer;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,6 +16,7 @@ import lombok.*;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Inheritance(strategy = InheritanceType.JOINED)
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonDeserialize(using = ProductoDeserializer.class)  // ✅ Deserializador personalizado
 public class Producto {
 
     @Id

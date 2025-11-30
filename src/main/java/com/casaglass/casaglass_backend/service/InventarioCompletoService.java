@@ -260,8 +260,15 @@ public class InventarioCompletoService {
             m2 = vidrio.getM2();
         }
 
-        // Obtener nombre de la categoría, tipo y color
-        String categoriaNombre = producto.getCategoria() != null ? producto.getCategoria().getNombre() : null;
+        // ✅ Crear CategoriaDTO con id y nombre (unificado para todos los productos)
+        com.casaglass.casaglass_backend.dto.CategoriaDTO categoriaDTO = null;
+        if (producto.getCategoria() != null) {
+            categoriaDTO = new com.casaglass.casaglass_backend.dto.CategoriaDTO(
+                producto.getCategoria().getId(),
+                producto.getCategoria().getNombre()
+            );
+        }
+        
         String tipoProducto = producto.getTipo() != null ? producto.getTipo().name() : null;
         String colorProducto = producto.getColor() != null ? producto.getColor().name() : null;
 
@@ -269,7 +276,7 @@ public class InventarioCompletoService {
             producto.getId(),
             producto.getCodigo(),
             producto.getNombre(),
-            categoriaNombre,
+            categoriaDTO,  // ✅ Ahora es CategoriaDTO { id, nombre } en lugar de String
             tipoProducto,
             colorProducto,
             esVidrio,

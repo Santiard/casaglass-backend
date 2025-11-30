@@ -8,6 +8,8 @@ import com.casaglass.casaglass_backend.repository.CategoriaRepository;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import com.casaglass.casaglass_backend.repository.ProductoVidrioRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,9 @@ public class ProductoVidrioService {
     private final CategoriaRepository categoriaRepo;
     private final InventarioRepository inventarioRepo;
     private final SedeRepository sedeRepo;
+    
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public ProductoVidrioService(ProductoVidrioRepository repo, 
                                  CategoriaRepository categoriaRepo,
@@ -62,6 +67,8 @@ public class ProductoVidrioService {
 
     public ProductoVidrio guardar(ProductoVidrio p) {
         System.out.println("🪟 DEBUG: Guardando ProductoVidrio...");
+        System.out.println("   - Tipo de objeto recibido: " + p.getClass().getName());
+        System.out.println("   - Es instancia de ProductoVidrio: " + (p instanceof ProductoVidrio));
         System.out.println("   - Código: " + p.getCodigo());
         System.out.println("   - Nombre: " + p.getNombre());
         System.out.println("   - mm: " + p.getMm());
@@ -89,16 +96,56 @@ public class ProductoVidrioService {
             }
         }
         
-        // Guardar el producto - Hibernate debería crear registro en productos Y productos_vidrio
-        ProductoVidrio productoGuardado = repo.save(p);
+        // ✅ USAR entityManager.persist() DIRECTAMENTE para forzar que Hibernate detecte el tipo
+        // Esto asegura que Hibernate cree el registro en productos_vidrio
+        System.out.println("💾 Usando entityManager.persist() para forzar detección de tipo...");
+        entityManager.persist(p);
+        entityManager.flush();
+        entityManager.refresh(p); // Refrescar para obtener el ID generado
         
-        System.out.println("✅ ProductoVidrio guardado con ID: " + productoGuardado.getId());
-        System.out.println("   - Verificar en BD que existe registro en productos_vidrio con id=" + productoGuardado.getId());
+        System.out.println("✅ ProductoVidrio guardado con ID: " + p.getId());
+        
+        // ✅ VERIFICAR que se creó el registro en productos_vidrio usando query nativo
+        Long idGuardado = p.getId();
+        System.out.println("🔍 Verificando en BD si existe registro en productos_vidrio con ID=" + idGuardado);
+        
+        // Verificar con query nativo directo
+        jakarta.persistence.Query query = entityManager.createNativeQuery(
+            "SELECT COUNT(*) FROM productos_vidrio WHERE id = ?1"
+        );
+        query.setParameter(1, idGuardado);
+        Long count = ((Number) query.getSingleResult()).longValue();
+        
+        if (count > 0) {
+            System.out.println("✅ VERIFICACIÓN: Registro encontrado en productos_vidrio con ID=" + idGuardado);
+        } else {
+            System.err.println("❌ ERROR CRÍTICO: Producto guardado con ID=" + idGuardado + 
+                             " pero NO se encontró registro en productos_vidrio!");
+            System.err.println("   Intentando insertar manualmente...");
+            
+            // 🔧 SOLUCIÓN DE EMERGENCIA: Insertar manualmente en productos_vidrio
+            try {
+                jakarta.persistence.Query insertQuery = entityManager.createNativeQuery(
+                    "INSERT INTO productos_vidrio (id, mm, m1, m2, m1m2) VALUES (?1, ?2, ?3, ?4, ?5)"
+                );
+                insertQuery.setParameter(1, idGuardado);
+                insertQuery.setParameter(2, p.getMm());
+                insertQuery.setParameter(3, p.getM1());
+                insertQuery.setParameter(4, p.getM2());
+                insertQuery.setParameter(5, p.getM1m2());
+                insertQuery.executeUpdate();
+                entityManager.flush();
+                System.out.println("✅ Insertado manualmente en productos_vidrio");
+            } catch (Exception e) {
+                System.err.println("❌ ERROR al insertar manualmente: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
         
         // ✅ Crear inventario con cantidad 0 para las 3 sedes automáticamente
-        crearInventarioInicial(productoGuardado);
+        crearInventarioInicial(p);
         
-        return productoGuardado;
+        return p;
     }
     
     /**

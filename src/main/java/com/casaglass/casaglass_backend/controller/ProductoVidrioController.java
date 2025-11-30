@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.ProductoVidrio;
 import com.casaglass.casaglass_backend.service.ProductoVidrioService;
 import org.springframework.http.ResponseEntity;
@@ -54,10 +55,28 @@ public class ProductoVidrioController {
     }
 
     @PostMapping
-    public ResponseEntity<?> crear(@RequestBody ProductoVidrio producto) {
+    public ResponseEntity<?> crear(@RequestBody Producto producto) {
         try {
-            return ResponseEntity.ok(service.guardar(producto));
+            System.out.println("🔍 DEBUG CONTROLADOR ProductoVidrio: Recibiendo producto");
+            System.out.println("   - Tipo de objeto recibido: " + producto.getClass().getName());
+            System.out.println("   - Es instancia de ProductoVidrio: " + (producto instanceof ProductoVidrio));
+            
+            // ✅ Verificar que realmente es un ProductoVidrio
+            if (!(producto instanceof ProductoVidrio)) {
+                System.err.println("❌ ERROR: El producto recibido NO es un ProductoVidrio");
+                System.err.println("   Tipo recibido: " + producto.getClass().getName());
+                return ResponseEntity.badRequest().body("El producto debe ser de tipo vidrio (debe incluir mm, m1, m2)");
+            }
+            
+            ProductoVidrio productoVidrio = (ProductoVidrio) producto;
+            System.out.println("   - mm: " + productoVidrio.getMm());
+            System.out.println("   - m1: " + productoVidrio.getM1());
+            System.out.println("   - m2: " + productoVidrio.getM2());
+            
+            return ResponseEntity.ok(service.guardar(productoVidrio));
         } catch (Exception e) {
+            System.err.println("❌ ERROR al crear ProductoVidrio: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
