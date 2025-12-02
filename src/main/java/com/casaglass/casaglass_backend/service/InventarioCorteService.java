@@ -48,8 +48,9 @@ public class InventarioCorteService {
         if (inventarioCorte.getSede() == null || inventarioCorte.getSede().getId() == null) {
             throw new IllegalArgumentException("La sede es obligatoria");
         }
-        if (inventarioCorte.getCantidad() == null || inventarioCorte.getCantidad() < 0) {
-            throw new IllegalArgumentException("La cantidad no puede ser negativa");
+        // ✅ Permitir cantidades negativas (ventas anticipadas, como en productos normales)
+        if (inventarioCorte.getCantidad() == null) {
+            throw new IllegalArgumentException("La cantidad es obligatoria");
         }
 
         // Verificar si ya existe inventario para este corte en esta sede
@@ -171,13 +172,20 @@ public class InventarioCorteService {
         if (inventarioOpt.isPresent()) {
             InventarioCorte inventario = inventarioOpt.get();
             int nuevaCantidad = inventario.getCantidad() - cantidad;
-            if (nuevaCantidad < 0) {
-                throw new IllegalArgumentException("No hay suficiente stock disponible");
-            }
+            // ✅ Permitir valores negativos (ventas anticipadas, como en productos normales)
+            // Si el inventario está en 0 y se vende, queda en negativo (se puede reponer después)
             inventario.setCantidad(nuevaCantidad);
             return repository.save(inventario);
         } else {
-            throw new RuntimeException("No existe inventario para este corte en esta sede");
+            // ✅ Si no existe inventario, crearlo con cantidad negativa (venta anticipada)
+            // Esto permite vender cortes que fueron creados pero no tienen inventario inicial
+            InventarioCorte nuevoInventario = new InventarioCorte();
+            nuevoInventario.setCorte(entityManager.getReference(Corte.class, corteId));
+            nuevoInventario.setSede(entityManager.getReference(Sede.class, sedeId));
+            nuevoInventario.setCantidad(-cantidad); // Cantidad negativa = venta anticipada
+            System.out.println("📦 Creando inventario de corte inexistente: Corte ID=" + corteId + 
+                             ", Sede ID=" + sedeId + ", Cantidad inicial=" + (-cantidad) + " (venta anticipada)");
+            return repository.save(nuevoInventario);
         }
     }
     

@@ -39,6 +39,7 @@ public class FacturaTablaDTO {
     @AllArgsConstructor
     public static class ClienteTabla {
         private String nombre;
+        private String nit;
     }
 
     @Data

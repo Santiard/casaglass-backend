@@ -51,9 +51,10 @@ public interface CorteRepository extends JpaRepository<Corte, Long> {
     // 🆕 Método para buscar por lista de IDs
     List<Corte> findByIdIn(List<Long> ids);
 
-    // 🆕 Buscar corte existente por prefijo de código, largo exacto, categoría y color
-    @Query("SELECT c FROM Corte c WHERE c.codigo LIKE CONCAT(:codigoPrefix, '%') AND c.largoCm = :largo AND c.categoria.id = :categoriaId AND c.color = :color")
-    Optional<Corte> findExistingByPrefixAndSpecs(@Param("codigoPrefix") String codigoPrefix,
+    // 🆕 Buscar corte existente por código exacto, largo exacto, categoría y color
+    // ✅ Actualizado: ahora busca por código exacto (sin sufijo de timestamp)
+    @Query("SELECT c FROM Corte c WHERE c.codigo = :codigo AND c.largoCm = :largo AND c.categoria.id = :categoriaId AND c.color = :color")
+    Optional<Corte> findExistingByCodigoAndSpecs(@Param("codigo") String codigo,
                                                 @Param("largo") Double largo,
                                                 @Param("categoriaId") Long categoriaId,
                                                 @Param("color") com.casaglass.casaglass_backend.model.ColorProducto color);

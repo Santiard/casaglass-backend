@@ -333,9 +333,16 @@ public class FacturaService {
         // Cliente: usar el de la factura si existe, sino el de la orden
         Cliente clienteFactura = factura.getCliente();
         if (clienteFactura != null) {
-            dto.setCliente(new FacturaTablaDTO.ClienteTabla(clienteFactura.getNombre()));
+            dto.setCliente(new FacturaTablaDTO.ClienteTabla(
+                clienteFactura.getNombre(),
+                clienteFactura.getNit()
+            ));
         } else if (factura.getOrden() != null && factura.getOrden().getCliente() != null) {
-            dto.setCliente(new FacturaTablaDTO.ClienteTabla(factura.getOrden().getCliente().getNombre()));
+            Cliente clienteOrden = factura.getOrden().getCliente();
+            dto.setCliente(new FacturaTablaDTO.ClienteTabla(
+                clienteOrden.getNombre(),
+                clienteOrden.getNit()
+            ));
         }
 
 

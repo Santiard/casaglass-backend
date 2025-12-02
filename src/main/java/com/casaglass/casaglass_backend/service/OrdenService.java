@@ -203,14 +203,20 @@ public class OrdenService {
         // 💾 GUARDAR ORDEN
         Orden ordenGuardada = repo.save(orden);
         
-        // 📦 ACTUALIZAR INVENTARIO
-        actualizarInventarioPorVenta(ordenGuardada);
-        
-        // 🔪 PROCESAR CORTES SI EXISTEN
+        // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
+        // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes...");
             procesarCortes(ordenGuardada, ventaDTO.getCortes());
         }
+        
+        // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
+        // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
+        // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
+        incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
+        
+        // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
+        actualizarInventarioPorVenta(ordenGuardada);
         
         return ordenGuardada;
     }
@@ -307,14 +313,32 @@ public class OrdenService {
             );
         }
         
-        // 📦 ACTUALIZAR INVENTARIO AL FINAL
-        actualizarInventarioPorVenta(ordenGuardada);
-        
-        // 🔪 PROCESAR CORTES SI EXISTEN
+        // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
+        // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes...");
             procesarCortes(ordenGuardada, ventaDTO.getCortes());
         }
+        
+        // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
+        // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
+        // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
+        incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
+        
+        // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
+        // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
+        if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+            System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes...");
+            procesarCortes(ordenGuardada, ventaDTO.getCortes());
+        }
+        
+        // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
+        // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
+        // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
+        incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
+        
+        // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
+        actualizarInventarioPorVenta(ordenGuardada);
         
         return ordenGuardada;
     }
@@ -1288,15 +1312,16 @@ public class OrdenService {
      * Crea un corte con los datos proporcionados
      */
     private Corte crearCorteIndividual(Producto productoOriginal, Integer medida, Double precio, String tipo) {
-        // 0) Intentar reutilizar un corte existente por prefijo de código, largo, categoría y color
-        String codigoPrefix = productoOriginal.getCodigo() + "-" + medida;
+        // 0) Intentar reutilizar un corte existente por código exacto, largo, categoría y color
+        // ✅ Código simplificado: CODIGO_ORIGINAL-MEDIDA (sin sufijo de timestamp)
+        String codigo = productoOriginal.getCodigo() + "-" + medida;
         Long categoriaId = productoOriginal.getCategoria() != null ? productoOriginal.getCategoria().getId() : null;
         var color = productoOriginal.getColor();
         if (categoriaId != null && color != null) {
             var existenteOpt = corteRepository
-                .findExistingByPrefixAndSpecs(codigoPrefix, medida.doubleValue(), categoriaId, color);
+                .findExistingByCodigoAndSpecs(codigo, medida.doubleValue(), categoriaId, color);
             if (existenteOpt.isPresent()) {
-                System.out.println("🔁 Reutilizando corte existente por prefijo/especificaciones: " + existenteOpt.get().getId());
+                System.out.println("🔁 Reutilizando corte existente: " + existenteOpt.get().getCodigo() + " (ID=" + existenteOpt.get().getId() + ")");
                 return existenteOpt.get();
             }
         }
@@ -1304,9 +1329,10 @@ public class OrdenService {
         // 1) Crear nuevo corte
         Corte corte = new Corte();
 
-        // Generar código con sufijo corto (4 dígitos) y verificar colisión mínima
-        String codigoBase = codigoPrefix;
-        String codigo = codigoBase + "-" + String.format("%04d", (int)(System.currentTimeMillis() % 10000));
+        // ✅ Código simplificado: CODIGO_ORIGINAL-MEDIDA
+        // La lógica de reutilización (líneas anteriores) ya evita duplicados
+        // verificando por código exacto, medida, categoría y color
+        // Ejemplo: "192-150" (sin sufijo de timestamp)
         corte.setCodigo(codigo);
 
         // Nombre descriptivo
@@ -1332,11 +1358,55 @@ public class OrdenService {
     }
     
     /**
-     * 🔧 GENERAR CÓDIGO ÚNICO PARA CORTES
+     * ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS
      * 
-     * Formato: CODIGO_ORIGINAL-MEDIDA-TIMESTAMP
+     * Cuando se reutiliza un corte solicitado (reutilizarCorteSolicitadoId), se está haciendo
+     * un nuevo corte del mismo tipo. Por lo tanto, el inventario debe incrementarse primero
+     * (porque se está cortando) antes de decrementarlo (porque se vende).
+     * 
+     * Lógica:
+     * - Si se reutiliza un corte solicitado → incrementar inventario en la cantidad a vender
+     * - Esto simula que se está cortando el perfil nuevamente
+     * - Luego, cuando se procesa la venta, se decrementa normalmente
      */
+    @Transactional
+    private void incrementarInventarioCortesReutilizados(Orden orden, OrdenVentaDTO ventaDTO) {
+        if (ventaDTO.getItems() == null || ventaDTO.getItems().isEmpty()) {
+            return;
+        }
+        
+        Long sedeId = orden.getSede().getId();
+        
+        for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
+            // Solo procesar items que reutilizan un corte solicitado
+            if (itemDTO.getReutilizarCorteSolicitadoId() != null && itemDTO.getCantidad() != null && itemDTO.getCantidad() > 0) {
+                Long corteId = itemDTO.getReutilizarCorteSolicitadoId();
+                Integer cantidad = itemDTO.getCantidad();
+                
+                System.out.println("🔪 Reutilizando corte solicitado ID=" + corteId + 
+                                 " → Incrementando inventario en +" + cantidad + 
+                                 " (se está cortando de nuevo)");
+                
+                // Incrementar inventario del corte reutilizado
+                // Esto simula que se está haciendo el corte (inventario pasa a 1 o más)
+                inventarioCorteService.incrementarStock(corteId, sedeId, cantidad);
+                
+                System.out.println("✅ Inventario del corte reutilizado incrementado: Corte ID=" + corteId + 
+                                 ", Sede ID=" + sedeId + ", Cantidad agregada=" + cantidad);
+            }
+        }
+    }
+    
+    /**
+     * 🔧 GENERAR CÓDIGO PARA CORTES
+     * 
+     * ✅ Formato simplificado: CODIGO_ORIGINAL-MEDIDA
+     * La lógica de reutilización evita duplicados verificando código + medida + categoría + color
+     * 
+     * @deprecated Este método ya no se usa. El código se genera directamente en crearCorteIndividual()
+     */
+    @Deprecated
     private String generarCodigoCorte(String codigoOriginal, Integer medida) {
-        return codigoOriginal + "-" + medida + "-" + System.currentTimeMillis();
+        return codigoOriginal + "-" + medida;
     }
 }
