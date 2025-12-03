@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.dto.InventarioActualizarDTO;
 import com.casaglass.casaglass_backend.dto.InventarioProductoDTO;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.service.InventarioService;
@@ -73,5 +74,27 @@ public class InventarioController {
     @GetMapping("/agrupado")
     public ResponseEntity<List<InventarioProductoDTO>> listarAgrupado() {
        return ResponseEntity.ok(service.listarInventarioAgrupado());
+    }
+
+    /**
+     * 📦 ACTUALIZAR INVENTARIO DE UN PRODUCTO EN LAS 3 SEDES
+     * Actualiza el inventario en Insula, Centro y Patios con los valores enviados
+     * 
+     * @param productoId ID del producto
+     * @param dto DTO con las cantidades para las 3 sedes (cantidadInsula, cantidadCentro, cantidadPatios)
+     * @return Lista de inventarios actualizados
+     */
+    @PutMapping("/producto/{productoId}")
+    public ResponseEntity<?> actualizarInventarioPorProducto(
+            @PathVariable Long productoId,
+            @RequestBody InventarioActualizarDTO dto) {
+        try {
+            List<Inventario> inventarios = service.actualizarInventarioPorProducto(productoId, dto);
+            return ResponseEntity.ok(inventarios);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al actualizar inventario: " + e.getMessage());
+        }
     }
 }

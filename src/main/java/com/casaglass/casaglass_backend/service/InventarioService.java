@@ -1,14 +1,15 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.dto.InventarioActualizarDTO;
 import com.casaglass.casaglass_backend.dto.InventarioProductoDTO;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
+import com.casaglass.casaglass_backend.repository.SedeRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.casaglass.casaglass_backend.dto.InventarioProductoDTO;
 
 import java.util.Map;
 import java.util.ArrayList;
@@ -21,10 +22,12 @@ public class InventarioService {
 
     private final InventarioRepository repo;
     private final EntityManager em;
+    private final SedeRepository sedeRepo;
 
-    public InventarioService(InventarioRepository repo, EntityManager em) {
+    public InventarioService(InventarioRepository repo, EntityManager em, SedeRepository sedeRepo) {
         this.repo = repo;
         this.em = em;
+        this.sedeRepo = sedeRepo;
     }
 
     @Transactional(readOnly = true)
@@ -175,5 +178,83 @@ public class InventarioService {
         }
 
         return new ArrayList<>(mapa.values());
+    }
+
+    /**
+     * 📦 ACTUALIZAR INVENTARIO DE UN PRODUCTO EN LAS 3 SEDES
+     * Actualiza el inventario en Insula, Centro y Patios con los valores enviados
+     * 
+     * @param productoId ID del producto
+     * @param dto DTO con las cantidades para las 3 sedes
+     * @return Lista de inventarios actualizados
+     */
+    @Transactional
+    public List<Inventario> actualizarInventarioPorProducto(Long productoId, InventarioActualizarDTO dto) {
+        // Obtener IDs de las 3 sedes
+        Long insulaId = obtenerSedeId("insula");
+        Long centroId = obtenerSedeId("centro");
+        Long patiosId = obtenerSedeId("patios");
+        
+        if (insulaId == null || centroId == null || patiosId == null) {
+            throw new IllegalArgumentException("No se encontraron las 3 sedes (Insula, Centro, Patios)");
+        }
+        
+        // Permitir valores negativos (ventas anticipadas) - usar 0 como default solo si es null
+        Integer cantidadInsula = dto.getCantidadInsula() != null ? dto.getCantidadInsula() : 0;
+        Integer cantidadCentro = dto.getCantidadCentro() != null ? dto.getCantidadCentro() : 0;
+        Integer cantidadPatios = dto.getCantidadPatios() != null ? dto.getCantidadPatios() : 0;
+        
+        System.out.println("📦 Actualizando inventario para producto " + productoId + " con valores:");
+        System.out.println("   Insula (ID " + insulaId + "): " + cantidadInsula + 
+                         (cantidadInsula < 0 ? " (⚠️ negativo)" : ""));
+        System.out.println("   Centro (ID " + centroId + "): " + cantidadCentro + 
+                         (cantidadCentro < 0 ? " (⚠️ negativo)" : ""));
+        System.out.println("   Patios (ID " + patiosId + "): " + cantidadPatios + 
+                         (cantidadPatios < 0 ? " (⚠️ negativo)" : ""));
+        System.out.println("   Total: " + (cantidadInsula + cantidadCentro + cantidadPatios));
+        
+        List<Inventario> inventariosActualizados = new ArrayList<>();
+        
+        // Actualizar o crear inventario para cada sede
+        inventariosActualizados.add(actualizarInventarioSede(productoId, insulaId, cantidadInsula));
+        inventariosActualizados.add(actualizarInventarioSede(productoId, centroId, cantidadCentro));
+        inventariosActualizados.add(actualizarInventarioSede(productoId, patiosId, cantidadPatios));
+        
+        return inventariosActualizados;
+    }
+    
+    /**
+     * Actualizar o crear inventario para un producto en una sede específica
+     */
+    private Inventario actualizarInventarioSede(Long productoId, Long sedeId, Integer cantidad) {
+        Optional<Inventario> inventarioOpt = obtenerPorProductoYSede(productoId, sedeId);
+        
+        if (inventarioOpt.isPresent()) {
+            // Actualizar inventario existente
+            Inventario inventario = inventarioOpt.get();
+            inventario.setCantidad(cantidad);
+            return repo.save(inventario);
+        } else {
+            // Crear nuevo inventario
+            Producto productoRef = em.getReference(Producto.class, productoId);
+            Sede sedeRef = em.getReference(Sede.class, sedeId);
+            
+            Inventario nuevoInventario = new Inventario();
+            nuevoInventario.setProducto(productoRef);
+            nuevoInventario.setSede(sedeRef);
+            nuevoInventario.setCantidad(cantidad);
+            return repo.save(nuevoInventario);
+        }
+    }
+    
+    /**
+     * Obtener ID de sede por nombre (búsqueda parcial, case-insensitive)
+     */
+    private Long obtenerSedeId(String nombreSede) {
+        return sedeRepo.findByNombreContainingIgnoreCase(nombreSede)
+            .stream()
+            .findFirst()
+            .map(Sede::getId)
+            .orElse(null);
     }
 }
