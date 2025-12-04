@@ -30,10 +30,18 @@ public class TrasladoMovimientoController {
      * GET /api/traslados-movimientos
      * Obtiene todos los movimientos de traslado con información consolidada
      * Formato optimizado para el frontend según especificación
+     * Query parameters:
+     * - sedeId (opcional): Si se envía, retorna traslados donde el usuario esté en sedeOrigen o sedeDestino
      */
     @GetMapping
-    public ResponseEntity<List<TrasladoMovimientoDTO>> obtenerMovimientos() {
-        List<TrasladoMovimientoDTO> movimientos = service.obtenerMovimientos();
+    public ResponseEntity<List<TrasladoMovimientoDTO>> obtenerMovimientos(
+            @RequestParam(required = false) Long sedeId) {
+        List<TrasladoMovimientoDTO> movimientos;
+        if (sedeId != null) {
+            movimientos = service.obtenerMovimientosPorSede(sedeId);
+        } else {
+            movimientos = service.obtenerMovimientos();
+        }
         return ResponseEntity.ok(movimientos);
     }
 

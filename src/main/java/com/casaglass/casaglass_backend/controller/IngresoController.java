@@ -22,7 +22,10 @@ public class IngresoController {
     }
 
     @GetMapping
-    public List<Ingreso> listarIngresos() {
+    public List<Ingreso> listarIngresos(@RequestParam(required = false) Long sedeId) {
+        if (sedeId != null) {
+            return ingresoService.listarIngresosPorSede(sedeId);
+        }
         return ingresoService.listarIngresos();
     }
 

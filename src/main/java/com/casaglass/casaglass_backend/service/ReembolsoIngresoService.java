@@ -54,6 +54,25 @@ public class ReembolsoIngresoService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Listar reembolsos de ingreso por sede
+     * Filtra por la sede del ingreso relacionado
+     */
+    @Transactional(readOnly = true)
+    public List<ReembolsoIngresoResponseDTO> listarReembolsosPorSede(Long sedeId) {
+        // Los ingresos actualmente no tienen campo sede, pero se procesan en la sede principal
+        // Por ahora, retornamos todos los reembolsos
+        // TODO: Si se agrega campo sede a Ingreso, filtrar por reembolso.ingresoOriginal.sede.id = sedeId
+        return reembolsoIngresoRepository.findAllWithDetalles().stream()
+                .filter(reembolso -> {
+                    // Por ahora, todos los ingresos se procesan en la sede principal (ID 1)
+                    // Si se agrega campo sede, cambiar esta lógica
+                    return true; // Retornar todos por ahora
+                })
+                .map(ReembolsoIngresoResponseDTO::new)
+                .collect(Collectors.toList());
+    }
+
     @Transactional(readOnly = true)
     public Optional<ReembolsoIngresoResponseDTO> obtenerPorId(Long id) {
         return reembolsoIngresoRepository.findByIdWithDetalles(id)

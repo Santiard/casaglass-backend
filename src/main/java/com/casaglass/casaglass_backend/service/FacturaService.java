@@ -185,6 +185,24 @@ public class FacturaService {
     }
 
     /**
+     * Listar facturas para tabla filtradas por sede
+     * Filtra por la sede de la orden relacionada
+     */
+    @Transactional(readOnly = true)
+    public List<FacturaTablaDTO> listarParaTablaPorSede(Long sedeId) {
+        return facturaRepo.findAll().stream()
+                .filter(factura -> {
+                    if (factura.getOrden() != null && 
+                        factura.getOrden().getSede() != null) {
+                        return factura.getOrden().getSede().getId().equals(sedeId);
+                    }
+                    return false;
+                })
+                .map(this::convertirAFacturaTablaDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Listar facturas por estado
      */
     @Transactional(readOnly = true)

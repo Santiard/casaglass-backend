@@ -21,9 +21,16 @@ public class ReembolsoVentaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ReembolsoVentaResponseDTO>> listarReembolsos() {
+    public ResponseEntity<List<ReembolsoVentaResponseDTO>> listarReembolsos(
+            @RequestParam(required = false) Long sedeId) {
         try {
-            return ResponseEntity.ok(service.listarReembolsos());
+            List<ReembolsoVentaResponseDTO> reembolsos;
+            if (sedeId != null) {
+                reembolsos = service.listarReembolsosPorSede(sedeId);
+            } else {
+                reembolsos = service.listarReembolsos();
+            }
+            return ResponseEntity.ok(reembolsos);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body(null);

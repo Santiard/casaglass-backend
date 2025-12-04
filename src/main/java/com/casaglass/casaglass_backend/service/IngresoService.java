@@ -45,6 +45,19 @@ public class IngresoService {
         return ingresoRepository.findAllWithProveedores();
     }
 
+    /**
+     * Listar ingresos por sede
+     * Nota: Los ingresos actualmente no tienen un campo sede directo.
+     * Este método retorna todos los ingresos ya que todos se procesan en la sede principal.
+     * Si en el futuro se agrega un campo sede a Ingreso, este método deberá ser actualizado.
+     */
+    @Transactional(readOnly = true)
+    public List<Ingreso> listarIngresosPorSede(Long sedeId) {
+        // TODO: Si se agrega campo sede a Ingreso, filtrar por sedeId
+        // Por ahora, retornamos todos los ingresos ya que todos se procesan en la sede principal
+        return ingresoRepository.findAllWithProveedores();
+    }
+
     @Transactional(readOnly = true)
     public Optional<Ingreso> obtenerIngresoPorId(Long id) {
         return Optional.ofNullable(ingresoRepository.findByIdWithDetalles(id));

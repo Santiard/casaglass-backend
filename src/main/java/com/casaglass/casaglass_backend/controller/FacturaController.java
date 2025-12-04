@@ -74,7 +74,11 @@ public class FacturaController {
     }
 
     @GetMapping("/tabla")
-    public ResponseEntity<List<FacturaTablaDTO>> listarFacturasParaTabla() {
+    public ResponseEntity<List<FacturaTablaDTO>> listarFacturasParaTabla(
+            @RequestParam(required = false) Long sedeId) {
+        if (sedeId != null) {
+            return ResponseEntity.ok(facturaService.listarParaTablaPorSede(sedeId));
+        }
         return ResponseEntity.ok(facturaService.listarParaTabla());
     }
 

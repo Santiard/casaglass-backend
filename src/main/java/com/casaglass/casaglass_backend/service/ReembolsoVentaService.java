@@ -60,6 +60,24 @@ public class ReembolsoVentaService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Listar reembolsos de venta por sede
+     * Filtra por la sede de la orden relacionada
+     */
+    @Transactional(readOnly = true)
+    public List<ReembolsoVentaResponseDTO> listarReembolsosPorSede(Long sedeId) {
+        return reembolsoVentaRepository.findAllWithDetalles().stream()
+                .filter(reembolso -> {
+                    if (reembolso.getOrdenOriginal() != null && 
+                        reembolso.getOrdenOriginal().getSede() != null) {
+                        return reembolso.getOrdenOriginal().getSede().getId().equals(sedeId);
+                    }
+                    return false;
+                })
+                .map(ReembolsoVentaResponseDTO::new)
+                .collect(Collectors.toList());
+    }
+
     @Transactional(readOnly = true)
     public Optional<ReembolsoVentaResponseDTO> obtenerPorId(Long id) {
         return reembolsoVentaRepository.findByIdWithDetalles(id)
