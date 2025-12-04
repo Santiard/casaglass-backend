@@ -24,6 +24,7 @@ public class OrdenActualizarDTO {
     private String descripcion; // Descripción/observaciones adicionales
     private boolean venta;
     private boolean credito;
+    private boolean tieneRetencionFuente = false; // si la orden tiene retención de fuente
     private Double descuentos = 0.0; // Descuentos aplicados a la orden
     
     // IDs DE ENTIDADES RELACIONADAS (para actualizar referencias)

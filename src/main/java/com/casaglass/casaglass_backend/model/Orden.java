@@ -92,6 +92,12 @@ public class Orden {
   @Column(name = "incluida_entrega", nullable = false)
   private boolean incluidaEntrega = false;
 
+  /**
+   * Indica si la orden tiene retención de fuente aplicada
+   */
+  @Column(name = "tiene_retencion_fuente", nullable = false)
+  private boolean tieneRetencionFuente = false;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private EstadoOrden estado = EstadoOrden.ACTIVA;

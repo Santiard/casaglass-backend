@@ -21,6 +21,7 @@ public class OrdenDetalleDTO {
     private LocalDate fecha;
     private String obra;
     private String descripcion; // Descripción/observaciones adicionales
+    private boolean tieneRetencionFuente; // Indica si la orden tiene retención de fuente
     private Double subtotal; // Subtotal de la orden (suma de items)
     private Double descuentos; // Descuentos aplicados
     private Double total; // Total final (subtotal - descuentos)
@@ -95,6 +96,7 @@ public class OrdenDetalleDTO {
         this.fecha = orden.getFecha();
         this.obra = orden.getObra();
         this.descripcion = orden.getDescripcion();
+        this.tieneRetencionFuente = orden.isTieneRetencionFuente();
         this.subtotal = orden.getSubtotal();
         this.descuentos = orden.getDescuentos();
         this.total = orden.getTotal();

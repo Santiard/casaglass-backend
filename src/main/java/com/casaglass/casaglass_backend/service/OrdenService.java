@@ -22,6 +22,8 @@ import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
 import com.casaglass.casaglass_backend.repository.CorteRepository;
+import com.casaglass.casaglass_backend.repository.BusinessSettingsRepository;
+import com.casaglass.casaglass_backend.model.BusinessSettings;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +50,7 @@ public class OrdenService {
     private final InventarioCorteService inventarioCorteService;
     private final FacturaRepository facturaRepository;
     private final CorteRepository corteRepository;
+    private final BusinessSettingsRepository businessSettingsRepository;
 
     public OrdenService(OrdenRepository repo, 
                        ClienteRepository clienteRepository,
@@ -60,7 +63,8 @@ public class OrdenService {
                        CorteService corteService,
                        InventarioCorteService inventarioCorteService,
                        FacturaRepository facturaRepository,
-                       CorteRepository corteRepository) { 
+                       CorteRepository corteRepository,
+                       BusinessSettingsRepository businessSettingsRepository) { 
         this.repo = repo; 
         this.clienteRepository = clienteRepository;
         this.sedeRepository = sedeRepository;
@@ -73,6 +77,7 @@ public class OrdenService {
         this.inventarioCorteService = inventarioCorteService;
         this.facturaRepository = facturaRepository;
         this.corteRepository = corteRepository;
+        this.businessSettingsRepository = businessSettingsRepository;
     }
 
     @Transactional
@@ -97,13 +102,14 @@ public class OrdenService {
         Long numeroGenerado = generarNumeroOrden();
         orden.setNumero(numeroGenerado);
 
-        double subtotal = 0.0;
+        // Calcular subtotal bruto (suma de items con IVA incluido)
+        double subtotalBruto = 0.0;
         if (orden.getItems() != null) {
             for (OrdenItem it : orden.getItems()) {
                 it.setOrden(orden); // amarra relación
                 Double linea = it.getPrecioUnitario() * it.getCantidad();
                 it.setTotalLinea(linea);
-                subtotal += linea;
+                subtotalBruto += linea;
 
                 if ((it.getDescripcion() == null || it.getDescripcion().isBlank())
                         && it.getProducto() != null) {
@@ -111,8 +117,15 @@ public class OrdenService {
                 }
             }
         }
+        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        
+        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
+        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
+        Double ivaRate = obtenerIvaRate();
+        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
         subtotal = Math.round(subtotal * 100.0) / 100.0;
         orden.setSubtotal(subtotal);
+        
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
@@ -149,6 +162,7 @@ public class OrdenService {
         orden.setVenta(ventaDTO.isVenta());
         orden.setCredito(ventaDTO.isCredito());
         orden.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        orden.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
         // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
@@ -164,7 +178,7 @@ public class OrdenService {
         
         // 📋 PROCESAR ITEMS DE VENTA
         List<OrdenItem> items = new ArrayList<>();
-        double subtotal = 0.0;
+        double subtotalBruto = 0.0; // Subtotal con IVA incluido
         
         for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
             OrdenItem item = new OrdenItem();
@@ -180,16 +194,24 @@ public class OrdenService {
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
-            // Calcular total de línea
+            // Calcular total de línea (con IVA incluido)
             double totalLinea = itemDTO.getCantidad() * itemDTO.getPrecioUnitario();
             item.setTotalLinea(totalLinea);
-            subtotal += totalLinea;
+            subtotalBruto += totalLinea;
             
             items.add(item);
         }
         
         orden.setItems(items);
-        orden.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        
+        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
+        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
+        Double ivaRate = obtenerIvaRate();
+        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
+        subtotal = Math.round(subtotal * 100.0) / 100.0;
+        orden.setSubtotal(subtotal);
+        
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
@@ -239,6 +261,7 @@ public class OrdenService {
         orden.setVenta(ventaDTO.isVenta());
         orden.setCredito(ventaDTO.isCredito());
         orden.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        orden.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
         // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
@@ -264,7 +287,7 @@ public class OrdenService {
         
         // 📋 PROCESAR ITEMS DE VENTA
         List<OrdenItem> items = new ArrayList<>();
-        double subtotal = 0.0;
+        double subtotalBruto = 0.0; // Subtotal con IVA incluido
         
         for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
             OrdenItem item = new OrdenItem();
@@ -279,16 +302,24 @@ public class OrdenService {
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
-            // Calcular total de línea
+            // Calcular total de línea (con IVA incluido)
             double totalLinea = itemDTO.getCantidad() * itemDTO.getPrecioUnitario();
             item.setTotalLinea(totalLinea);
-            subtotal += totalLinea;
+            subtotalBruto += totalLinea;
             
             items.add(item);
         }
         
         orden.setItems(items);
-        orden.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        
+        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
+        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
+        Double ivaRate = obtenerIvaRate();
+        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
+        subtotal = Math.round(subtotal * 100.0) / 100.0;
+        orden.setSubtotal(subtotal);
+        
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
@@ -395,7 +426,7 @@ public class OrdenService {
         // Limpiar items existentes para evitar problemas de cascade
         ordenExistente.getItems().clear();
         
-        double subtotal = 0.0;
+        double subtotalBruto = 0.0; // Subtotal con IVA incluido
         
         for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
             OrdenItem item = new OrdenItem();
@@ -406,16 +437,24 @@ public class OrdenService {
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
-            // Calcular total de línea
+            // Calcular total de línea (con IVA incluido)
             double totalLinea = itemDTO.getCantidad() * itemDTO.getPrecioUnitario();
             item.setTotalLinea(totalLinea);
-            subtotal += totalLinea;
+            subtotalBruto += totalLinea;
             
             // Agregar item a la lista existente
             ordenExistente.getItems().add(item);
         }
         
-        ordenExistente.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        
+        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
+        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
+        Double ivaRate = obtenerIvaRate();
+        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
+        subtotal = Math.round(subtotal * 100.0) / 100.0;
+        ordenExistente.setSubtotal(subtotal);
+        
         // Calcular descuentos (si no viene, usar el valor actual o 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
         ordenExistente.setDescuentos(descuentos);
@@ -490,7 +529,7 @@ public class OrdenService {
         // Limpiar items existentes para evitar problemas de cascade
         ordenExistente.getItems().clear();
         
-        double subtotal = 0.0;
+        double subtotalBruto = 0.0; // Subtotal con IVA incluido
         
         for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
             OrdenItem item = new OrdenItem();
@@ -501,16 +540,24 @@ public class OrdenService {
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
-            // Calcular total de línea
+            // Calcular total de línea (con IVA incluido)
             double totalLinea = itemDTO.getCantidad() * itemDTO.getPrecioUnitario();
             item.setTotalLinea(totalLinea);
-            subtotal += totalLinea;
+            subtotalBruto += totalLinea;
             
             // Agregar item a la lista existente
             ordenExistente.getItems().add(item);
         }
         
-        ordenExistente.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        
+        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
+        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
+        Double ivaRate = obtenerIvaRate();
+        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
+        subtotal = Math.round(subtotal * 100.0) / 100.0;
+        ordenExistente.setSubtotal(subtotal);
+        
         // Calcular descuentos (si no viene, usar el valor actual o 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
         ordenExistente.setDescuentos(descuentos);
@@ -559,6 +606,27 @@ public class OrdenService {
         
         System.out.println("✅ Orden con crédito actualizada exitosamente: " + ordenActualizada.getId());
         return ordenActualizada;
+    }
+
+    /**
+     * 💰 OBTENER TASA DE IVA DESDE CONFIGURACIÓN
+     * Obtiene el IVA rate desde BusinessSettings, con fallback a 19% si no existe
+     */
+    private Double obtenerIvaRate() {
+        try {
+            // Buscar la primera configuración (debería haber solo una)
+            List<BusinessSettings> settings = businessSettingsRepository.findAll();
+            if (!settings.isEmpty() && settings.get(0).getIvaRate() != null) {
+                Double ivaRate = settings.get(0).getIvaRate();
+                System.out.println("💰 IVA Rate obtenido desde configuración: " + ivaRate + "%");
+                return ivaRate;
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ WARNING: No se pudo obtener IVA rate desde configuración: " + e.getMessage());
+        }
+        // Fallback a 19% por defecto
+        System.out.println("💰 IVA Rate usando valor por defecto: 19.0%");
+        return 19.0;
     }
 
     /**
@@ -835,6 +903,7 @@ public class OrdenService {
         dto.setDescripcion(orden.getDescripcion());
         dto.setVenta(orden.isVenta());
         dto.setCredito(orden.isCredito());
+        dto.setTieneRetencionFuente(orden.isTieneRetencionFuente());
         dto.setEstado(orden.getEstado());
         dto.setSubtotal(orden.getSubtotal());
         dto.setDescuentos(orden.getDescuentos());
@@ -937,6 +1006,7 @@ public class OrdenService {
         orden.setDescripcion(dto.getDescripcion());
         orden.setVenta(dto.isVenta());
         orden.setCredito(dto.isCredito());
+        orden.setTieneRetencionFuente(dto.isTieneRetencionFuente());
         // Actualizar descuentos
         Double descuentos = dto.getDescuentos() != null ? dto.getDescuentos() : (orden.getDescuentos() != null ? orden.getDescuentos() : 0.0);
         orden.setDescuentos(descuentos);
@@ -958,23 +1028,120 @@ public class OrdenService {
         }
         
         // 5️⃣ Recalcular subtotal y total después de actualizar items
-        double subtotal = 0.0;
+        // Calcular subtotal bruto (suma de items con IVA incluido)
+        double subtotalBruto = 0.0;
         if (orden.getItems() != null) {
             for (OrdenItem item : orden.getItems()) {
                 if (item.getTotalLinea() != null) {
-                    subtotal += item.getTotalLinea();
+                    subtotalBruto += item.getTotalLinea();
                 }
             }
         }
-        orden.setSubtotal(Math.round(subtotal * 100.0) / 100.0);
+        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        
+        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
+        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
+        Double ivaRate = obtenerIvaRate();
+        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
+        subtotal = Math.round(subtotal * 100.0) / 100.0;
+        orden.setSubtotal(subtotal);
+        
         // Calcular total: subtotal - descuentos
         Double total = orden.getSubtotal() - orden.getDescuentos();
         orden.setTotal(Math.round(total * 100.0) / 100.0);
 
-        // 6️⃣ Guardar orden actualizada
+        // 6️⃣ Guardar orden actualizada PRIMERO
         Orden ordenActualizada = repo.save(orden);
+        System.out.println("✅ DEBUG: Orden actualizada con ID: " + ordenActualizada.getId() + 
+                          ", venta: " + ordenActualizada.isVenta() + 
+                          ", credito: " + ordenActualizada.isCredito() + 
+                          ", total: " + ordenActualizada.getTotal());
 
-        // 6️⃣ Retornar DTO optimizado para tabla
+        // 7️⃣ MANEJAR CRÉDITO SI ES NECESARIO
+        // Si se actualiza a venta a crédito, crear o actualizar el crédito
+        if (ordenActualizada.isVenta() && ordenActualizada.isCredito()) {
+            System.out.println("💳 DEBUG: Orden actualizada a venta a crédito. Verificando crédito...");
+            
+            // Obtener cliente completo para actualizar si es necesario
+            Cliente cliente = ordenActualizada.getCliente();
+            if (cliente != null) {
+                // Actualizar cliente a crédito si es necesario
+                if (cliente.getCredito() == null || !cliente.getCredito()) {
+                    System.out.println("🔄 Actualizando cliente ID " + cliente.getId() + " a credito = true");
+                    cliente.setCredito(true);
+                    clienteRepository.save(cliente);
+                }
+            }
+            
+            // Verificar si ya existe crédito para esta orden
+            if (ordenActualizada.getCreditoDetalle() != null) {
+                // Si ya existe crédito, actualizarlo con el nuevo total
+                System.out.println("🔄 DEBUG: Actualizando crédito existente ID: " + 
+                                  ordenActualizada.getCreditoDetalle().getId());
+                creditoService.actualizarCreditoParaOrden(
+                    ordenActualizada.getCreditoDetalle().getId(),
+                    ordenActualizada.getTotal()
+                );
+                System.out.println("✅ DEBUG: Crédito actualizado con saldo pendiente: " + 
+                                  ordenActualizada.getTotal());
+            } else {
+                // Si no existe crédito, crearlo
+                System.out.println("🆕 DEBUG: Creando nuevo crédito para orden " + ordenActualizada.getId() + 
+                                  " con saldo pendiente: " + ordenActualizada.getTotal());
+                
+                Long clienteId = cliente != null ? cliente.getId() : null;
+                if (clienteId == null) {
+                    System.err.println("⚠️ WARNING: No se puede crear crédito - cliente es null");
+                } else {
+                    creditoService.crearCreditoParaOrden(
+                        ordenActualizada.getId(),
+                        clienteId,
+                        ordenActualizada.getTotal()
+                    );
+                    System.out.println("✅ DEBUG: Crédito creado con saldo pendiente: " + 
+                                      ordenActualizada.getTotal());
+                    
+                    // Recargar la orden para obtener el crédito recién creado
+                    ordenActualizada = repo.findById(ordenActualizada.getId())
+                        .orElseThrow(() -> new RuntimeException("Error al recargar orden después de crear crédito"));
+                }
+            }
+        } else if (ordenActualizada.isVenta() && !ordenActualizada.isCredito()) {
+            // Si se cambió de crédito a contado, anular el crédito existente
+            if (ordenActualizada.getCreditoDetalle() != null) {
+                System.out.println("🔄 DEBUG: Orden cambiada de crédito a contado. Anulando crédito existente...");
+                creditoService.anularCredito(ordenActualizada.getCreditoDetalle().getId());
+                System.out.println("✅ DEBUG: Crédito anulado exitosamente");
+            }
+        } else {
+            // Si no es venta o no es crédito, verificar si hay crédito que anular
+            if (ordenActualizada.getCreditoDetalle() != null) {
+                System.out.println("⚠️ WARNING: Orden tiene crédito pero venta=false o credito=false. " +
+                                  "Considerando anular crédito...");
+                // Opcional: anular crédito si la orden ya no es venta a crédito
+                // creditoService.anularCredito(ordenActualizada.getCreditoDetalle().getId());
+            }
+        }
+
+        // 8️⃣ Retornar DTO optimizado para tabla (recargar para incluir crédito)
+        ordenActualizada = repo.findById(ordenActualizada.getId())
+            .orElseThrow(() -> new RuntimeException("Error al recargar orden final"));
+        
+        // Verificar que el crédito se creó correctamente
+        if (ordenActualizada.isVenta() && ordenActualizada.isCredito()) {
+            if (ordenActualizada.getCreditoDetalle() == null) {
+                System.err.println("❌ ERROR CRÍTICO: Orden es venta a crédito pero creditoDetalle es null!");
+                System.err.println("   - Orden ID: " + ordenActualizada.getId());
+                System.err.println("   - Venta: " + ordenActualizada.isVenta());
+                System.err.println("   - Crédito: " + ordenActualizada.isCredito());
+                System.err.println("   - Total: " + ordenActualizada.getTotal());
+            } else {
+                System.out.println("✅ DEBUG: Crédito verificado - ID: " + 
+                                  ordenActualizada.getCreditoDetalle().getId() + 
+                                  ", Saldo: " + ordenActualizada.getCreditoDetalle().getSaldoPendiente());
+            }
+        }
+        
         return convertirAOrdenTablaDTO(ordenActualizada);
     }
 

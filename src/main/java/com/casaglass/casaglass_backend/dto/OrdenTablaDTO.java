@@ -25,6 +25,7 @@ public class OrdenTablaDTO {
     private String descripcion; // Descripción/observaciones adicionales
     private boolean venta;
     private boolean credito;
+    private boolean tieneRetencionFuente; // Indica si la orden tiene retención de fuente
     private Orden.EstadoOrden estado;
     private boolean facturada;  // Indica si la orden tiene una factura asociada
     private Double subtotal; // Subtotal de la orden (suma de items)
