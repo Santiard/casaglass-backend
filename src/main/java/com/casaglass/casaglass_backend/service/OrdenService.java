@@ -119,18 +119,15 @@ public class OrdenService {
         }
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
-        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
-        Double ivaRate = obtenerIvaRate();
-        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
-        subtotal = Math.round(subtotal * 100.0) / 100.0;
-        orden.setSubtotal(subtotal);
+        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
+        // NO se resta el IVA porque los precios ya lo incluyen
+        orden.setSubtotal(subtotalBruto);
         
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
         // Calcular total: subtotal - descuentos
-        Double total = subtotal - descuentos;
+        Double total = subtotalBruto - descuentos;
         orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // Establecer estado activa por defecto
@@ -205,18 +202,15 @@ public class OrdenService {
         orden.setItems(items);
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
-        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
-        Double ivaRate = obtenerIvaRate();
-        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
-        subtotal = Math.round(subtotal * 100.0) / 100.0;
-        orden.setSubtotal(subtotal);
+        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
+        // NO se resta el IVA porque los precios ya lo incluyen
+        orden.setSubtotal(subtotalBruto);
         
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
         // Calcular total: subtotal - descuentos
-        Double total = orden.getSubtotal() - descuentos;
+        Double total = subtotalBruto - descuentos;
         orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 🔢 GENERAR NÚMERO AUTOMÁTICO
@@ -313,18 +307,15 @@ public class OrdenService {
         orden.setItems(items);
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
-        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
-        Double ivaRate = obtenerIvaRate();
-        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
-        subtotal = Math.round(subtotal * 100.0) / 100.0;
-        orden.setSubtotal(subtotal);
+        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
+        // NO se resta el IVA porque los precios ya lo incluyen
+        orden.setSubtotal(subtotalBruto);
         
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
         // Calcular total: subtotal - descuentos
-        Double total = orden.getSubtotal() - descuentos;
+        Double total = subtotalBruto - descuentos;
         orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 🔢 GENERAR NÚMERO AUTOMÁTICO
@@ -448,18 +439,15 @@ public class OrdenService {
         
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
-        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
-        Double ivaRate = obtenerIvaRate();
-        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
-        subtotal = Math.round(subtotal * 100.0) / 100.0;
-        ordenExistente.setSubtotal(subtotal);
+        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
+        // NO se resta el IVA porque los precios ya lo incluyen
+        ordenExistente.setSubtotal(subtotalBruto);
         
         // Calcular descuentos (si no viene, usar el valor actual o 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
         ordenExistente.setDescuentos(descuentos);
         // Calcular total: subtotal - descuentos
-        Double total = ordenExistente.getSubtotal() - descuentos;
+        Double total = subtotalBruto - descuentos;
         ordenExistente.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 💾 GUARDAR ORDEN ACTUALIZADA
@@ -551,18 +539,15 @@ public class OrdenService {
         
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
-        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
-        Double ivaRate = obtenerIvaRate();
-        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
-        subtotal = Math.round(subtotal * 100.0) / 100.0;
-        ordenExistente.setSubtotal(subtotal);
+        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
+        // NO se resta el IVA porque los precios ya lo incluyen
+        ordenExistente.setSubtotal(subtotalBruto);
         
         // Calcular descuentos (si no viene, usar el valor actual o 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
         ordenExistente.setDescuentos(descuentos);
         // Calcular total: subtotal - descuentos
-        Double total = ordenExistente.getSubtotal() - descuentos;
+        Double total = subtotalBruto - descuentos;
         ordenExistente.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 💾 GUARDAR ORDEN ACTUALIZADA PRIMERO
@@ -1039,15 +1024,12 @@ public class OrdenService {
         }
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular subtotal SIN IVA (restando el IVA del subtotal bruto)
-        // Fórmula: subtotal = subtotalBruto / (1 + IVA%)
-        Double ivaRate = obtenerIvaRate();
-        Double subtotal = subtotalBruto / (1 + (ivaRate / 100.0));
-        subtotal = Math.round(subtotal * 100.0) / 100.0;
-        orden.setSubtotal(subtotal);
+        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
+        // NO se resta el IVA porque los precios ya lo incluyen
+        orden.setSubtotal(subtotalBruto);
         
         // Calcular total: subtotal - descuentos
-        Double total = orden.getSubtotal() - orden.getDescuentos();
+        Double total = subtotalBruto - orden.getDescuentos();
         orden.setTotal(Math.round(total * 100.0) / 100.0);
 
         // 6️⃣ Guardar orden actualizada PRIMERO

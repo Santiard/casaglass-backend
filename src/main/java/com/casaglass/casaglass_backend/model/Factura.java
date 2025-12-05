@@ -74,7 +74,8 @@ public class Factura {
 
   /**
    * IVA (Impuesto sobre el Valor Agregado)
-   * Porcentaje de IVA aplicado sobre (subtotal - descuentos)
+   * Valor monetario del IVA incluido en el subtotal
+   * NOTA: El subtotal ya incluye IVA, este campo solo se usa para registro/contabilidad
    */
   @Column(nullable = false)
   private Double iva = 0.0;
@@ -88,7 +89,8 @@ public class Factura {
 
   /**
    * Total final de la factura
-   * Fórmula: (subtotal - descuentos) + iva - retencionFuente
+   * Fórmula: (subtotal - descuentos) - retencionFuente
+   * NOTA: El subtotal ya incluye IVA, por lo que NO se suma el IVA al total
    */
   @NotNull
   @Positive
@@ -128,10 +130,13 @@ public class Factura {
 
   /**
    * Método helper para calcular el total automáticamente
+   * NOTA: El subtotal ya incluye IVA, por lo que NO se suma el IVA al total
+   * Fórmula: total = (subtotal - descuentos) - retencionFuente
    */
   public void calcularTotal() {
     double baseImponible = subtotal - descuentos;
-    double totalCalculado = baseImponible + iva - retencionFuente;
+    // El subtotal ya incluye IVA, solo se resta la retención de fuente
+    double totalCalculado = baseImponible - retencionFuente;
     // Redondear a 2 decimales
     this.total = Math.round(totalCalculado * 100.0) / 100.0;
   }
