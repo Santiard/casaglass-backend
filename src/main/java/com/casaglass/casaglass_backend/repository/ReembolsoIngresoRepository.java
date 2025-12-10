@@ -27,5 +27,30 @@ public interface ReembolsoIngresoRepository extends JpaRepository<ReembolsoIngre
     // Obtener todos los reembolsos con detalles cargados
     @Query("SELECT r FROM ReembolsoIngreso r LEFT JOIN FETCH r.detalles ORDER BY r.fecha DESC")
     List<ReembolsoIngreso> findAllWithDetalles();
+
+    /**
+     * 🔍 BÚSQUEDA AVANZADA DE REEMBOLSOS DE INGRESO CON MÚLTIPLES FILTROS
+     * Todos los parámetros son opcionales (nullable)
+     * Nota: sedeId no está implementado actualmente porque Ingreso no tiene campo sede
+     */
+    @Query("SELECT DISTINCT r FROM ReembolsoIngreso r " +
+           "LEFT JOIN FETCH r.detalles d " +
+           "LEFT JOIN FETCH r.ingresoOriginal i " +
+           "LEFT JOIN FETCH r.proveedor p " +
+           "WHERE (:ingresoId IS NULL OR r.ingresoOriginal.id = :ingresoId) AND " +
+           "(:proveedorId IS NULL OR r.proveedor.id = :proveedorId) AND " +
+           "(:estado IS NULL OR r.estado = :estado) AND " +
+           "(:fechaDesde IS NULL OR r.fecha >= :fechaDesde) AND " +
+           "(:fechaHasta IS NULL OR r.fecha <= :fechaHasta) AND " +
+           "(:procesado IS NULL OR r.procesado = :procesado) " +
+           "ORDER BY r.fecha DESC, r.id DESC")
+    List<ReembolsoIngreso> buscarConFiltros(
+        @Param("ingresoId") Long ingresoId,
+        @Param("proveedorId") Long proveedorId,
+        @Param("estado") com.casaglass.casaglass_backend.model.ReembolsoIngreso.EstadoReembolso estado,
+        @Param("fechaDesde") java.time.LocalDate fechaDesde,
+        @Param("fechaHasta") java.time.LocalDate fechaHasta,
+        @Param("procesado") Boolean procesado
+    );
 }
 

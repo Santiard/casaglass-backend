@@ -147,6 +147,126 @@ public class InventarioCompletoService {
             .collect(Collectors.toList());
     }
 
+    /**
+     * 🚀 LISTADO DE INVENTARIO COMPLETO CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     */
+    @Transactional(readOnly = true)
+    public Object obtenerInventarioCompletoConFiltros(
+            Long categoriaId,
+            String categoriaNombre,
+            String tipo,
+            String color,
+            String codigo,
+            String nombre,
+            Long sedeId,
+            Boolean conStock,
+            Boolean sinStock,
+            Integer page,
+            Integer size) {
+        
+        // Convertir tipo y color String a enum
+        TipoProducto tipoEnum = null;
+        if (tipo != null && !tipo.isEmpty()) {
+            try {
+                tipoEnum = TipoProducto.valueOf(tipo.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Tipo inválido: " + tipo);
+            }
+        }
+        
+        ColorProducto colorEnum = null;
+        if (color != null && !color.isEmpty()) {
+            try {
+                colorEnum = ColorProducto.valueOf(color.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Color inválido: " + color);
+            }
+        }
+        
+        // Buscar productos con filtros (excluye cortes)
+        List<Producto> productos = productoRepository.buscarConFiltros(
+            categoriaId, categoriaNombre, tipoEnum, colorEnum, codigo, nombre
+        );
+        
+        // Obtener inventarios para esos productos
+        List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
+        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+            inventarioRepository.findByProductoIdIn(productosIds).stream()
+                .collect(Collectors.groupingBy(
+                    inv -> inv.getProducto().getId(),
+                    Collectors.toMap(
+                        inv -> inv.getSede().getId(),
+                        Inventario::getCantidad,
+                        Integer::sum
+                    )
+                ));
+        
+        // Convertir a DTOs
+        List<ProductoInventarioCompletoDTO> dtos = productos.stream()
+            .map(producto -> convertirADTO(producto, inventariosPorProductoYSede.get(producto.getId())))
+            .collect(Collectors.toList());
+        
+        // Filtrar por stock si se solicita
+        if (sedeId != null) {
+            if (conStock != null && conStock) {
+                dtos = dtos.stream()
+                    .filter(dto -> {
+                        Integer cantidad = obtenerCantidadPorSede(dto, sedeId);
+                        return cantidad != null && cantidad > 0;
+                    })
+                    .collect(Collectors.toList());
+            } else if (sinStock != null && sinStock) {
+                dtos = dtos.stream()
+                    .filter(dto -> {
+                        Integer cantidad = obtenerCantidadPorSede(dto, sedeId);
+                        return cantidad == null || cantidad == 0;
+                    })
+                    .collect(Collectors.toList());
+            }
+        }
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 100;
+            if (size > 500) size = 500; // Límite máximo para inventario
+            
+            long totalElements = dtos.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, dtos.size());
+            
+            if (fromIndex >= dtos.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<ProductoInventarioCompletoDTO> contenido = dtos.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return dtos;
+    }
+    
+    /**
+     * Obtiene la cantidad de un producto en una sede específica desde el DTO
+     */
+    private Integer obtenerCantidadPorSede(ProductoInventarioCompletoDTO dto, Long sedeId) {
+        // IDs de sedes: Insula=1, Centro=2, Patios=3
+        if (sedeId == 1L) return dto.getCantidadInsula();
+        if (sedeId == 2L) return dto.getCantidadCentro();
+        if (sedeId == 3L) return dto.getCantidadPatios();
+        return null;
+    }
+
     public List<ProductoInventarioCompletoDTO> obtenerInventarioCompletoPorTipo(String tipoStr) {
         // Convertir String a enum
         TipoProducto tipo;

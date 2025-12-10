@@ -48,6 +48,116 @@ public class CreditoService {
         return creditoRepo.findByClienteId(clienteId); 
     }
 
+    /**
+     * 🚀 LISTADO DE CRÉDITOS CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     */
+    @Transactional(readOnly = true)
+    public Object listarConFiltros(
+            Long clienteId,
+            Long sedeId,
+            Credito.EstadoCredito estado,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar créditos con filtros
+        List<Credito> creditos = creditoRepo.buscarConFiltros(
+            clienteId, sedeId, estado, fechaDesde, fechaHasta
+        );
+        
+        // Aplicar ordenamiento
+        creditos = aplicarOrdenamientoCreditos(creditos, sortBy, sortOrder);
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 50;
+            if (size > 200) size = 200; // Límite máximo para créditos
+            
+            long totalElements = creditos.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, creditos.size());
+            
+            if (fromIndex >= creditos.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<Credito> creditosPagina = creditos.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(creditosPagina, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return creditos;
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de créditos según sortBy y sortOrder
+     */
+    private List<Credito> aplicarOrdenamientoCreditos(List<Credito> creditos, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "fecha":
+                creditos.sort((a, b) -> {
+                    int cmp = a.getFechaInicio().compareTo(b.getFechaInicio());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "montototal":
+            case "monto_total":
+            case "totalcredito":
+            case "total_credito":
+                creditos.sort((a, b) -> {
+                    int cmp = Double.compare(a.getTotalCredito() != null ? a.getTotalCredito() : 0.0,
+                                            b.getTotalCredito() != null ? b.getTotalCredito() : 0.0);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "saldopendiente":
+            case "saldo_pendiente":
+                creditos.sort((a, b) -> {
+                    int cmp = Double.compare(a.getSaldoPendiente() != null ? a.getSaldoPendiente() : 0.0,
+                                            b.getSaldoPendiente() != null ? b.getSaldoPendiente() : 0.0);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por fecha DESC
+                creditos.sort((a, b) -> b.getFechaInicio().compareTo(a.getFechaInicio()));
+        }
+        
+        return creditos;
+    }
+
     public List<Credito> listarPorEstado(Credito.EstadoCredito estado) { 
         return creditoRepo.findByEstado(estado); 
     }

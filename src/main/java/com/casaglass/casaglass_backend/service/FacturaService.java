@@ -373,5 +373,174 @@ public class FacturaService {
     private FacturaTablaDTO.EstadoFactura convertirEstado(Factura.EstadoFactura estado) {
         return FacturaTablaDTO.EstadoFactura.valueOf(estado.name());
     }
+
+    /**
+     * 🚀 LISTADO DE FACTURAS CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     */
+    @Transactional(readOnly = true)
+    public Object listarFacturasConFiltros(
+            Long clienteId,
+            Long sedeId,
+            Factura.EstadoFactura estado,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            String numeroFactura,
+            Long ordenId,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar facturas con filtros
+        List<Factura> facturas = facturaRepo.buscarConFiltros(
+            clienteId, sedeId, estado, fechaDesde, fechaHasta, numeroFactura, ordenId
+        );
+        
+        // Aplicar ordenamiento adicional si es necesario (el query ya ordena por fecha DESC)
+        if (!sortBy.equals("fecha") || !sortOrder.equals("DESC")) {
+            facturas = aplicarOrdenamientoFacturas(facturas, sortBy, sortOrder);
+        }
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100; // Límite máximo
+            
+            long totalElements = facturas.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, facturas.size());
+            
+            if (fromIndex >= facturas.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<Factura> facturasPagina = facturas.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(facturasPagina, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return facturas;
+    }
+
+    /**
+     * 🚀 LISTADO DE FACTURAS PARA TABLA CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     */
+    @Transactional(readOnly = true)
+    public Object listarParaTablaConFiltros(
+            Long clienteId,
+            Long sedeId,
+            Factura.EstadoFactura estado,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            Integer page,
+            Integer size) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Buscar facturas con filtros
+        List<Factura> facturas = facturaRepo.buscarConFiltros(
+            clienteId, sedeId, estado, fechaDesde, fechaHasta, null, null
+        );
+        
+        // Convertir a DTOs
+        List<FacturaTablaDTO> dtos = facturas.stream()
+                .map(this::convertirAFacturaTablaDTO)
+                .collect(Collectors.toList());
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100; // Límite máximo
+            
+            long totalElements = dtos.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, dtos.size());
+            
+            if (fromIndex >= dtos.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<FacturaTablaDTO> contenido = dtos.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return dtos;
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de facturas según sortBy y sortOrder
+     */
+    private List<Factura> aplicarOrdenamientoFacturas(List<Factura> facturas, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "fecha":
+                facturas.sort((a, b) -> {
+                    int cmp = a.getFecha().compareTo(b.getFecha());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "numerofactura":
+            case "numero_factura":
+                facturas.sort((a, b) -> {
+                    int cmp = a.getNumeroFactura().compareToIgnoreCase(b.getNumeroFactura());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "total":
+                facturas.sort((a, b) -> {
+                    int cmp = Double.compare(a.getTotal() != null ? a.getTotal() : 0.0,
+                                            b.getTotal() != null ? b.getTotal() : 0.0);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por fecha DESC
+                facturas.sort((a, b) -> b.getFecha().compareTo(a.getFecha()));
+        }
+        
+        return facturas;
+    }
 }
 

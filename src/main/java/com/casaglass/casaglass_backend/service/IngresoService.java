@@ -46,6 +46,117 @@ public class IngresoService {
     }
 
     /**
+     * 🚀 LISTADO DE INGRESOS CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     */
+    @Transactional(readOnly = true)
+    public Object listarIngresosConFiltros(
+            Long proveedorId,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            Boolean procesado,
+            String numeroFactura,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar ingresos con filtros
+        List<Ingreso> ingresos = ingresoRepository.buscarConFiltros(
+            proveedorId, fechaDesde, fechaHasta, procesado, numeroFactura
+        );
+        
+        // Aplicar ordenamiento adicional si es necesario (el query ya ordena por fecha DESC)
+        if (!sortBy.equals("fecha") || !sortOrder.equals("DESC")) {
+            ingresos = aplicarOrdenamientoIngresos(ingresos, sortBy, sortOrder);
+        }
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100; // Límite máximo
+            
+            long totalElements = ingresos.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, ingresos.size());
+            
+            if (fromIndex >= ingresos.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<Ingreso> ingresosPagina = ingresos.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(ingresosPagina, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return ingresos;
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de ingresos según sortBy y sortOrder
+     */
+    private List<Ingreso> aplicarOrdenamientoIngresos(List<Ingreso> ingresos, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "fecha":
+                ingresos.sort((a, b) -> {
+                    int cmp = a.getFecha().compareTo(b.getFecha());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "numerofactura":
+            case "numero_factura":
+                ingresos.sort((a, b) -> {
+                    String numA = a.getNumeroFactura() != null ? a.getNumeroFactura() : "";
+                    String numB = b.getNumeroFactura() != null ? b.getNumeroFactura() : "";
+                    int cmp = numA.compareToIgnoreCase(numB);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "totalcosto":
+            case "total_costo":
+                ingresos.sort((a, b) -> {
+                    int cmp = Double.compare(a.getTotalCosto() != null ? a.getTotalCosto() : 0.0,
+                                            b.getTotalCosto() != null ? b.getTotalCosto() : 0.0);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por fecha DESC
+                ingresos.sort((a, b) -> b.getFecha().compareTo(a.getFecha()));
+        }
+        
+        return ingresos;
+    }
+
+    /**
      * Listar ingresos por sede
      * Nota: Los ingresos actualmente no tienen un campo sede directo.
      * Este método retorna todos los ingresos ya que todos se procesan en la sede principal.
@@ -130,7 +241,7 @@ public class IngresoService {
         ingreso.setFecha(ingresoDTO.getFecha() != null ? ingresoDTO.getFecha() : LocalDate.now());
         ingreso.setNumeroFactura(ingresoDTO.getNumeroFactura());
         ingreso.setObservaciones(ingresoDTO.getObservaciones());
-        ingreso.setTotalCosto(ingresoDTO.getTotalCosto() != null ? ingresoDTO.getTotalCosto() : 0.0);
+        // NO usar totalCosto del DTO directamente, se calculará automáticamente con calcularTotal()
         ingreso.setProcesado(ingresoDTO.getProcesado() != null ? ingresoDTO.getProcesado() : false);
 
         // Buscar el proveedor completo por ID
@@ -154,8 +265,13 @@ public class IngresoService {
                     IngresoDetalle detalle = new IngresoDetalle();
                     detalle.setProducto(productoCompleto);
                     detalle.setCantidad(detalleDTO.getCantidad());
-                    detalle.setCostoUnitario(detalleDTO.getCostoUnitario());
-                    detalle.setTotalLinea(detalleDTO.getTotalLinea());
+                    detalle.setCostoUnitario(detalleDTO.getCostoUnitario()); // Costo original (para totalCosto y trazabilidad)
+                    detalle.setCostoUnitarioPonderado(detalleDTO.getCostoUnitarioPonderado()); // Costo ponderado calculado por el frontend
+                    // totalLinea se calcula automáticamente con @PrePersist usando costoUnitario
+                    // Pero si viene del frontend, lo respetamos
+                    if (detalleDTO.getTotalLinea() != null) {
+                        detalle.setTotalLinea(detalleDTO.getTotalLinea());
+                    }
                     detalle.setIngreso(ingreso);
                     
                     ingreso.getDetalles().add(detalle);
@@ -226,10 +342,11 @@ public class IngresoService {
             
             // Copiar valores básicos
             nuevoDetalle.setCantidad(detalleActualizado.getCantidad());
-            nuevoDetalle.setCostoUnitario(detalleActualizado.getCostoUnitario());
+            nuevoDetalle.setCostoUnitario(detalleActualizado.getCostoUnitario()); // Costo original (para totalCosto y trazabilidad)
+            nuevoDetalle.setCostoUnitarioPonderado(detalleActualizado.getCostoUnitarioPonderado()); // Costo ponderado calculado por el frontend
             nuevoDetalle.setIngreso(ingresoExistente);
             
-            // Calcular total de línea manualmente
+            // Calcular total de línea manualmente usando costoUnitario (costo original)
             nuevoDetalle.setTotalLinea(detalleActualizado.getCantidad() * detalleActualizado.getCostoUnitario());
             
             ingresoExistente.getDetalles().add(nuevoDetalle);
@@ -300,12 +417,23 @@ public class IngresoService {
                 inventarioService.guardar(nuevoInventario);
             }
 
-            // Actualizar el costo del producto si es diferente
+            // Actualizar el costo del producto usando costoUnitarioPonderado (calculado por el frontend)
+            // El frontend ya calculó el promedio ponderado antes de enviar el ingreso
             Double costoActual = producto.getCosto();
-            Double nuevoCosto = detalle.getCostoUnitario();
-            if (costoActual == null || !costoActual.equals(nuevoCosto)) {
-                producto.setCosto(nuevoCosto);
+            Double costoPonderado = detalle.getCostoUnitarioPonderado(); // Viene calculado del frontend
+            
+            if (costoPonderado == null) {
+                throw new RuntimeException("El campo costoUnitarioPonderado es obligatorio para el producto ID: " + producto.getId());
+            }
+            
+            // Actualizar el costo del producto con el costoUnitarioPonderado recibido del frontend
+            if (costoActual == null || !costoActual.equals(costoPonderado)) {
+                producto.setCosto(costoPonderado);
                 productoRepository.save(producto);
+                System.out.println("✅ Costo del producto actualizado: Producto ID=" + producto.getId() + 
+                                 ", Costo anterior=" + costoActual + 
+                                 ", Costo nuevo (ponderado del frontend)=" + costoPonderado +
+                                 ", Costo original del ingreso=" + detalle.getCostoUnitario());
             }
         }
 

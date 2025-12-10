@@ -3,6 +3,7 @@ package com.casaglass.casaglass_backend.service;
 import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.repository.ClienteRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +19,120 @@ public class ClienteService {
 
     public List<Cliente> listarClientes() {
         return clienteRepository.findAll();
+    }
+
+    /**
+     * 🚀 LISTADO DE CLIENTES CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     * Nota: conCredito requiere verificar créditos pendientes, se filtra después
+     */
+    @Transactional(readOnly = true)
+    public Object listarClientesConFiltros(
+            String nombre,
+            String nit,
+            String correo,
+            String ciudad,
+            Boolean activo,
+            Boolean conCredito,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "nombre";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "ASC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "ASC";
+        }
+        
+        // Buscar clientes con filtros (activo se ignora porque el modelo no tiene ese campo)
+        List<Cliente> clientes = clienteRepository.buscarConFiltros(
+            nombre, nit, correo, ciudad
+        );
+        
+        // Filtrar por conCredito si se solicita (requiere verificar créditos)
+        if (conCredito != null && conCredito) {
+            // TODO: Filtrar clientes que tienen créditos pendientes
+            // Por ahora, filtrar por campo credito=true
+            clientes = clientes.stream()
+                    .filter(c -> c.getCredito() != null && c.getCredito())
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        
+        // Aplicar ordenamiento adicional si es necesario (el query ya ordena por nombre ASC)
+        if (!sortBy.equals("nombre") || !sortOrder.equals("ASC")) {
+            clientes = aplicarOrdenamientoClientes(clientes, sortBy, sortOrder);
+        }
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 50;
+            if (size > 200) size = 200; // Límite máximo para clientes
+            
+            long totalElements = clientes.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, clientes.size());
+            
+            if (fromIndex >= clientes.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<Cliente> contenido = clientes.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return clientes;
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de clientes según sortBy y sortOrder
+     */
+    private List<Cliente> aplicarOrdenamientoClientes(List<Cliente> clientes, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "nombre":
+                clientes.sort((a, b) -> {
+                    int cmp = (a.getNombre() != null ? a.getNombre() : "").compareToIgnoreCase(b.getNombre() != null ? b.getNombre() : "");
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "nit":
+                clientes.sort((a, b) -> {
+                    int cmp = (a.getNit() != null ? a.getNit() : "").compareToIgnoreCase(b.getNit() != null ? b.getNit() : "");
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "ciudad":
+                clientes.sort((a, b) -> {
+                    String ciudadA = a.getCiudad() != null ? a.getCiudad() : "";
+                    String ciudadB = b.getCiudad() != null ? b.getCiudad() : "";
+                    int cmp = ciudadA.compareToIgnoreCase(ciudadB);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por nombre ASC
+                clientes.sort((a, b) -> (a.getNombre() != null ? a.getNombre() : "").compareToIgnoreCase(b.getNombre() != null ? b.getNombre() : ""));
+        }
+        
+        return clientes;
     }
 
     public Optional<Cliente> obtenerClientePorId(Long id) {

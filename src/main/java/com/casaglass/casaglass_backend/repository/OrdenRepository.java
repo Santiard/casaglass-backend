@@ -18,6 +18,12 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
 
     List<Orden> findByClienteId(Long clienteId);
 
+    /**
+     * Encuentra órdenes de un cliente en un rango de fechas
+     * Optimizado para mejorar rendimiento al filtrar en la base de datos
+     */
+    List<Orden> findByClienteIdAndFechaBetween(Long clienteId, LocalDate fechaDesde, LocalDate fechaHasta);
+
     List<Orden> findByVenta(boolean venta);     // true = ventas, false = cotizaciones
 
     List<Orden> findByCredito(boolean credito); // true = a crédito
@@ -101,4 +107,32 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
 
     // 📊 MÉTODO PARA DASHBOARD - VENTAS DE HOY
     List<Orden> findBySedeIdAndFechaAndVentaTrue(Long sedeId, LocalDate fecha);
+
+    /**
+     * 🔍 BÚSQUEDA AVANZADA DE ÓRDENES CON MÚLTIPLES FILTROS
+     * Usado para GET /api/ordenes/tabla con filtros opcionales
+     * Todos los parámetros son opcionales (nullable)
+     * El ordenamiento se maneja en el servicio
+     */
+    @Query("SELECT DISTINCT o FROM Orden o " +
+           "LEFT JOIN o.factura f " +
+           "WHERE (:clienteId IS NULL OR o.cliente.id = :clienteId) AND " +
+           "(:sedeId IS NULL OR o.sede.id = :sedeId) AND " +
+           "(:estado IS NULL OR o.estado = :estado) AND " +
+           "(:fechaDesde IS NULL OR o.fecha >= :fechaDesde) AND " +
+           "(:fechaHasta IS NULL OR o.fecha <= :fechaHasta) AND " +
+           "(:venta IS NULL OR o.venta = :venta) AND " +
+           "(:credito IS NULL OR o.credito = :credito) AND " +
+           "(:facturada IS NULL OR (:facturada = true AND f.id IS NOT NULL) OR (:facturada = false AND f.id IS NULL)) " +
+           "ORDER BY o.fecha DESC, o.numero DESC")
+    List<Orden> buscarConFiltros(
+        @Param("clienteId") Long clienteId,
+        @Param("sedeId") Long sedeId,
+        @Param("estado") Orden.EstadoOrden estado,
+        @Param("fechaDesde") LocalDate fechaDesde,
+        @Param("fechaHasta") LocalDate fechaHasta,
+        @Param("venta") Boolean venta,
+        @Param("credito") Boolean credito,
+        @Param("facturada") Boolean facturada
+    );
 }

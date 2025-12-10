@@ -45,38 +45,109 @@ public class EntregaDineroController {
     /* ========== CONSULTAS ========== */
 
     /**
-     * 📋 LISTAR TODAS LAS ENTREGAS
+     * 📋 LISTADO DE ENTREGAS DE DINERO CON FILTROS COMPLETOS
+     * GET /api/entregas-dinero
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - sedeId: Filtrar por sede
+     * - empleadoId: Filtrar por empleado
+     * - estado: PENDIENTE, ENTREGADA, VERIFICADA, RECHAZADA
+     * - desde: YYYY-MM-DD (fecha desde, inclusive)
+     * - hasta: YYYY-MM-DD (fecha hasta, inclusive)
+     * - conDiferencias: Boolean (no implementado actualmente)
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 20, máximo: 100)
+     * - sortBy: Campo para ordenar (fecha, id) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<EntregaDineroResponseDTO> (compatibilidad hacia atrás)
      */
     @GetMapping
     @Transactional(readOnly = true)
-    public List<EntregaDineroResponseDTO> listar(@RequestParam(required = false) Long sedeId,
-                                                @RequestParam(required = false) Long empleadoId,
-                                                @RequestParam(required = false) String estado,
-                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+    public ResponseEntity<Object> listar(
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) Long empleadoId,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Boolean conDiferencias,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
         
-        List<EntregaDinero> entregas;
-        
-        // Aplicar filtros según parámetros
-        if (sedeId != null && estado != null) {
-            entregas = service.obtenerPorSedeYEstado(sedeId, EntregaDinero.EstadoEntrega.valueOf(estado));
-        } else if (sedeId != null && desde != null && hasta != null) {
-            entregas = service.obtenerPorSedeYPeriodo(sedeId, desde, hasta);
-        } else if (desde != null && hasta != null) {
-            entregas = service.obtenerPorPeriodo(desde, hasta);
-        } else if (sedeId != null) {
-            entregas = service.obtenerPorSede(sedeId);
-        } else if (empleadoId != null) {
-            entregas = service.obtenerPorEmpleado(empleadoId);
-        } else if (estado != null) {
-            entregas = service.obtenerPorEstado(EntregaDinero.EstadoEntrega.valueOf(estado));
-        } else {
-            entregas = service.obtenerTodas();
+        try {
+            // Convertir estado String a enum
+            EntregaDinero.EstadoEntrega estadoEnum = null;
+            if (estado != null && !estado.isEmpty()) {
+                try {
+                    estadoEnum = EntregaDinero.EstadoEntrega.valueOf(estado.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Estado inválido: " + estado + ". Valores válidos: PENDIENTE, ENTREGADA, VERIFICADA, RECHAZADA"
+                    ));
+                }
+            }
+            
+            // Si no hay filtros nuevos (paginación, ordenamiento), usar método original (compatibilidad)
+            if (page == null && size == null && sortBy == null && sortOrder == null && conDiferencias == null) {
+                // Usar lógica original para compatibilidad
+                List<EntregaDinero> entregas;
+                if (sedeId != null && estadoEnum != null) {
+                    entregas = service.obtenerPorSedeYEstado(sedeId, estadoEnum);
+                } else if (sedeId != null && desde != null && hasta != null) {
+                    entregas = service.obtenerPorSedeYPeriodo(sedeId, desde, hasta);
+                } else if (desde != null && hasta != null) {
+                    entregas = service.obtenerPorPeriodo(desde, hasta);
+                } else if (sedeId != null) {
+                    entregas = service.obtenerPorSede(sedeId);
+                } else if (empleadoId != null) {
+                    entregas = service.obtenerPorEmpleado(empleadoId);
+                } else if (estadoEnum != null) {
+                    entregas = service.obtenerPorEstado(estadoEnum);
+                } else {
+                    entregas = service.obtenerTodas();
+                }
+                
+                return ResponseEntity.ok(entregas.stream()
+                        .map(EntregaDineroResponseDTO::new)
+                        .collect(Collectors.toList()));
+            }
+            
+            // Usar método con filtros completos
+            Object resultado = service.obtenerEntregasConFiltros(
+                sedeId, empleadoId, estadoEnum, desde, hasta, conDiferencias, page, size, sortBy, sortOrder
+            );
+            
+            // Si es lista paginada, convertir las entregas a DTOs
+            if (resultado instanceof com.casaglass.casaglass_backend.dto.PageResponse) {
+                @SuppressWarnings("unchecked")
+                com.casaglass.casaglass_backend.dto.PageResponse<EntregaDinero> pageResponse = 
+                    (com.casaglass.casaglass_backend.dto.PageResponse<EntregaDinero>) resultado;
+                
+                List<EntregaDineroResponseDTO> contenidoDTO = pageResponse.getContent().stream()
+                        .map(EntregaDineroResponseDTO::new)
+                        .collect(Collectors.toList());
+                
+                return ResponseEntity.ok(com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    contenidoDTO, pageResponse.getTotalElements(), pageResponse.getPage(), pageResponse.getSize()
+                ));
+            }
+            
+            // Si es lista simple, convertir a DTOs
+            @SuppressWarnings("unchecked")
+            List<EntregaDinero> entregas = (List<EntregaDinero>) resultado;
+            return ResponseEntity.ok(entregas.stream()
+                    .map(EntregaDineroResponseDTO::new)
+                    .collect(Collectors.toList()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "Error interno: " + e.getMessage()));
         }
-        
-        return entregas.stream()
-                .map(EntregaDineroResponseDTO::new)
-                .collect(Collectors.toList());
     }
 
     /**

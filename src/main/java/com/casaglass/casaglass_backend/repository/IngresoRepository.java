@@ -50,4 +50,24 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Long> {
     // Contar ingresos por proveedor
     @Query("SELECT COUNT(i) FROM Ingreso i WHERE i.proveedor = :proveedor")
     Long countByProveedor(@Param("proveedor") Proveedor proveedor);
+
+    /**
+     * 🔍 BÚSQUEDA AVANZADA DE INGRESOS CON MÚLTIPLES FILTROS
+     * Todos los parámetros son opcionales (nullable)
+     */
+    @Query("SELECT DISTINCT i FROM Ingreso i " +
+           "LEFT JOIN FETCH i.proveedor p " +
+           "WHERE (:proveedorId IS NULL OR i.proveedor.id = :proveedorId) AND " +
+           "(:fechaDesde IS NULL OR i.fecha >= :fechaDesde) AND " +
+           "(:fechaHasta IS NULL OR i.fecha <= :fechaHasta) AND " +
+           "(:procesado IS NULL OR i.procesado = :procesado) AND " +
+           "(:numeroFactura IS NULL OR LOWER(i.numeroFactura) LIKE LOWER(CONCAT('%', :numeroFactura, '%'))) " +
+           "ORDER BY i.fecha DESC, i.id DESC")
+    List<Ingreso> buscarConFiltros(
+        @Param("proveedorId") Long proveedorId,
+        @Param("fechaDesde") LocalDate fechaDesde,
+        @Param("fechaHasta") LocalDate fechaHasta,
+        @Param("procesado") Boolean procesado,
+        @Param("numeroFactura") String numeroFactura
+    );
 }

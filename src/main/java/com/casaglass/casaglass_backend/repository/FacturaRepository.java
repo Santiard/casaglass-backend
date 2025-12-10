@@ -3,6 +3,7 @@ package com.casaglass.casaglass_backend.repository;
 import com.casaglass.casaglass_backend.model.Factura;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -55,5 +56,31 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
      * Contar facturas por estado
      */
     long countByEstado(Factura.EstadoFactura estado);
+
+    /**
+     * 🔍 BÚSQUEDA AVANZADA DE FACTURAS CON MÚLTIPLES FILTROS
+     * Todos los parámetros son opcionales (nullable)
+     */
+    @Query("SELECT DISTINCT f FROM Factura f " +
+           "LEFT JOIN FETCH f.orden o " +
+           "LEFT JOIN FETCH o.cliente c " +
+           "LEFT JOIN FETCH o.sede s " +
+           "WHERE (:clienteId IS NULL OR (f.cliente.id = :clienteId OR o.cliente.id = :clienteId)) AND " +
+           "(:sedeId IS NULL OR o.sede.id = :sedeId) AND " +
+           "(:estado IS NULL OR f.estado = :estado) AND " +
+           "(:fechaDesde IS NULL OR f.fecha >= :fechaDesde) AND " +
+           "(:fechaHasta IS NULL OR f.fecha <= :fechaHasta) AND " +
+           "(:numeroFactura IS NULL OR LOWER(f.numeroFactura) LIKE LOWER(CONCAT('%', :numeroFactura, '%'))) AND " +
+           "(:ordenId IS NULL OR f.orden.id = :ordenId) " +
+           "ORDER BY f.fecha DESC, f.id DESC")
+    List<Factura> buscarConFiltros(
+        @Param("clienteId") Long clienteId,
+        @Param("sedeId") Long sedeId,
+        @Param("estado") Factura.EstadoFactura estado,
+        @Param("fechaDesde") LocalDate fechaDesde,
+        @Param("fechaHasta") LocalDate fechaHasta,
+        @Param("numeroFactura") String numeroFactura,
+        @Param("ordenId") Long ordenId
+    );
 }
 

@@ -59,9 +59,21 @@ public class Ingreso {
     }
 
     // Método para calcular el total
+    // IMPORTANTE: Siempre usa costoUnitario (costo original) para calcular totalCosto
+    // El totalCosto refleja lo que realmente se pagó en el ingreso
+    // Si totalLinea ya está calculado, lo usa; sino calcula con costoUnitario × cantidad
     public void calcularTotal() {
         this.totalCosto = detalles.stream()
-                .mapToDouble(detalle -> detalle.getCostoUnitario() * detalle.getCantidad())
+                .mapToDouble(detalle -> {
+                    // Preferir usar totalLinea si está calculado (ya usa costoUnitario)
+                    if (detalle.getTotalLinea() != null) {
+                        return detalle.getTotalLinea();
+                    }
+                    // Fallback: calcular con costoUnitario (costo original) × cantidad
+                    return detalle.getCostoUnitario() * detalle.getCantidad();
+                })
                 .sum();
+        // Redondear a 2 decimales
+        this.totalCosto = Math.round(this.totalCosto * 100.0) / 100.0;
     }
 }

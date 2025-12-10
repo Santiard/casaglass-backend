@@ -89,4 +89,26 @@ public interface EntregaDineroRepository extends JpaRepository<EntregaDinero, Lo
     
     // Mantener el método original para compatibilidad
     EntregaDinero findFirstBySedeIdOrderByFechaEntregaDesc(Long sedeId);
+
+    /**
+     * 🔍 BÚSQUEDA AVANZADA DE ENTREGAS DE DINERO CON MÚLTIPLES FILTROS
+     * Todos los parámetros son opcionales (nullable)
+     * Nota: conDiferencias no está implementado actualmente (requiere cálculo adicional)
+     */
+    @Query("SELECT DISTINCT e FROM EntregaDinero e " +
+           "LEFT JOIN FETCH e.sede s " +
+           "LEFT JOIN FETCH e.empleado emp " +
+           "WHERE (:sedeId IS NULL OR e.sede.id = :sedeId) AND " +
+           "(:empleadoId IS NULL OR e.empleado.id = :empleadoId) AND " +
+           "(:estado IS NULL OR e.estado = :estado) AND " +
+           "(:desde IS NULL OR e.fechaEntrega >= :desde) AND " +
+           "(:hasta IS NULL OR e.fechaEntrega <= :hasta) " +
+           "ORDER BY e.fechaEntrega DESC, e.id DESC")
+    List<EntregaDinero> buscarConFiltros(
+        @Param("sedeId") Long sedeId,
+        @Param("empleadoId") Long empleadoId,
+        @Param("estado") EntregaDinero.EstadoEntrega estado,
+        @Param("desde") LocalDate desde,
+        @Param("hasta") LocalDate hasta
+    );
 }

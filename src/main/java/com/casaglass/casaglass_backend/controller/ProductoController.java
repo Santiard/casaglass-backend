@@ -2,6 +2,8 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.dto.ProductoActualizarDTO;
 import com.casaglass.casaglass_backend.model.Producto;
+import com.casaglass.casaglass_backend.model.TipoProducto;
+import com.casaglass.casaglass_backend.model.ColorProducto;
 import com.casaglass.casaglass_backend.service.ProductoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,27 +22,97 @@ public class ProductoController {
         this.service = service;
     }
 
-    // GET /api/productos
+    /**
+     * 📋 LISTADO DE PRODUCTOS CON FILTROS COMPLETOS
+     * GET /api/productos
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - categoriaId: Filtrar por ID de categoría
+     * - categoria: Filtrar por nombre de categoría (búsqueda parcial)
+     * - tipo: Filtrar por tipo (enum TipoProducto)
+     * - color: Filtrar por color (enum ColorProducto)
+     * - codigo: Búsqueda parcial por código (case-insensitive)
+     * - nombre: Búsqueda parcial por nombre (case-insensitive)
+     * - conStock: Boolean (true para productos con stock > 0, requiere sedeId)
+     * - sedeId: Filtrar por sede para verificar stock (requerido si conStock=true)
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 50, máximo: 200)
+     * - sortBy: Campo para ordenar (codigo, nombre, categoria) - default: codigo
+     * - sortOrder: ASC o DESC - default: ASC
+     * 
+     * Nota: El parámetro 'q' (query) sigue funcionando para compatibilidad hacia atrás
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<Producto> (compatibilidad hacia atrás)
+     */
     @GetMapping
-    public ResponseEntity<?> listar(@RequestParam(required = false) Long categoriaId,
-                                   @RequestParam(required = false, name = "q") String query) {
+    public ResponseEntity<?> listar(
+            @RequestParam(required = false) Long categoriaId,
+            @RequestParam(required = false) String categoria,
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) String color,
+            @RequestParam(required = false) String codigo,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) Boolean conStock,
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder,
+            @RequestParam(required = false, name = "q") String query) {
         try {
-            List<Producto> productos;
-            if (query != null && !query.isBlank()) {
-                productos = service.buscar(query);
-            } else if (categoriaId != null) {
-                productos = service.listarPorCategoriaId(categoriaId);
-            } else {
-                productos = service.listar();
+            // Convertir tipo y color String a enum
+            TipoProducto tipoEnum = null;
+            if (tipo != null && !tipo.isEmpty()) {
+                try {
+                    tipoEnum = TipoProducto.valueOf(tipo.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Tipo inválido: " + tipo
+                    ));
+                }
             }
             
-            System.out.println("=== DEBUG PRODUCTO CONTROLLER ===");
-            System.out.println("Query: " + query);
-            System.out.println("CategoriaId: " + categoriaId);
-            System.out.println("Productos retornados: " + productos.size());
-            System.out.println("================================");
+            ColorProducto colorEnum = null;
+            if (color != null && !color.isEmpty()) {
+                try {
+                    colorEnum = ColorProducto.valueOf(color.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Color inválido: " + color
+                    ));
+                }
+            }
             
-            return ResponseEntity.ok(productos);
+            // Si solo hay query o categoriaId y ningún otro filtro nuevo, usar método original (compatibilidad)
+            if (query != null && !query.isBlank() && categoria == null && tipoEnum == null && 
+                colorEnum == null && codigo == null && nombre == null && conStock == null && 
+                sedeId == null && page == null && size == null && sortBy == null && sortOrder == null) {
+                return ResponseEntity.ok(service.buscar(query));
+            }
+            
+            if (categoriaId != null && categoria == null && tipoEnum == null && 
+                colorEnum == null && codigo == null && nombre == null && conStock == null && 
+                sedeId == null && query == null && page == null && size == null && 
+                sortBy == null && sortOrder == null) {
+                return ResponseEntity.ok(service.listarPorCategoriaId(categoriaId));
+            }
+            
+            // Validar conStock requiere sedeId
+            if (conStock != null && conStock && sedeId == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "El parámetro sedeId es obligatorio cuando conStock=true"
+                ));
+            }
+            
+            // Usar método con filtros
+            Object resultado = service.listarProductosConFiltros(
+                categoriaId, categoria, tipoEnum, colorEnum, codigo, nombre, conStock, sedeId,
+                page, size, sortBy, sortOrder
+            );
+            
+            return ResponseEntity.ok(resultado);
         } catch (Exception e) {
             System.err.println("ERROR en ProductoController.listar: " + e.getMessage());
             e.printStackTrace();

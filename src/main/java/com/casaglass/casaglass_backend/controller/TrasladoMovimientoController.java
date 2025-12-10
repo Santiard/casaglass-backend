@@ -27,22 +27,56 @@ public class TrasladoMovimientoController {
     }
 
     /**
+     * 📋 LISTADO DE TRASLADOS CON FILTROS COMPLETOS
      * GET /api/traslados-movimientos
-     * Obtiene todos los movimientos de traslado con información consolidada
-     * Formato optimizado para el frontend según especificación
-     * Query parameters:
-     * - sedeId (opcional): Si se envía, retorna traslados donde el usuario esté en sedeOrigen o sedeDestino
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - sedeOrigenId: Filtrar por sede origen
+     * - sedeDestinoId: Filtrar por sede destino
+     * - sedeId: Filtrar por sede origen O destino
+     * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
+     * - estado: PENDIENTE, CONFIRMADO (se convierte a confirmado boolean)
+     * - confirmado: true para confirmados, false para pendientes
+     * - trabajadorId: Filtrar por trabajador que confirmó
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 20, máximo: 100)
+     * - sortBy: Campo para ordenar (fecha, id) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<TrasladoMovimientoDTO> (compatibilidad hacia atrás)
      */
     @GetMapping
-    public ResponseEntity<List<TrasladoMovimientoDTO>> obtenerMovimientos(
-            @RequestParam(required = false) Long sedeId) {
-        List<TrasladoMovimientoDTO> movimientos;
-        if (sedeId != null) {
-            movimientos = service.obtenerMovimientosPorSede(sedeId);
-        } else {
-            movimientos = service.obtenerMovimientos();
+    public ResponseEntity<Object> obtenerMovimientos(
+            @RequestParam(required = false) Long sedeOrigenId,
+            @RequestParam(required = false) Long sedeDestinoId,
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) Boolean confirmado,
+            @RequestParam(required = false) Long trabajadorId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        
+        // Si solo hay sedeId y ningún otro filtro nuevo, usar método específico (compatibilidad)
+        if (sedeId != null && sedeOrigenId == null && sedeDestinoId == null && fechaDesde == null && 
+            fechaHasta == null && estado == null && confirmado == null && trabajadorId == null && 
+            page == null && size == null && sortBy == null && sortOrder == null) {
+            return ResponseEntity.ok(service.obtenerMovimientosPorSede(sedeId));
         }
-        return ResponseEntity.ok(movimientos);
+        
+        // Usar método con filtros completos
+        Object resultado = service.obtenerMovimientosConFiltros(
+            sedeOrigenId, sedeDestinoId, sedeId, fechaDesde, fechaHasta, 
+            estado, confirmado, trabajadorId, page, size, sortBy, sortOrder
+        );
+        
+        return ResponseEntity.ok(resultado);
     }
 
     /**

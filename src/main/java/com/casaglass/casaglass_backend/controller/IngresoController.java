@@ -21,12 +21,52 @@ public class IngresoController {
         this.ingresoService = ingresoService;
     }
 
+    /**
+     * 📋 LISTADO DE INGRESOS CON FILTROS COMPLETOS
+     * GET /api/ingresos
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - proveedorId: Filtrar por proveedor
+     * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
+     * - procesado: true para procesados, false para no procesados
+     * - numeroFactura: Búsqueda parcial por número de factura (case-insensitive)
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 20, máximo: 100)
+     * - sortBy: Campo para ordenar (fecha, numeroFactura, totalCosto) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     * 
+     * Nota: El parámetro sedeId se mantiene por compatibilidad pero actualmente
+     * los ingresos no tienen campo sede (todos se procesan en sede principal)
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<Ingreso> (compatibilidad hacia atrás)
+     */
     @GetMapping
-    public List<Ingreso> listarIngresos(@RequestParam(required = false) Long sedeId) {
-        if (sedeId != null) {
+    public Object listarIngresos(
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) Long proveedorId,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) Boolean procesado,
+            @RequestParam(required = false) String numeroFactura,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        
+        // Si solo hay sedeId y ningún otro filtro nuevo, usar método específico (compatibilidad)
+        if (sedeId != null && proveedorId == null && fechaDesde == null && fechaHasta == null && 
+            procesado == null && numeroFactura == null && page == null && size == null && 
+            sortBy == null && sortOrder == null) {
             return ingresoService.listarIngresosPorSede(sedeId);
         }
-        return ingresoService.listarIngresos();
+        
+        // Usar método con filtros completos
+        return ingresoService.listarIngresosConFiltros(
+            proveedorId, fechaDesde, fechaHasta, procesado, numeroFactura, page, size, sortBy, sortOrder
+        );
     }
 
     @GetMapping("/{id}")

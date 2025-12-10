@@ -69,4 +69,28 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     // 🔧 NUEVO: Buscar por color excluyendo cortes
     @Query("SELECT p FROM Producto p WHERE p.color = :color AND p NOT IN (SELECT c FROM Corte c)")
     List<Producto> findByColorSinCortes(@Param("color") com.casaglass.casaglass_backend.model.ColorProducto color);
+
+    /**
+     * 🔍 BÚSQUEDA AVANZADA DE PRODUCTOS CON MÚLTIPLES FILTROS
+     * Todos los parámetros son opcionales (nullable)
+     * Nota: Excluye cortes y productos vidrio (solo productos base)
+     */
+    @Query("SELECT DISTINCT p FROM Producto p " +
+           "LEFT JOIN FETCH p.categoria c " +
+           "WHERE TYPE(p) = Producto AND " +
+           "(:categoriaId IS NULL OR p.categoria.id = :categoriaId) AND " +
+           "(:categoriaNombre IS NULL OR LOWER(c.nombre) LIKE LOWER(CONCAT('%', :categoriaNombre, '%'))) AND " +
+           "(:tipo IS NULL OR p.tipo = :tipo) AND " +
+           "(:color IS NULL OR p.color = :color) AND " +
+           "(:codigo IS NULL OR LOWER(p.codigo) LIKE LOWER(CONCAT('%', :codigo, '%'))) AND " +
+           "(:nombre IS NULL OR LOWER(p.nombre) LIKE LOWER(CONCAT('%', :nombre, '%'))) " +
+           "ORDER BY p.codigo ASC, p.nombre ASC")
+    List<Producto> buscarConFiltros(
+        @Param("categoriaId") Long categoriaId,
+        @Param("categoriaNombre") String categoriaNombre,
+        @Param("tipo") com.casaglass.casaglass_backend.model.TipoProducto tipo,
+        @Param("color") com.casaglass.casaglass_backend.model.ColorProducto color,
+        @Param("codigo") String codigo,
+        @Param("nombre") String nombre
+    );
 }

@@ -6,7 +6,6 @@ import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenDetalleDTO;
 import com.casaglass.casaglass_backend.dto.FacturaCreateDTO;
-import com.casaglass.casaglass_backend.dto.OrdenCreditoDTO;
 import com.casaglass.casaglass_backend.service.OrdenService;
 import com.casaglass.casaglass_backend.service.FacturaService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -204,28 +203,86 @@ public class OrdenController {
         }
     }
 
-    /** Listado simple con atajos */
+    /**
+     * 📋 LISTADO DE ÓRDENES CON FILTROS COMPLETOS
+     * GET /api/ordenes
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - clienteId: Filtrar por cliente
+     * - sedeId: Filtrar por sede
+     * - trabajadorId: Filtrar por trabajador (compatibilidad hacia atrás)
+     * - estado: ACTIVA, ANULADA
+     * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
+     * - venta: true para ventas, false para cotizaciones
+     * - credito: true para órdenes a crédito
+     * - facturada: true para órdenes facturadas, false para no facturadas
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 20, máximo: 100)
+     * - sortBy: Campo para ordenar (fecha, numero, total) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<Orden> (compatibilidad hacia atrás)
+     */
     @GetMapping
-    public List<Orden> listar(@RequestParam(required = false) Long clienteId,
-                              @RequestParam(required = false) Long sedeId,
-                              @RequestParam(required = false) Long trabajadorId,
-                              @RequestParam(required = false) Boolean venta,
-                              @RequestParam(required = false) Boolean credito) {
-        // Filtros combinados con sede y trabajador
-        if (clienteId != null && sedeId != null) return service.listarPorClienteYSede(clienteId, sedeId);
-        if (sedeId != null && trabajadorId != null) return service.listarPorSedeYTrabajador(sedeId, trabajadorId);
-        if (sedeId != null && venta != null)     return service.listarPorSedeYVenta(sedeId, venta);
-        if (sedeId != null && credito != null)   return service.listarPorSedeYCredito(sedeId, credito);
-        if (trabajadorId != null && venta != null) return service.listarPorTrabajadorYVenta(trabajadorId, venta);
+    public Object listar(
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) Long trabajadorId,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) Boolean venta,
+            @RequestParam(required = false) Boolean credito,
+            @RequestParam(required = false) Boolean facturada,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
         
-        // Filtros individuales
-        if (sedeId != null)       return service.listarPorSede(sedeId);
-        if (clienteId != null)    return service.listarPorCliente(clienteId);
-        if (trabajadorId != null) return service.listarPorTrabajador(trabajadorId);
-        if (venta != null)        return service.listarPorVenta(venta);
-        if (credito != null)      return service.listarPorCredito(credito);
+        // Convertir estado String a enum
+        Orden.EstadoOrden estadoEnum = null;
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                estadoEnum = Orden.EstadoOrden.valueOf(estado.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Estado inválido: " + estado + ". Valores válidos: ACTIVA, ANULADA");
+            }
+        }
         
-        return service.listar();
+        // Si solo hay trabajadorId y ningún otro filtro nuevo, usar método específico (compatibilidad)
+        if (trabajadorId != null && estadoEnum == null && fechaDesde == null && fechaHasta == null && 
+            facturada == null && page == null && size == null && sortBy == null && sortOrder == null) {
+            // Filtros combinados con trabajador (compatibilidad hacia atrás)
+            if (sedeId != null) return service.listarPorSedeYTrabajador(sedeId, trabajadorId);
+            if (venta != null) return service.listarPorTrabajadorYVenta(trabajadorId, venta);
+            return service.listarPorTrabajador(trabajadorId);
+        }
+        
+        // Si hay filtros antiguos simples sin filtros nuevos, mantener compatibilidad
+        if (estadoEnum == null && fechaDesde == null && fechaHasta == null && facturada == null && 
+            page == null && size == null && sortBy == null && sortOrder == null) {
+            // Filtros combinados con sede (compatibilidad hacia atrás)
+            if (clienteId != null && sedeId != null) return service.listarPorClienteYSede(clienteId, sedeId);
+            if (sedeId != null && venta != null) return service.listarPorSedeYVenta(sedeId, venta);
+            if (sedeId != null && credito != null) return service.listarPorSedeYCredito(sedeId, credito);
+            
+            // Filtros individuales (compatibilidad hacia atrás)
+            if (sedeId != null) return service.listarPorSede(sedeId);
+            if (clienteId != null) return service.listarPorCliente(clienteId);
+            if (venta != null) return service.listarPorVenta(venta);
+            if (credito != null) return service.listarPorCredito(credito);
+            
+            return service.listar();
+        }
+        
+        // Usar método con filtros completos
+        return service.listarConFiltros(
+            clienteId, sedeId, estadoEnum, fechaDesde, fechaHasta, 
+            venta, credito, facturada, page, size, sortBy, sortOrder
+        );
     }
 
     @GetMapping("/{id}")
@@ -259,8 +316,28 @@ public class OrdenController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * 📋 LISTAR ÓRDENES POR CLIENTE CON FILTROS OPCIONALES
+     * GET /api/ordenes/cliente/{clienteId}?fechaDesde=YYYY-MM-DD&fechaHasta=YYYY-MM-DD
+     * 
+     * Optimizado para mejorar rendimiento:
+     * - Filtra en la base de datos en lugar del frontend
+     * - Reduce el tamaño de la respuesta
+     * - Mejora el tiempo de carga
+     */
     @GetMapping("/cliente/{clienteId}")
-    public List<Orden> listarPorCliente(@PathVariable Long clienteId) {
+    public List<Orden> listarPorCliente(
+            @PathVariable Long clienteId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
+        
+        if (fechaDesde != null && fechaHasta != null) {
+            // Validar que fechaDesde <= fechaHasta
+            if (fechaDesde.isAfter(fechaHasta)) {
+                throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+            }
+            return service.listarPorClienteConFiltros(clienteId, fechaDesde, fechaHasta);
+        }
         return service.listarPorCliente(clienteId);
     }
 
@@ -369,39 +446,124 @@ public class OrdenController {
     // 🎯 ================================
 
     /**
-     * 🚀 LISTADO OPTIMIZADO PARA TABLA DE ÓRDENES
-     * Retorna solo campos esenciales para mejorar rendimiento
-     * - Cliente: solo nombre
-     * - Trabajador: solo nombre  
-     * - Sede: solo nombre
-     * - Items: todos los campos + producto simplificado (código, nombre)
+     * 🚀 LISTADO OPTIMIZADO PARA TABLA DE ÓRDENES CON FILTROS COMPLETOS
+     * GET /api/ordenes/tabla
+     * 
+     * Filtros disponibles:
+     * - clienteId: Filtrar por cliente
+     * - sedeId: Filtrar por sede
+     * - estado: ACTIVA, ANULADA
+     * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
+     * - venta: true para ventas, false para cotizaciones
+     * - credito: true para órdenes a crédito
+     * - facturada: true para órdenes facturadas, false para no facturadas
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 20, máximo: 100)
+     * - sortBy: Campo para ordenar (fecha, numero, total) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<OrdenTablaDTO> (compatibilidad hacia atrás)
      */
     @GetMapping("/tabla")
-    public List<OrdenTablaDTO> listarParaTabla(@RequestParam(required = false) Long clienteId,
-                                               @RequestParam(required = false) Long sedeId,
-                                               @RequestParam(required = false) Long trabajadorId) {
-        // Filtros específicos para tabla optimizada
-        if (sedeId != null)       return service.listarPorSedeParaTabla(sedeId);
-        if (clienteId != null)    return service.listarPorClienteParaTabla(clienteId);
-        if (trabajadorId != null) return service.listarPorTrabajadorParaTabla(trabajadorId);
+    public Object listarParaTabla(
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) Long trabajadorId,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) Boolean venta,
+            @RequestParam(required = false) Boolean credito,
+            @RequestParam(required = false) Boolean facturada,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
         
-        return service.listarParaTabla();
+        // Convertir estado String a enum
+        Orden.EstadoOrden estadoEnum = null;
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                estadoEnum = Orden.EstadoOrden.valueOf(estado.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Estado inválido: " + estado + ". Valores válidos: ACTIVA, ANULADA");
+            }
+        }
+        
+        // Si hay trabajadorId, filtrar por trabajador (compatibilidad hacia atrás)
+        // Nota: trabajadorId no está en el query del repositorio, se maneja después
+        if (trabajadorId != null && (clienteId == null && sedeId == null && estadoEnum == null && 
+            fechaDesde == null && fechaHasta == null && venta == null && credito == null && facturada == null)) {
+            // Solo filtro por trabajador, usar método específico
+            if (page != null && size != null) {
+                // TODO: Implementar paginación para trabajador
+                return service.listarPorTrabajadorParaTabla(trabajadorId);
+            }
+            return service.listarPorTrabajadorParaTabla(trabajadorId);
+        }
+        
+        // Usar método con filtros completos
+        return service.listarParaTablaConFiltros(
+            clienteId, sedeId, estadoEnum, fechaDesde, fechaHasta, 
+            venta, credito, facturada, page, size, sortBy, sortOrder
+        );
     }
 
     /**
-     * 💳 LISTADO DE ÓRDENES A CRÉDITO POR CLIENTE
-     * GET /api/ordenes/credito?clienteId=X
+     * 💳 LISTADO DE ÓRDENES A CRÉDITO POR CLIENTE CON FILTROS
+     * GET /api/ordenes/credito?clienteId=X&fechaDesde=YYYY-MM-DD&fechaHasta=YYYY-MM-DD&estado=ABIERTO&page=1&size=50
+     * 
+     * Parámetros:
+     * - clienteId: Integer (OBLIGATORIO) - ID del cliente
+     * - fechaDesde: YYYY-MM-DD (opcional) - Fecha desde
+     * - fechaHasta: YYYY-MM-DD (opcional) - Fecha hasta
+     * - estado: String (opcional) - Estado del crédito (ABIERTO, CERRADO, ANULADO)
+     * - page: Integer (opcional, default: sin paginación) - Número de página
+     * - size: Integer (opcional, default: 50, máximo: 200) - Tamaño de página
      * 
      * Retorna solo órdenes a crédito del cliente especificado con información del crédito:
      * - id, numero, fecha, total, credito
      * - creditoDetalle: { creditoId, saldoPendiente }
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<OrdenCreditoDTO> (compatibilidad hacia atrás)
      */
     @GetMapping("/credito")
-    public List<OrdenCreditoDTO> listarOrdenesCredito(@RequestParam(required = false) Long clienteId) {
+    public Object listarOrdenesCredito(
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        
         if (clienteId == null) {
             throw new IllegalArgumentException("El parámetro clienteId es obligatorio");
         }
-        return service.listarOrdenesCreditoPorCliente(clienteId);
+        
+        // Convertir estado String a enum
+        com.casaglass.casaglass_backend.model.Credito.EstadoCredito estadoEnum = null;
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                estadoEnum = com.casaglass.casaglass_backend.model.Credito.EstadoCredito.valueOf(estado.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Estado inválido: " + estado + ". Valores válidos: ABIERTO, CERRADO, ANULADO");
+            }
+        }
+        
+        // Si no hay filtros nuevos, usar método original (compatibilidad)
+        if (fechaDesde == null && fechaHasta == null && estadoEnum == null && page == null && size == null) {
+            return service.listarOrdenesCreditoPorCliente(clienteId);
+        }
+        
+        // Usar método con filtros
+        return service.listarOrdenesCreditoPorClienteConFiltros(
+            clienteId, fechaDesde, fechaHasta, estadoEnum, page, size
+        );
     }
 
     /**

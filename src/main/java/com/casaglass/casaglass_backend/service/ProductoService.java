@@ -93,6 +93,123 @@ public class ProductoService {
         return repo.findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(q, q);
     }
 
+    /**
+     * 🚀 LISTADO DE PRODUCTOS CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     * Nota: conStock requiere verificar inventario, se filtra después de obtener productos
+     */
+    @Transactional(readOnly = true)
+    public Object listarProductosConFiltros(
+            Long categoriaId,
+            String categoriaNombre,
+            TipoProducto tipo,
+            ColorProducto color,
+            String codigo,
+            String nombre,
+            Boolean conStock,
+            Long sedeId,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "codigo";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "ASC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "ASC";
+        }
+        
+        // Buscar productos con filtros
+        List<Producto> productos = repo.buscarConFiltros(
+            categoriaId, categoriaNombre, tipo, color, codigo, nombre
+        );
+        
+        // Filtrar por stock si se solicita (requiere verificar inventario)
+        if (conStock != null && conStock && sedeId != null) {
+            productos = productos.stream()
+                    .filter(p -> {
+                        Optional<Inventario> inventario = inventarioRepo.findByProductoIdAndSedeId(p.getId(), sedeId);
+                        return inventario.isPresent() && inventario.get().getCantidad() != null && inventario.get().getCantidad() > 0;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        
+        // Aplicar ordenamiento adicional si es necesario (el query ya ordena por codigo ASC)
+        if (!sortBy.equals("codigo") || !sortOrder.equals("ASC")) {
+            productos = aplicarOrdenamientoProductos(productos, sortBy, sortOrder);
+        }
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 50;
+            if (size > 200) size = 200; // Límite máximo para productos
+            
+            long totalElements = productos.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, productos.size());
+            
+            if (fromIndex >= productos.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<Producto> contenido = productos.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return productos;
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de productos según sortBy y sortOrder
+     */
+    private List<Producto> aplicarOrdenamientoProductos(List<Producto> productos, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "codigo":
+                productos.sort((a, b) -> {
+                    int cmp = (a.getCodigo() != null ? a.getCodigo() : "").compareToIgnoreCase(b.getCodigo() != null ? b.getCodigo() : "");
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "nombre":
+                productos.sort((a, b) -> {
+                    int cmp = (a.getNombre() != null ? a.getNombre() : "").compareToIgnoreCase(b.getNombre() != null ? b.getNombre() : "");
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "categoria":
+                productos.sort((a, b) -> {
+                    String catA = a.getCategoria() != null && a.getCategoria().getNombre() != null ? a.getCategoria().getNombre() : "";
+                    String catB = b.getCategoria() != null && b.getCategoria().getNombre() != null ? b.getCategoria().getNombre() : "";
+                    int cmp = catA.compareToIgnoreCase(catB);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por codigo ASC
+                productos.sort((a, b) -> (a.getCodigo() != null ? a.getCodigo() : "").compareToIgnoreCase(b.getCodigo() != null ? b.getCodigo() : ""));
+        }
+        
+        return productos;
+    }
+
     public Producto guardar(Producto p) {
         // Validar categoría si viene con ID
         if (p.getCategoria() != null && p.getCategoria().getId() != null) {

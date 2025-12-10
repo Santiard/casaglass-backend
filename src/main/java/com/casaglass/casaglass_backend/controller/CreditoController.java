@@ -39,10 +39,82 @@ public class CreditoController {
         }
     }
 
-    /** 📋 Obtener todos los créditos */
+    /**
+     * 📋 LISTADO DE CRÉDITOS CON FILTROS COMPLETOS
+     * GET /api/creditos
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - clienteId: Filtrar por cliente (recomendado para mejorar rendimiento)
+     * - sedeId: Filtrar por sede (a través de la orden)
+     * - estado: ABIERTO, CERRADO, VENCIDO, ANULADO
+     * - fechaDesde: YYYY-MM-DD (fecha inicio del crédito, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha inicio del crédito, inclusive)
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 50, máximo: 200)
+     * - sortBy: Campo para ordenar (fecha, montoTotal, saldoPendiente) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<CreditoResponseDTO> (compatibilidad hacia atrás)
+     * 
+     * NOTA: Si no se proporciona clienteId, se retornan TODOS los créditos (puede ser lento)
+     */
     @GetMapping
-    public List<CreditoResponseDTO> listar() {
-        return service.listar().stream()
+    public Object listar(
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fechaDesde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fechaHasta,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        
+        // Convertir estado String a enum
+        Credito.EstadoCredito estadoEnum = null;
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                estadoEnum = Credito.EstadoCredito.valueOf(estado.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Estado inválido: " + estado + ". Valores válidos: ABIERTO, CERRADO, VENCIDO, ANULADO");
+            }
+        }
+        
+        // Si no hay filtros nuevos, usar método original (compatibilidad)
+        if (clienteId == null && sedeId == null && estadoEnum == null && 
+            fechaDesde == null && fechaHasta == null && page == null && size == null && 
+            sortBy == null && sortOrder == null) {
+            return service.listar().stream()
+                    .map(CreditoResponseDTO::new)
+                    .collect(Collectors.toList());
+        }
+        
+        // Usar método con filtros
+        Object resultado = service.listarConFiltros(
+            clienteId, sedeId, estadoEnum, fechaDesde, fechaHasta, page, size, sortBy, sortOrder
+        );
+        
+        // Si es lista paginada, convertir los créditos a DTOs
+        if (resultado instanceof com.casaglass.casaglass_backend.dto.PageResponse) {
+            @SuppressWarnings("unchecked")
+            com.casaglass.casaglass_backend.dto.PageResponse<Credito> pageResponse = 
+                (com.casaglass.casaglass_backend.dto.PageResponse<Credito>) resultado;
+            
+            List<CreditoResponseDTO> contenidoDTO = pageResponse.getContent().stream()
+                    .map(CreditoResponseDTO::new)
+                    .collect(Collectors.toList());
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                contenidoDTO, pageResponse.getTotalElements(), pageResponse.getPage(), pageResponse.getSize()
+            );
+        }
+        
+        // Si es lista simple, convertir a DTOs
+        @SuppressWarnings("unchecked")
+        List<Credito> creditos = (List<Credito>) resultado;
+        return creditos.stream()
                 .map(CreditoResponseDTO::new)
                 .collect(Collectors.toList());
     }

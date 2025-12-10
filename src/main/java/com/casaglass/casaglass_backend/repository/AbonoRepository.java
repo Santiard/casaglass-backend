@@ -13,6 +13,12 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
 
     List<Abono> findByClienteId(Long clienteId);
 
+    /**
+     * Encuentra abonos de un cliente en un rango de fechas
+     * Optimizado para mejorar rendimiento al filtrar en la base de datos
+     */
+    List<Abono> findByClienteIdAndFechaBetween(Long clienteId, LocalDate fechaDesde, LocalDate fechaHasta);
+
     List<Abono> findByOrdenId(Long ordenId);
 
     /**
@@ -54,5 +60,29 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
         @Param("sedeId") Long sedeId,
         @Param("fechaDesde") LocalDate fechaDesde,
         @Param("fechaHasta") LocalDate fechaHasta
+    );
+
+    /**
+     * 🔍 BÚSQUEDA AVANZADA DE ABONOS CON MÚLTIPLES FILTROS
+     * Todos los parámetros son opcionales (nullable)
+     */
+    @Query("SELECT DISTINCT a FROM Abono a " +
+           "LEFT JOIN a.credito c " +
+           "LEFT JOIN a.orden o " +
+           "LEFT JOIN o.sede s " +
+           "WHERE (:clienteId IS NULL OR a.cliente.id = :clienteId) AND " +
+           "(:creditoId IS NULL OR a.credito.id = :creditoId) AND " +
+           "(:fechaDesde IS NULL OR a.fecha >= :fechaDesde) AND " +
+           "(:fechaHasta IS NULL OR a.fecha <= :fechaHasta) AND " +
+           "(:metodoPago IS NULL OR LOWER(a.metodoPago) LIKE LOWER(CONCAT('%', :metodoPago, '%'))) AND " +
+           "(:sedeId IS NULL OR o.sede.id = :sedeId) " +
+           "ORDER BY a.fecha DESC, a.id DESC")
+    List<Abono> buscarConFiltros(
+        @Param("clienteId") Long clienteId,
+        @Param("creditoId") Long creditoId,
+        @Param("fechaDesde") LocalDate fechaDesde,
+        @Param("fechaHasta") LocalDate fechaHasta,
+        @Param("metodoPago") String metodoPago,
+        @Param("sedeId") Long sedeId
     );
 }

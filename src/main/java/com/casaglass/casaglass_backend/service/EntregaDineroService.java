@@ -69,6 +69,115 @@ public class EntregaDineroService {
         return entregaDineroRepository.findBySedeIdAndFechaEntregaBetween(sedeId, desde, hasta);
     }
 
+    /**
+     * 🚀 LISTADO DE ENTREGAS DE DINERO CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     * Nota: conDiferencias no está implementado actualmente (requiere cálculo adicional)
+     */
+    @Transactional(readOnly = true)
+    public Object obtenerEntregasConFiltros(
+            Long sedeId,
+            Long empleadoId,
+            EntregaDinero.EstadoEntrega estado,
+            LocalDate desde,
+            LocalDate hasta,
+            Boolean conDiferencias, // No implementado actualmente
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar entregas con filtros
+        List<EntregaDinero> entregas = entregaDineroRepository.buscarConFiltros(
+            sedeId, empleadoId, estado, desde, hasta
+        );
+        
+        // TODO: Filtrar por conDiferencias si se implementa
+        // if (conDiferencias != null && conDiferencias) {
+        //     entregas = entregas.stream()
+        //         .filter(e -> tieneDiferencias(e))
+        //         .collect(Collectors.toList());
+        // }
+        
+        // Aplicar ordenamiento adicional si es necesario (el query ya ordena por fecha DESC)
+        if (!sortBy.equals("fecha") || !sortOrder.equals("DESC")) {
+            entregas = aplicarOrdenamientoEntregas(entregas, sortBy, sortOrder);
+        }
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100; // Límite máximo
+            
+            long totalElements = entregas.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, entregas.size());
+            
+            if (fromIndex >= entregas.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<EntregaDinero> contenido = entregas.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return entregas;
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de entregas según sortBy y sortOrder
+     */
+    private List<EntregaDinero> aplicarOrdenamientoEntregas(List<EntregaDinero> entregas, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "fecha":
+                entregas.sort((a, b) -> {
+                    int cmp = a.getFechaEntrega().compareTo(b.getFechaEntrega());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "id":
+                entregas.sort((a, b) -> {
+                    int cmp = Long.compare(a.getId(), b.getId());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por fecha DESC
+                entregas.sort((a, b) -> b.getFechaEntrega().compareTo(a.getFechaEntrega()));
+        }
+        
+        return entregas;
+    }
+
     public Double obtenerTotalEntregadoPorSedeEnPeriodo(Long sedeId, LocalDate desde, LocalDate hasta) {
         Double total = entregaDineroRepository.getTotalEntregadoBySedeAndPeriodo(sedeId, desde, hasta);
         return total != null ? total : 0.0;

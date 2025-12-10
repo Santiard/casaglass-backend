@@ -27,5 +27,32 @@ public interface ReembolsoVentaRepository extends JpaRepository<ReembolsoVenta, 
     // Obtener todos los reembolsos con detalles cargados
     @Query("SELECT r FROM ReembolsoVenta r LEFT JOIN FETCH r.detalles ORDER BY r.fecha DESC")
     List<ReembolsoVenta> findAllWithDetalles();
+
+    /**
+     * 🔍 BÚSQUEDA AVANZADA DE REEMBOLSOS DE VENTA CON MÚLTIPLES FILTROS
+     * Todos los parámetros son opcionales (nullable)
+     */
+    @Query("SELECT DISTINCT r FROM ReembolsoVenta r " +
+           "LEFT JOIN FETCH r.detalles d " +
+           "LEFT JOIN FETCH r.ordenOriginal o " +
+           "LEFT JOIN FETCH r.cliente c " +
+           "LEFT JOIN FETCH r.sede s " +
+           "WHERE (:ordenId IS NULL OR r.ordenOriginal.id = :ordenId) AND " +
+           "(:clienteId IS NULL OR r.cliente.id = :clienteId) AND " +
+           "(:sedeId IS NULL OR r.sede.id = :sedeId) AND " +
+           "(:estado IS NULL OR r.estado = :estado) AND " +
+           "(:fechaDesde IS NULL OR r.fecha >= :fechaDesde) AND " +
+           "(:fechaHasta IS NULL OR r.fecha <= :fechaHasta) AND " +
+           "(:procesado IS NULL OR r.procesado = :procesado) " +
+           "ORDER BY r.fecha DESC, r.id DESC")
+    List<ReembolsoVenta> buscarConFiltros(
+        @Param("ordenId") Long ordenId,
+        @Param("clienteId") Long clienteId,
+        @Param("sedeId") Long sedeId,
+        @Param("estado") com.casaglass.casaglass_backend.model.ReembolsoVenta.EstadoReembolso estado,
+        @Param("fechaDesde") java.time.LocalDate fechaDesde,
+        @Param("fechaHasta") java.time.LocalDate fechaHasta,
+        @Param("procesado") Boolean procesado
+    );
 }
 

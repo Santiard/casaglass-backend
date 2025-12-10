@@ -336,19 +336,7 @@ public class OrdenService {
         }
         
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
-        // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
-        if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes...");
-            procesarCortes(ordenGuardada, ventaDTO.getCortes());
-        }
-        
-        // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
-        // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
-        // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
-        incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
-        
-        // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
-        // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
+        // Esto crea los cortes nuevos y actualiza inventarios
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes...");
             procesarCortes(ordenGuardada, ventaDTO.getCortes());
@@ -697,8 +685,94 @@ public class OrdenService {
         return repo.findAll();
     }
 
+    /**
+     * 🚀 LISTADO DE ÓRDENES CON FILTROS COMPLETOS
+     * Similar a listarParaTablaConFiltros pero retorna entidades Orden completas
+     */
+    @Transactional(readOnly = true)
+    public Object listarConFiltros(
+            Long clienteId,
+            Long sedeId,
+            Orden.EstadoOrden estado,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            Boolean venta,
+            Boolean credito,
+            Boolean facturada,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar órdenes con filtros
+        List<Orden> ordenes = repo.buscarConFiltros(
+            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, facturada
+        );
+        
+        // Aplicar ordenamiento
+        ordenes = aplicarOrdenamiento(ordenes, sortBy, sortOrder);
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100; // Límite máximo
+            
+            long totalElements = ordenes.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, ordenes.size());
+            
+            if (fromIndex >= ordenes.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<Orden> ordenesPagina = ordenes.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(ordenesPagina, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return ordenes;
+    }
+
     @Transactional(readOnly = true)
     public List<Orden> listarPorCliente(Long clienteId) { return repo.findByClienteId(clienteId); }
+
+    /**
+     * Lista órdenes de un cliente con filtros opcionales de fecha
+     * Optimizado para mejorar rendimiento al filtrar en la base de datos
+     */
+    @Transactional(readOnly = true)
+    public List<Orden> listarPorClienteConFiltros(Long clienteId, LocalDate fechaDesde, LocalDate fechaHasta) {
+        if (fechaDesde != null && fechaHasta != null) {
+            return repo.findByClienteIdAndFechaBetween(clienteId, fechaDesde, fechaHasta);
+        }
+        return repo.findByClienteId(clienteId);
+    }
 
     @Transactional(readOnly = true)
     public List<Orden> listarPorVenta(boolean venta) { return repo.findByVenta(venta); }
@@ -807,6 +881,155 @@ public class OrdenService {
     }
 
     /**
+     * 🚀 LISTADO PAGINADO PARA TABLA DE ÓRDENES
+     * Retorna solo los campos necesarios con paginación para mejorar rendimiento
+     * 
+     * @param page Número de página (1-indexed, default: 1)
+     * @param size Tamaño de página (default: 20, máximo: 100)
+     * @return Respuesta paginada con órdenes
+     */
+    @Transactional(readOnly = true)
+    public com.casaglass.casaglass_backend.dto.PageResponse<OrdenTablaDTO> listarParaTablaPaginado(int page, int size) {
+        // Validar y ajustar parámetros
+        if (page < 1) page = 1;
+        if (size < 1) size = 20;
+        if (size > 100) size = 100; // Límite máximo
+        
+        // Obtener todas las órdenes (por ahora, luego optimizar con query específica)
+        List<Orden> todasLasOrdenes = repo.findAll();
+        long totalElements = todasLasOrdenes.size();
+        
+        // Calcular índices para paginación (0-indexed para sublist)
+        int fromIndex = (page - 1) * size;
+        int toIndex = Math.min(fromIndex + size, todasLasOrdenes.size());
+        
+        // Obtener solo la página solicitada
+        List<Orden> ordenesPagina = todasLasOrdenes.subList(fromIndex, toIndex);
+        
+        // Convertir a DTOs
+        List<OrdenTablaDTO> contenido = ordenesPagina.stream()
+                .map(this::convertirAOrdenTablaDTO)
+                .collect(Collectors.toList());
+        
+        return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+    }
+
+    /**
+     * 🚀 LISTADO OPTIMIZADO CON FILTROS COMPLETOS PARA TABLA
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     */
+    @Transactional(readOnly = true)
+    public Object listarParaTablaConFiltros(
+            Long clienteId,
+            Long sedeId,
+            Orden.EstadoOrden estado,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            Boolean venta,
+            Boolean credito,
+            Boolean facturada,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar órdenes con filtros
+        List<Orden> ordenes = repo.buscarConFiltros(
+            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, facturada
+        );
+        
+        // Aplicar ordenamiento
+        ordenes = aplicarOrdenamiento(ordenes, sortBy, sortOrder);
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100; // Límite máximo
+            
+            long totalElements = ordenes.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, ordenes.size());
+            
+            if (fromIndex >= ordenes.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<Orden> ordenesPagina = ordenes.subList(fromIndex, toIndex);
+            
+            // Convertir a DTOs
+            List<OrdenTablaDTO> contenido = ordenesPagina.stream()
+                    .map(this::convertirAOrdenTablaDTO)
+                    .collect(Collectors.toList());
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return ordenes.stream()
+                .map(this::convertirAOrdenTablaDTO)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de órdenes según sortBy y sortOrder
+     */
+    private List<Orden> aplicarOrdenamiento(List<Orden> ordenes, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "fecha":
+                ordenes.sort((a, b) -> {
+                    int cmp = a.getFecha().compareTo(b.getFecha());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "numero":
+                ordenes.sort((a, b) -> {
+                    int cmp = Long.compare(a.getNumero(), b.getNumero());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "total":
+                ordenes.sort((a, b) -> {
+                    int cmp = Double.compare(a.getTotal() != null ? a.getTotal() : 0.0,
+                                            b.getTotal() != null ? b.getTotal() : 0.0);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por fecha DESC
+                ordenes.sort((a, b) -> b.getFecha().compareTo(a.getFecha()));
+        }
+        
+        return ordenes;
+    }
+
+    /**
      * 🚀 LISTADO OPTIMIZADO POR SEDE PARA TABLA
      */
     @Transactional(readOnly = true)
@@ -814,6 +1037,40 @@ public class OrdenService {
         return repo.findBySedeId(sedeId).stream()
                 .map(this::convertirAOrdenTablaDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 🚀 LISTADO PAGINADO POR SEDE PARA TABLA
+     * 
+     * @param sedeId ID de la sede
+     * @param page Número de página (1-indexed, default: 1)
+     * @param size Tamaño de página (default: 20, máximo: 100)
+     * @return Respuesta paginada con órdenes de la sede
+     */
+    @Transactional(readOnly = true)
+    public com.casaglass.casaglass_backend.dto.PageResponse<OrdenTablaDTO> listarPorSedeParaTablaPaginado(Long sedeId, int page, int size) {
+        // Validar y ajustar parámetros
+        if (page < 1) page = 1;
+        if (size < 1) size = 20;
+        if (size > 100) size = 100; // Límite máximo
+        
+        // Obtener todas las órdenes de la sede
+        List<Orden> todasLasOrdenes = repo.findBySedeId(sedeId);
+        long totalElements = todasLasOrdenes.size();
+        
+        // Calcular índices para paginación (0-indexed para sublist)
+        int fromIndex = (page - 1) * size;
+        int toIndex = Math.min(fromIndex + size, todasLasOrdenes.size());
+        
+        // Obtener solo la página solicitada
+        List<Orden> ordenesPagina = todasLasOrdenes.subList(fromIndex, toIndex);
+        
+        // Convertir a DTOs
+        List<OrdenTablaDTO> contenido = ordenesPagina.stream()
+                .map(this::convertirAOrdenTablaDTO)
+                .collect(Collectors.toList());
+        
+        return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
     }
 
     /**
@@ -847,6 +1104,89 @@ public class OrdenService {
                 .filter(Orden::isCredito)  // Solo órdenes a crédito
                 .map(this::convertirAOrdenCreditoDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 💳 LISTADO DE ÓRDENES A CRÉDITO POR CLIENTE CON FILTROS
+     * Retorna solo órdenes a crédito con filtros opcionales de fecha, estado y paginación
+     */
+    @Transactional(readOnly = true)
+    public Object listarOrdenesCreditoPorClienteConFiltros(
+            Long clienteId,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            com.casaglass.casaglass_backend.model.Credito.EstadoCredito estadoCredito,
+            Integer page,
+            Integer size) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Obtener órdenes del cliente
+        List<Orden> ordenes = repo.findByClienteId(clienteId);
+        
+        // Filtrar solo órdenes a crédito
+        ordenes = ordenes.stream()
+                .filter(Orden::isCredito)
+                .collect(Collectors.toList());
+        
+        // Aplicar filtro de fecha si se proporciona
+        if (fechaDesde != null || fechaHasta != null) {
+            ordenes = ordenes.stream()
+                    .filter(o -> {
+                        if (fechaDesde != null && o.getFecha().isBefore(fechaDesde)) return false;
+                        if (fechaHasta != null && o.getFecha().isAfter(fechaHasta)) return false;
+                        return true;
+                    })
+                    .collect(Collectors.toList());
+        }
+        
+        // Aplicar filtro de estado del crédito si se proporciona
+        if (estadoCredito != null) {
+            ordenes = ordenes.stream()
+                    .filter(o -> o.getCreditoDetalle() != null && 
+                               o.getCreditoDetalle().getEstado() == estadoCredito)
+                    .collect(Collectors.toList());
+        }
+        
+        // Ordenar por fecha DESC (más recientes primero)
+        ordenes.sort((a, b) -> b.getFecha().compareTo(a.getFecha()));
+        
+        // Convertir a DTOs
+        List<OrdenCreditoDTO> dtos = ordenes.stream()
+                .map(this::convertirAOrdenCreditoDTO)
+                .collect(Collectors.toList());
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 50;
+            if (size > 200) size = 200; // Límite máximo para créditos
+            
+            long totalElements = dtos.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, dtos.size());
+            
+            if (fromIndex >= dtos.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<OrdenCreditoDTO> contenido = dtos.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return dtos;
     }
 
     /**
@@ -1358,11 +1698,13 @@ public class OrdenService {
     /**
      * 🔪 PROCESAR CORTES DE PRODUCTOS PERFIL
      * 
-     * Crea dos cortes por cada solicitud:
-     * 1. Corte solicitado (para vender)
-     * 2. Corte sobrante (para inventario)
+     * Lógica mejorada:
+     * 1. Crea o reutiliza corte solicitado (para vender)
+     * 2. Crea o reutiliza corte sobrante (para inventario)
+     * 3. Incrementa inventario de AMBOS cortes en +1 (simula el corte)
+     * 4. Luego se decrementa el solicitado en -1 cuando se procesa la venta
      * 
-     * También actualiza el inventario de cortes automáticamente por sede
+     * Si los cortes ya existen, simplemente se incrementa su inventario.
      */
     @Transactional
     private void procesarCortes(Orden orden, List<OrdenVentaDTO.CorteSolicitadoDTO> cortes) {
@@ -1370,7 +1712,7 @@ public class OrdenService {
         
         for (OrdenVentaDTO.CorteSolicitadoDTO corteDTO : cortes) {
             System.out.println("🔪 Procesando corte: ProductoId=" + corteDTO.getProductoId() + 
-                             ", Medida=" + corteDTO.getMedidaSolicitada() + 
+                             ", Medida solicitada=" + corteDTO.getMedidaSolicitada() + "cm" +
                              ", Cantidad=" + corteDTO.getCantidad());
             
             // Validar que tenga cantidades por sede
@@ -1379,98 +1721,115 @@ public class OrdenService {
                 continue;
             }
             
-            System.out.println("🔪 Cantidades por sede recibidas: " + corteDTO.getCantidadesPorSede().size());
-            corteDTO.getCantidadesPorSede().forEach(cant -> 
-                System.out.println("🔪   Sede ID: " + cant.getSedeId() + ", Cantidad: " + cant.getCantidad())
-            );
-            
             // 1. Obtener producto original
             Producto productoOriginal = productoRepository.findById(corteDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + corteDTO.getProductoId()));
             
-            // 2. Crear corte solicitado (para vender)
+            // 2. Crear o reutilizar corte solicitado (para vender)
             Corte corteSolicitado = crearCorteIndividual(
                 productoOriginal, 
                 corteDTO.getMedidaSolicitada(), 
                 corteDTO.getPrecioUnitarioSolicitado(),
-                "SOLICITADO"
+                "SOLICITADO" // Solo para logging interno, no se incluye en el nombre
             );
+            System.out.println("✅ Corte solicitado: ID=" + corteSolicitado.getId() + 
+                             ", Código=" + corteSolicitado.getCodigo() + 
+                             ", Largo=" + corteSolicitado.getLargoCm() + "cm");
             
             // 3. Determinar corte sobrante (reutilizar si llega ID, de lo contrario crear)
-            Long corteSobranteId;
+            Corte corteSobrante;
             if (corteDTO.getReutilizarCorteId() != null) {
-                corteSobranteId = corteDTO.getReutilizarCorteId();
-                System.out.println("🔁 Reutilizando corte sobrante existente ID=" + corteSobranteId);
+                corteSobrante = corteRepository.findById(corteDTO.getReutilizarCorteId())
+                    .orElseThrow(() -> new RuntimeException("Corte sobrante no encontrado con ID: " + corteDTO.getReutilizarCorteId()));
+                System.out.println("🔁 Reutilizando corte sobrante existente: ID=" + corteSobrante.getId() + 
+                                 ", Código=" + corteSobrante.getCodigo() + 
+                                 ", Largo=" + corteSobrante.getLargoCm() + "cm");
             } else {
-                // Usar medidaSobrante del DTO, o calcular si no viene
+                // Usar medidaSobrante del DTO, o calcular si no viene (600cm por defecto)
                 Integer medidaSobrante = corteDTO.getMedidaSobrante() != null 
                     ? corteDTO.getMedidaSobrante() 
                     : (600 - corteDTO.getMedidaSolicitada());
-                Corte corteSobrante = crearCorteIndividual(
+                corteSobrante = crearCorteIndividual(
                     productoOriginal, 
                     medidaSobrante, 
                     corteDTO.getPrecioUnitarioSobrante(),
-                    "SOBRANTE"
+                    "SOBRANTE" // Solo para logging interno, no se incluye en el nombre
                 );
-                corteSobranteId = corteSobrante.getId();
-                System.out.println("🆕 Corte sobrante creado ID=" + corteSobranteId + ", Medida: " + medidaSobrante);
+                System.out.println("🆕 Corte sobrante creado: ID=" + corteSobrante.getId() + 
+                                 ", Código=" + corteSobrante.getCodigo() + 
+                                 ", Largo=" + corteSobrante.getLargoCm() + "cm");
             }
             
-            // 4. Aplicar incremento de stock según esSobrante
-            // Si esSobrante === true: solo incrementar stock del sobrante
-            // Si esSobrante === false: NO incrementar stock del solicitado (se vende, stock queda en 0)
-            if (corteDTO.getEsSobrante() != null && corteDTO.getEsSobrante()) {
-                // Solo aplicar cantidadesPorSede al sobrante
-                if (corteDTO.getCantidadesPorSede() != null && !corteDTO.getCantidadesPorSede().isEmpty()) {
-                    for (OrdenVentaDTO.CorteSolicitadoDTO.CantidadPorSedeDTO cantidadSede : corteDTO.getCantidadesPorSede()) {
-                        if (cantidadSede.getSedeId() == null || cantidadSede.getCantidad() == null || cantidadSede.getCantidad() <= 0) {
-                            continue; // Saltar sedes con cantidad 0 o sin ID
-                        }
-                        
-                        Long sedeId = cantidadSede.getSedeId();
-                        Integer cantidad = cantidadSede.getCantidad();
-                        
-                        // Incrementar stock SOLO del corte sobrante
-                        inventarioCorteService.incrementarStock(
-                            corteSobranteId,
-                            sedeId,
-                            cantidad
-                        );
-                        System.out.println("📦 Stock sobrante incrementado en Sede ID " + sedeId + ": +" + cantidad);
+            // 4. INCREMENTAR INVENTARIO DE AMBOS CORTES (simula el corte)
+            // Cuando se hace un corte, ambos cortes se agregan al inventario
+            // Luego, cuando se procesa la venta, se decrementa el solicitado
+            
+            Long sedeId = orden.getSede().getId();
+            Integer cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1;
+            
+            // Incrementar inventario del corte solicitado en +1 (por cada corte hecho)
+            for (int i = 0; i < cantidad; i++) {
+                inventarioCorteService.incrementarStock(corteSolicitado.getId(), sedeId, 1);
+            }
+            System.out.println("📦 Stock del corte solicitado incrementado: Corte ID=" + corteSolicitado.getId() + 
+                             ", Sede ID=" + sedeId + ", Cantidad: +" + cantidad);
+            
+            // Incrementar inventario del corte sobrante según cantidadesPorSede
+            if (corteDTO.getCantidadesPorSede() != null && !corteDTO.getCantidadesPorSede().isEmpty()) {
+                for (OrdenVentaDTO.CorteSolicitadoDTO.CantidadPorSedeDTO cantidadSede : corteDTO.getCantidadesPorSede()) {
+                    if (cantidadSede.getSedeId() == null || cantidadSede.getCantidad() == null || cantidadSede.getCantidad() <= 0) {
+                        continue; // Saltar sedes con cantidad 0 o sin ID
                     }
-                    System.out.println("✅ Stock del corte solicitado NO incrementado (esSobrante=true, se vende con stock 0)");
-                } else {
-                    System.out.println("⚠️ esSobrante=true pero no hay cantidadesPorSede, omitiendo incremento de stock");
+                    
+                    Long sedeIdSobrante = cantidadSede.getSedeId();
+                    Integer cantidadSobrante = cantidadSede.getCantidad();
+                    
+                    // Incrementar stock del corte sobrante
+                    inventarioCorteService.incrementarStock(
+                        corteSobrante.getId(),
+                        sedeIdSobrante,
+                        cantidadSobrante
+                    );
+                    System.out.println("📦 Stock del corte sobrante incrementado: Corte ID=" + corteSobrante.getId() + 
+                                     ", Sede ID=" + sedeIdSobrante + ", Cantidad: +" + cantidadSobrante);
                 }
             } else {
-                // esSobrante === false o null: NO incrementar stock del solicitado
-                System.out.println("✅ Corte solicitado: NO se incrementa stock (se vende, stock queda en 0)");
-                System.out.println("✅ Corte sobrante: NO se incrementa stock (esSobrante=false, usar esSobrante=true para sobrante)");
+                // Si no hay cantidadesPorSede específicas, incrementar en la sede de la orden
+                inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, cantidad);
+                System.out.println("📦 Stock del corte sobrante incrementado (sede de orden): Corte ID=" + corteSobrante.getId() + 
+                                 ", Sede ID=" + sedeId + ", Cantidad: +" + cantidad);
             }
             
             System.out.println("✅ Cortes procesados: Solicitado ID=" + corteSolicitado.getId() + 
-                             ", Sobrante ID=" + corteSobranteId);
+                             " (" + corteSolicitado.getLargoCm() + "cm), " +
+                             "Sobrante ID=" + corteSobrante.getId() + 
+                             " (" + corteSobrante.getLargoCm() + "cm)");
         }
         
         System.out.println("✅ Procesamiento de cortes completado");
+        System.out.println("ℹ️ NOTA: El inventario del corte solicitado se decrementará cuando se procese la venta");
     }
     
     /**
      * 🔧 CREAR CORTE INDIVIDUAL
      * 
-     * Crea un corte con los datos proporcionados
+     * Crea un corte con los datos proporcionados.
+     * El código siempre es el del producto base (sin sufijo de medida).
+     * El nombre incluye la medida en CMS sin indicar si es SOBRANTE o SOLICITADO.
      */
     private Corte crearCorteIndividual(Producto productoOriginal, Integer medida, Double precio, String tipo) {
-        // 0) Intentar reutilizar un corte existente por código exacto, largo, categoría y color
-        // ✅ Código simplificado: CODIGO_ORIGINAL-MEDIDA (sin sufijo de timestamp)
-        String codigo = productoOriginal.getCodigo() + "-" + medida;
+        // 0) Intentar reutilizar un corte existente por código base, largo, categoría y color
+        // ✅ Código siempre es el del producto base (ej: "392"), NO incluye la medida
+        String codigoBase = productoOriginal.getCodigo();
         Long categoriaId = productoOriginal.getCategoria() != null ? productoOriginal.getCategoria().getId() : null;
         var color = productoOriginal.getColor();
+        
         if (categoriaId != null && color != null) {
             var existenteOpt = corteRepository
-                .findExistingByCodigoAndSpecs(codigo, medida.doubleValue(), categoriaId, color);
+                .findExistingByCodigoAndSpecs(codigoBase, medida.doubleValue(), categoriaId, color);
             if (existenteOpt.isPresent()) {
-                System.out.println("🔁 Reutilizando corte existente: " + existenteOpt.get().getCodigo() + " (ID=" + existenteOpt.get().getId() + ")");
+                System.out.println("🔁 Reutilizando corte existente: " + existenteOpt.get().getCodigo() + 
+                                 " (ID=" + existenteOpt.get().getId() + ", Largo=" + medida + "cm)");
                 return existenteOpt.get();
             }
         }
@@ -1478,16 +1837,15 @@ public class OrdenService {
         // 1) Crear nuevo corte
         Corte corte = new Corte();
 
-        // ✅ Código simplificado: CODIGO_ORIGINAL-MEDIDA
-        // La lógica de reutilización (líneas anteriores) ya evita duplicados
-        // verificando por código exacto, medida, categoría y color
-        // Ejemplo: "192-150" (sin sufijo de timestamp)
-        corte.setCodigo(codigo);
+        // ✅ Código siempre es el del producto base (ej: "392")
+        // NO se agrega sufijo de medida al código
+        corte.setCodigo(codigoBase);
 
-        // Nombre descriptivo
-        corte.setNombre(productoOriginal.getNombre() + " - " + medida + "cm (" + tipo + ")");
+        // ✅ Nombre: "[Nombre Producto Base] Corte de X CMS"
+        // NO se incluye (SOBRANTE) ni (SOLICITADO) en el nombre
+        corte.setNombre(productoOriginal.getNombre() + " Corte de " + medida + " CMS");
 
-        // Medida específica
+        // Medida específica en centímetros
         corte.setLargoCm(medida.doubleValue());
 
         // Precio calculado por el frontend
@@ -1501,7 +1859,7 @@ public class OrdenService {
         corte.setCosto(0.0); // Por ahora sin costo específico
 
         // Observación descriptiva
-        corte.setObservacion("Corte generado automáticamente - " + tipo.toLowerCase());
+        corte.setObservacion("Corte generado automáticamente");
 
         return corteService.guardar(corte);
     }

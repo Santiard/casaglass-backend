@@ -2,7 +2,9 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.dto.ReembolsoIngresoCreateDTO;
 import com.casaglass.casaglass_backend.dto.ReembolsoIngresoResponseDTO;
+import com.casaglass.casaglass_backend.model.ReembolsoIngreso;
 import com.casaglass.casaglass_backend.service.ReembolsoIngresoService;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,20 +22,72 @@ public class ReembolsoIngresoController {
         this.service = service;
     }
 
+    /**
+     * 📋 LISTADO DE REEMBOLSOS DE INGRESO CON FILTROS COMPLETOS
+     * GET /api/reembolsos-ingreso
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - ingresoId: Filtrar por ingreso
+     * - proveedorId: Filtrar por proveedor
+     * - sedeId: No implementado actualmente (los ingresos no tienen campo sede)
+     * - estado: PENDIENTE, PROCESADO, ANULADO
+     * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
+     * - procesado: Boolean (true para procesados, false para pendientes)
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 20, máximo: 100)
+     * - sortBy: Campo para ordenar (fecha, monto) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<ReembolsoIngresoResponseDTO> (compatibilidad hacia atrás)
+     */
     @GetMapping
-    public ResponseEntity<List<ReembolsoIngresoResponseDTO>> listarReembolsos(
-            @RequestParam(required = false) Long sedeId) {
+    public ResponseEntity<Object> listarReembolsos(
+            @RequestParam(required = false) Long ingresoId,
+            @RequestParam(required = false) Long proveedorId,
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate fechaHasta,
+            @RequestParam(required = false) Boolean procesado,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
         try {
-            List<ReembolsoIngresoResponseDTO> reembolsos;
-            if (sedeId != null) {
-                reembolsos = service.listarReembolsosPorSede(sedeId);
-            } else {
-                reembolsos = service.listarReembolsos();
+            // Convertir estado String a enum
+            ReembolsoIngreso.EstadoReembolso estadoEnum = null;
+            if (estado != null && !estado.isEmpty()) {
+                try {
+                    estadoEnum = ReembolsoIngreso.EstadoReembolso.valueOf(estado.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Estado inválido: " + estado + ". Valores válidos: PENDIENTE, PROCESADO, ANULADO"
+                    ));
+                }
             }
-            return ResponseEntity.ok(reembolsos);
+            
+            // Si solo hay sedeId y ningún otro filtro nuevo, usar método específico (compatibilidad)
+            if (sedeId != null && ingresoId == null && proveedorId == null && estadoEnum == null && 
+                fechaDesde == null && fechaHasta == null && procesado == null && 
+                page == null && size == null && sortBy == null && sortOrder == null) {
+                return ResponseEntity.ok(service.listarReembolsosPorSede(sedeId));
+            }
+            
+            // Usar método con filtros (sedeId se ignora por ahora)
+            Object resultado = service.listarReembolsosConFiltros(
+                ingresoId, proveedorId, sedeId, estadoEnum, fechaDesde, fechaHasta, procesado, 
+                page, size, sortBy, sortOrder
+            );
+            
+            return ResponseEntity.ok(resultado);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(500).body(null);
+            return ResponseEntity.status(500).body(Map.of("error", "Error interno: " + e.getMessage()));
         }
     }
 

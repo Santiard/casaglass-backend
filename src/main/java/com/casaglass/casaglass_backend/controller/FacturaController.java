@@ -5,6 +5,7 @@ import com.casaglass.casaglass_backend.dto.FacturaTablaDTO;
 import com.casaglass.casaglass_backend.model.Factura;
 import com.casaglass.casaglass_backend.service.FacturaService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -68,18 +69,120 @@ public class FacturaController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * 📋 LISTADO DE FACTURAS CON FILTROS COMPLETOS
+     * GET /api/facturas
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - clienteId: Filtrar por cliente
+     * - sedeId: Filtrar por sede (a través de la orden)
+     * - estado: PENDIENTE, PAGADA, ANULADA, EN_PROCESO
+     * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
+     * - numeroFactura: Búsqueda parcial (case-insensitive)
+     * - ordenId: Filtrar por orden
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 20, máximo: 100)
+     * - sortBy: Campo para ordenar (fecha, numeroFactura, total) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<Factura> (compatibilidad hacia atrás)
+     */
     @GetMapping
-    public ResponseEntity<List<Factura>> listarFacturas() {
-        return ResponseEntity.ok(facturaService.listar());
+    public ResponseEntity<Object> listarFacturas(
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) String numeroFactura,
+            @RequestParam(required = false) Long ordenId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        
+        // Convertir estado String a enum
+        Factura.EstadoFactura estadoEnum = null;
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                estadoEnum = Factura.EstadoFactura.valueOf(estado.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Estado inválido: " + estado + ". Valores válidos: PENDIENTE, PAGADA, ANULADA, EN_PROCESO"
+                ));
+            }
+        }
+        
+        // Si no hay filtros nuevos, usar método original (compatibilidad)
+        if (clienteId == null && sedeId == null && estadoEnum == null && 
+            fechaDesde == null && fechaHasta == null && numeroFactura == null && ordenId == null &&
+            page == null && size == null && sortBy == null && sortOrder == null) {
+            return ResponseEntity.ok(facturaService.listar());
+        }
+        
+        // Usar método con filtros
+        Object resultado = facturaService.listarFacturasConFiltros(
+            clienteId, sedeId, estadoEnum, fechaDesde, fechaHasta, numeroFactura, ordenId, 
+            page, size, sortBy, sortOrder
+        );
+        
+        return ResponseEntity.ok(resultado);
     }
 
+    /**
+     * 📋 LISTADO DE FACTURAS PARA TABLA CON FILTROS COMPLETOS
+     * GET /api/facturas/tabla
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - clienteId: Filtrar por cliente
+     * - sedeId: Filtrar por sede (a través de la orden)
+     * - estado: PENDIENTE, PAGADA, ANULADA, EN_PROCESO
+     * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 20, máximo: 100)
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<FacturaTablaDTO> (compatibilidad hacia atrás)
+     */
     @GetMapping("/tabla")
-    public ResponseEntity<List<FacturaTablaDTO>> listarFacturasParaTabla(
-            @RequestParam(required = false) Long sedeId) {
-        if (sedeId != null) {
+    public ResponseEntity<Object> listarFacturasParaTabla(
+            @RequestParam(required = false) Long clienteId,
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        
+        // Convertir estado String a enum
+        Factura.EstadoFactura estadoEnum = null;
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                estadoEnum = Factura.EstadoFactura.valueOf(estado.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Estado inválido: " + estado + ". Valores válidos: PENDIENTE, PAGADA, ANULADA, EN_PROCESO"
+                ));
+            }
+        }
+        
+        // Si solo hay sedeId y ningún otro filtro nuevo, usar método específico (compatibilidad)
+        if (sedeId != null && clienteId == null && estadoEnum == null && 
+            fechaDesde == null && fechaHasta == null && page == null && size == null) {
             return ResponseEntity.ok(facturaService.listarParaTablaPorSede(sedeId));
         }
-        return ResponseEntity.ok(facturaService.listarParaTabla());
+        
+        // Usar método con filtros
+        Object resultado = facturaService.listarParaTablaConFiltros(
+            clienteId, sedeId, estadoEnum, fechaDesde, fechaHasta, page, size
+        );
+        
+        return ResponseEntity.ok(resultado);
     }
 
     @GetMapping("/estado/{estado}")

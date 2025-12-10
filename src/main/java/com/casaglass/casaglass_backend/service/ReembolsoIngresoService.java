@@ -73,6 +73,117 @@ public class ReembolsoIngresoService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 🚀 LISTADO DE REEMBOLSOS DE INGRESO CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     * Nota: sedeId no está implementado actualmente porque Ingreso no tiene campo sede
+     */
+    @Transactional(readOnly = true)
+    public Object listarReembolsosConFiltros(
+            Long ingresoId,
+            Long proveedorId,
+            Long sedeId, // No implementado actualmente
+            ReembolsoIngreso.EstadoReembolso estado,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            Boolean procesado,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar reembolsos con filtros (sedeId se ignora por ahora)
+        List<ReembolsoIngreso> reembolsos = reembolsoIngresoRepository.buscarConFiltros(
+            ingresoId, proveedorId, estado, fechaDesde, fechaHasta, procesado
+        );
+        
+        // Aplicar ordenamiento adicional si es necesario (el query ya ordena por fecha DESC)
+        if (!sortBy.equals("fecha") || !sortOrder.equals("DESC")) {
+            reembolsos = aplicarOrdenamientoReembolsos(reembolsos, sortBy, sortOrder);
+        }
+        
+        // Convertir a DTOs
+        List<ReembolsoIngresoResponseDTO> dtos = reembolsos.stream()
+                .map(ReembolsoIngresoResponseDTO::new)
+                .collect(Collectors.toList());
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100; // Límite máximo
+            
+            long totalElements = dtos.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, dtos.size());
+            
+            if (fromIndex >= dtos.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<ReembolsoIngresoResponseDTO> contenido = dtos.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return dtos;
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de reembolsos según sortBy y sortOrder
+     */
+    private List<ReembolsoIngreso> aplicarOrdenamientoReembolsos(List<ReembolsoIngreso> reembolsos, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "fecha":
+                reembolsos.sort((a, b) -> {
+                    int cmp = a.getFecha().compareTo(b.getFecha());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "monto":
+            case "totalreembolso":
+            case "total_reembolso":
+                reembolsos.sort((a, b) -> {
+                    int cmp = Double.compare(a.getTotalReembolso() != null ? a.getTotalReembolso() : 0.0,
+                                            b.getTotalReembolso() != null ? b.getTotalReembolso() : 0.0);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por fecha DESC
+                reembolsos.sort((a, b) -> b.getFecha().compareTo(a.getFecha()));
+        }
+        
+        return reembolsos;
+    }
+
     @Transactional(readOnly = true)
     public Optional<ReembolsoIngresoResponseDTO> obtenerPorId(Long id) {
         return reembolsoIngresoRepository.findByIdWithDetalles(id)

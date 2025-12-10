@@ -22,9 +22,57 @@ public class ClienteController {
         this.clienteService = clienteService;
     }
 
+    /**
+     * 📋 LISTADO DE CLIENTES CON FILTROS COMPLETOS
+     * GET /api/clientes
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - nombre: Búsqueda parcial por nombre (case-insensitive)
+     * - nit: Búsqueda parcial por NIT (case-insensitive)
+     * - correo: Búsqueda parcial por correo (case-insensitive)
+     * - ciudad: Búsqueda parcial por ciudad (case-insensitive)
+     * - activo: Boolean (no implementado actualmente, el modelo no tiene campo activo)
+     * - conCredito: Boolean (true para clientes con crédito habilitado)
+     * - page: Número de página (default: sin paginación, retorna lista completa)
+     * - size: Tamaño de página (default: 50, máximo: 200)
+     * - sortBy: Campo para ordenar (nombre, nit, ciudad) - default: nombre
+     * - sortOrder: ASC o DESC - default: ASC
+     * 
+     * Respuesta:
+     * - Si se proporcionan page y size: PageResponse con paginación
+     * - Si no se proporcionan: List<Cliente> (compatibilidad hacia atrás)
+     */
     @GetMapping
-    public List<Cliente> listarClientes() {
-        return clienteService.listarClientes();
+    public ResponseEntity<Object> listarClientes(
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String nit,
+            @RequestParam(required = false) String correo,
+            @RequestParam(required = false) String ciudad,
+            @RequestParam(required = false) Boolean activo,
+            @RequestParam(required = false) Boolean conCredito,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        
+        try {
+            // Si no hay filtros nuevos, usar método original (compatibilidad)
+            if (nombre == null && nit == null && correo == null && ciudad == null && 
+                activo == null && conCredito == null && page == null && size == null && 
+                sortBy == null && sortOrder == null) {
+                return ResponseEntity.ok(clienteService.listarClientes());
+            }
+            
+            // Usar método con filtros
+            Object resultado = clienteService.listarClientesConFiltros(
+                nombre, nit, correo, ciudad, activo, conCredito, page, size, sortBy, sortOrder
+            );
+            
+            return ResponseEntity.ok(resultado);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "Error interno: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/{id}")

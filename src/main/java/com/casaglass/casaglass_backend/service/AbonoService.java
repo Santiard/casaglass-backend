@@ -5,7 +5,7 @@ import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.AbonoRepository;
 import com.casaglass.casaglass_backend.repository.CreditoRepository;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -48,6 +48,17 @@ public class AbonoService {
     }
 
     public List<Abono> listarPorCliente(Long clienteId) {
+        return abonoRepo.findByClienteId(clienteId);
+    }
+
+    /**
+     * Lista abonos de un cliente con filtros opcionales de fecha
+     * Optimizado para mejorar rendimiento al filtrar en la base de datos
+     */
+    public List<Abono> listarPorClienteConFiltros(Long clienteId, LocalDate fechaDesde, LocalDate fechaHasta) {
+        if (fechaDesde != null && fechaHasta != null) {
+            return abonoRepo.findByClienteIdAndFechaBetween(clienteId, fechaDesde, fechaHasta);
+        }
         return abonoRepo.findByClienteId(clienteId);
     }
 
@@ -290,5 +301,107 @@ public class AbonoService {
      */
     public List<Abono> obtenerAbonosDisponiblesParaEntrega(Long sedeId, LocalDate fechaDesde, LocalDate fechaHasta) {
         return abonoRepo.findAbonosDisponiblesParaEntrega(sedeId, fechaDesde, fechaHasta);
+    }
+
+    /**
+     * 🚀 LISTADO DE ABONOS CON FILTROS COMPLETOS
+     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     */
+    @Transactional(readOnly = true)
+    public Object listarAbonosConFiltros(
+            Long clienteId,
+            Long creditoId,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            String metodoPago,
+            Long sedeId,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar abonos con filtros
+        List<Abono> abonos = abonoRepo.buscarConFiltros(
+            clienteId, creditoId, fechaDesde, fechaHasta, metodoPago, sedeId
+        );
+        
+        // Aplicar ordenamiento adicional si es necesario (el query ya ordena por fecha DESC)
+        if (!sortBy.equals("fecha") || !sortOrder.equals("DESC")) {
+            abonos = aplicarOrdenamientoAbonos(abonos, sortBy, sortOrder);
+        }
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            // Validar y ajustar parámetros
+            if (page < 1) page = 1;
+            if (size < 1) size = 50;
+            if (size > 200) size = 200; // Límite máximo para abonos
+            
+            long totalElements = abonos.size();
+            
+            // Calcular índices para paginación
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, abonos.size());
+            
+            if (fromIndex >= abonos.size()) {
+                // Página fuera de rango, retornar lista vacía
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            // Obtener solo la página solicitada
+            List<Abono> abonosPagina = abonos.subList(fromIndex, toIndex);
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(abonosPagina, totalElements, page, size);
+        }
+        
+        // Sin paginación: retornar lista completa
+        return abonos;
+    }
+    
+    /**
+     * Aplica ordenamiento a la lista de abonos según sortBy y sortOrder
+     */
+    private List<Abono> aplicarOrdenamientoAbonos(List<Abono> abonos, String sortBy, String sortOrder) {
+        boolean ascendente = "ASC".equals(sortOrder);
+        
+        switch (sortBy.toLowerCase()) {
+            case "fecha":
+                abonos.sort((a, b) -> {
+                    int cmp = a.getFecha().compareTo(b.getFecha());
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            case "total":
+                abonos.sort((a, b) -> {
+                    int cmp = Double.compare(a.getTotal() != null ? a.getTotal() : 0.0,
+                                            b.getTotal() != null ? b.getTotal() : 0.0);
+                    return ascendente ? cmp : -cmp;
+                });
+                break;
+            default:
+                // Por defecto ordenar por fecha DESC
+                abonos.sort((a, b) -> b.getFecha().compareTo(a.getFecha()));
+        }
+        
+        return abonos;
     }
 }

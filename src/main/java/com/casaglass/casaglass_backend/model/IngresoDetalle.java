@@ -43,16 +43,23 @@ public class IngresoDetalle {
 
     @NotNull
     @Column(nullable = false)
-    private Double costoUnitario;
+    private Double costoUnitario; // Costo original del ingreso (para calcular totalCosto y trazabilidad)
+
+    @NotNull
+    @Column(nullable = false)
+    private Double costoUnitarioPonderado; // Costo calculado con promedio ponderado (viene del frontend, se usa para actualizar producto.costo)
 
     @Column(nullable = false)
-    private Double totalLinea;
+    private Double totalLinea; // Se calcula con costoUnitario (costo original)
 
     // Método para calcular el total de la línea
+    // IMPORTANTE: Siempre usa costoUnitario (costo original) para calcular totalLinea
+    // El totalLinea refleja lo que realmente se pagó en el ingreso
     @PrePersist
     @PreUpdate
     public void calcularTotalLinea() {
         if (cantidad != null && costoUnitario != null) {
+            // totalLinea siempre se calcula con costoUnitario (costo original)
             this.totalLinea = costoUnitario * cantidad;
         }
     }
