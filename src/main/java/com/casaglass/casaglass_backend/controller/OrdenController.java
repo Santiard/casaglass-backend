@@ -716,8 +716,12 @@ public class OrdenController {
                             facturaDTO.setFecha(LocalDate.now());
                             facturaDTO.setSubtotal(orden.getSubtotal());
                             facturaDTO.setDescuentos(orden.getDescuentos() != null ? orden.getDescuentos() : 0.0);
-                            facturaDTO.setIva(0.0);
-                            facturaDTO.setRetencionFuente(0.0);
+                            // Calcular IVA correctamente desde el subtotal (que ya incluye IVA)
+                            // Fórmula: IVA = Subtotal * (tasa_iva / (100 + tasa_iva))
+                            Double ivaCalculado = service.calcularIvaDesdeSubtotal(orden.getSubtotal());
+                            facturaDTO.setIva(ivaCalculado);
+                            // Usar la retención de fuente de la orden (ya calculada)
+                            facturaDTO.setRetencionFuente(orden.getRetencionFuente() != null ? orden.getRetencionFuente() : 0.0);
                             facturaDTO.setTotal(orden.getTotal());
                             facturaDTO.setFormaPago("PENDIENTE");
                             facturaDTO.setObservaciones("Factura generada automáticamente");

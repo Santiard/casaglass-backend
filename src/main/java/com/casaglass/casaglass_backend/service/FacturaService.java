@@ -22,6 +22,7 @@ public class FacturaService {
     private final SedeRepository sedeRepository;
     private final TrabajadorRepository trabajadorRepository;
     private final EntityManager entityManager;
+    private final BusinessSettingsRepository businessSettingsRepository;
 
     public FacturaService(
             FacturaRepository facturaRepo,
@@ -29,13 +30,15 @@ public class FacturaService {
             ClienteRepository clienteRepository,
             SedeRepository sedeRepository,
             TrabajadorRepository trabajadorRepository,
-            EntityManager entityManager) {
+            EntityManager entityManager,
+            BusinessSettingsRepository businessSettingsRepository) {
         this.facturaRepo = facturaRepo;
         this.ordenRepository = ordenRepository;
         this.clienteRepository = clienteRepository;
         this.sedeRepository = sedeRepository;
         this.trabajadorRepository = trabajadorRepository;
         this.entityManager = entityManager;
+        this.businessSettingsRepository = businessSettingsRepository;
     }
 
     /**
@@ -76,7 +79,14 @@ public class FacturaService {
         factura.setFecha(facturaDTO.getFecha() != null ? facturaDTO.getFecha() : LocalDate.now());
         factura.setSubtotal(facturaDTO.getSubtotal());
         factura.setDescuentos(facturaDTO.getDescuentos() != null ? facturaDTO.getDescuentos() : 0.0);
-        factura.setIva(facturaDTO.getIva() != null ? facturaDTO.getIva() : 0.0);
+        // Calcular IVA: si viene en el DTO se usa, si no se calcula desde el subtotal
+        if (facturaDTO.getIva() != null && facturaDTO.getIva() > 0) {
+            factura.setIva(facturaDTO.getIva());
+        } else {
+            // Calcular IVA automáticamente desde el subtotal (que ya incluye IVA)
+            Double ivaCalculado = calcularIvaDesdeSubtotal(facturaDTO.getSubtotal());
+            factura.setIva(ivaCalculado);
+        }
         factura.setRetencionFuente(facturaDTO.getRetencionFuente() != null ? facturaDTO.getRetencionFuente() : 0.0);
         factura.setFormaPago(facturaDTO.getFormaPago());
         factura.setObservaciones(facturaDTO.getObservaciones());
@@ -111,6 +121,48 @@ public class FacturaService {
         System.out.println("✅ Factura creada exitosamente - Número: " + facturaGuardada.getNumeroFactura());
 
         return facturaGuardada;
+    }
+
+    /**
+     * 💰 OBTENER TASA DE IVA DESDE CONFIGURACIÓN
+     * Obtiene el IVA rate desde BusinessSettings, con fallback a 19% si no existe
+     */
+    private Double obtenerIvaRate() {
+        try {
+            // Buscar la primera configuración (debería haber solo una)
+            List<BusinessSettings> settings = businessSettingsRepository.findAll();
+            if (!settings.isEmpty() && settings.get(0).getIvaRate() != null) {
+                Double ivaRate = settings.get(0).getIvaRate();
+                System.out.println("💰 IVA Rate obtenido desde configuración: " + ivaRate + "%");
+                return ivaRate;
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ WARNING: No se pudo obtener IVA rate desde configuración: " + e.getMessage());
+        }
+        // Fallback a 19% por defecto
+        System.out.println("💰 IVA Rate usando valor por defecto: 19.0%");
+        return 19.0;
+    }
+
+    /**
+     * 💰 CALCULAR IVA DESDE SUBTOTAL (QUE YA INCLUYE IVA)
+     * Extrae el IVA del subtotal que ya lo incluye
+     * Fórmula: IVA = Subtotal * (tasa_iva / (100 + tasa_iva))
+     * Ejemplo con 19%: IVA = Subtotal * 0.19 / 1.19
+     * 
+     * @param subtotal Subtotal que ya incluye IVA
+     * @return Valor del IVA extraído del subtotal
+     */
+    private Double calcularIvaDesdeSubtotal(Double subtotal) {
+        if (subtotal == null || subtotal <= 0) {
+            return 0.0;
+        }
+        Double ivaRate = obtenerIvaRate();
+        // Fórmula: IVA = Subtotal * (tasa / (100 + tasa))
+        // Ejemplo: Si subtotal = 119 y tasa = 19%, entonces IVA = 119 * 0.19 / 1.19 = 19
+        Double iva = subtotal * (ivaRate / (100.0 + ivaRate));
+        // Redondear a 2 decimales
+        return Math.round(iva * 100.0) / 100.0;
     }
 
     /**
@@ -281,7 +333,14 @@ public class FacturaService {
         factura.setFecha(facturaDTO.getFecha() != null ? facturaDTO.getFecha() : factura.getFecha());
         factura.setSubtotal(facturaDTO.getSubtotal());
         factura.setDescuentos(facturaDTO.getDescuentos() != null ? facturaDTO.getDescuentos() : 0.0);
-        factura.setIva(facturaDTO.getIva() != null ? facturaDTO.getIva() : 0.0);
+        // Calcular IVA: si viene en el DTO se usa, si no se calcula desde el subtotal
+        if (facturaDTO.getIva() != null && facturaDTO.getIva() > 0) {
+            factura.setIva(facturaDTO.getIva());
+        } else {
+            // Calcular IVA automáticamente desde el subtotal (que ya incluye IVA)
+            Double ivaCalculado = calcularIvaDesdeSubtotal(facturaDTO.getSubtotal());
+            factura.setIva(ivaCalculado);
+        }
         factura.setRetencionFuente(facturaDTO.getRetencionFuente() != null ? facturaDTO.getRetencionFuente() : 0.0);
         factura.setFormaPago(facturaDTO.getFormaPago());
         factura.setObservaciones(facturaDTO.getObservaciones());

@@ -396,6 +396,7 @@ public class InventarioCompletoService {
             producto.getId(),
             producto.getCodigo(),
             producto.getNombre(),
+            producto.getDescripcion(),  // ✅ Incluir descripción
             categoriaDTO,  // ✅ Ahora es CategoriaDTO { id, nombre } en lugar de String
             tipoProducto,
             colorProducto,

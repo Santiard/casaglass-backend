@@ -98,6 +98,14 @@ public class Orden {
   @Column(name = "tiene_retencion_fuente", nullable = false)
   private boolean tieneRetencionFuente = false;
 
+  /**
+   * Valor monetario de la retención en la fuente
+   * Se calcula automáticamente cuando tieneRetencionFuente = true
+   * y la base imponible (subtotal - descuentos) supera el umbral configurado
+   */
+  @Column(name = "retencion_fuente", nullable = false)
+  private Double retencionFuente = 0.0;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private EstadoOrden estado = EstadoOrden.ACTIVA;

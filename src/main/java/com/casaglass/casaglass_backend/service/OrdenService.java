@@ -126,8 +126,13 @@ public class OrdenService {
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
-        // Calcular total: subtotal - descuentos
-        Double total = subtotalBruto - descuentos;
+        
+        // Calcular retención de fuente si aplica (usar el valor actual de tieneRetencionFuente)
+        Double retencionFuente = calcularRetencionFuente(subtotalBruto, descuentos, orden.isTieneRetencionFuente());
+        orden.setRetencionFuente(retencionFuente);
+        
+        // Calcular total: subtotal - descuentos - retencionFuente
+        Double total = subtotalBruto - descuentos - retencionFuente;
         orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // Establecer estado activa por defecto
@@ -209,8 +214,13 @@ public class OrdenService {
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
-        // Calcular total: subtotal - descuentos
-        Double total = subtotalBruto - descuentos;
+        
+        // Calcular retención de fuente si aplica
+        Double retencionFuente = calcularRetencionFuente(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        orden.setRetencionFuente(retencionFuente);
+        
+        // Calcular total: subtotal - descuentos - retencionFuente
+        Double total = subtotalBruto - descuentos - retencionFuente;
         orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 🔢 GENERAR NÚMERO AUTOMÁTICO
@@ -314,8 +324,13 @@ public class OrdenService {
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
-        // Calcular total: subtotal - descuentos
-        Double total = subtotalBruto - descuentos;
+        
+        // Calcular retención de fuente si aplica
+        Double retencionFuente = calcularRetencionFuente(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        orden.setRetencionFuente(retencionFuente);
+        
+        // Calcular total: subtotal - descuentos - retencionFuente
+        Double total = subtotalBruto - descuentos - retencionFuente;
         orden.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 🔢 GENERAR NÚMERO AUTOMÁTICO
@@ -434,8 +449,14 @@ public class OrdenService {
         // Calcular descuentos (si no viene, usar el valor actual o 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
         ordenExistente.setDescuentos(descuentos);
-        // Calcular total: subtotal - descuentos
-        Double total = subtotalBruto - descuentos;
+        
+        // Calcular retención de fuente si aplica
+        Double retencionFuente = calcularRetencionFuente(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        ordenExistente.setRetencionFuente(retencionFuente);
+        ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
+        
+        // Calcular total: subtotal - descuentos - retencionFuente
+        Double total = subtotalBruto - descuentos - retencionFuente;
         ordenExistente.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 💾 GUARDAR ORDEN ACTUALIZADA
@@ -534,8 +555,14 @@ public class OrdenService {
         // Calcular descuentos (si no viene, usar el valor actual o 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
         ordenExistente.setDescuentos(descuentos);
-        // Calcular total: subtotal - descuentos
-        Double total = subtotalBruto - descuentos;
+        
+        // Calcular retención de fuente si aplica
+        Double retencionFuente = calcularRetencionFuente(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        ordenExistente.setRetencionFuente(retencionFuente);
+        ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
+        
+        // Calcular total: subtotal - descuentos - retencionFuente
+        Double total = subtotalBruto - descuentos - retencionFuente;
         ordenExistente.setTotal(Math.round(total * 100.0) / 100.0);
         
         // 💾 GUARDAR ORDEN ACTUALIZADA PRIMERO
@@ -600,6 +627,85 @@ public class OrdenService {
         // Fallback a 19% por defecto
         System.out.println("💰 IVA Rate usando valor por defecto: 19.0%");
         return 19.0;
+    }
+
+    /**
+     * 💰 CALCULAR IVA DESDE SUBTOTAL (QUE YA INCLUYE IVA)
+     * Extrae el IVA del subtotal que ya lo incluye
+     * Fórmula: IVA = Subtotal * (tasa_iva / (100 + tasa_iva))
+     * Ejemplo con 19%: IVA = Subtotal * 0.19 / 1.19
+     * 
+     * @param subtotal Subtotal que ya incluye IVA
+     * @return Valor del IVA extraído del subtotal
+     */
+    public Double calcularIvaDesdeSubtotal(Double subtotal) {
+        if (subtotal == null || subtotal <= 0) {
+            return 0.0;
+        }
+        Double ivaRate = obtenerIvaRate();
+        // Fórmula: IVA = Subtotal * (tasa / (100 + tasa))
+        // Ejemplo: Si subtotal = 119 y tasa = 19%, entonces IVA = 119 * 0.19 / 1.19 = 19
+        Double iva = subtotal * (ivaRate / (100.0 + ivaRate));
+        // Redondear a 2 decimales
+        return Math.round(iva * 100.0) / 100.0;
+    }
+
+    /**
+     * 💰 OBTENER CONFIGURACIÓN DE RETENCIÓN DESDE BUSINESS SETTINGS
+     * Obtiene la tasa y umbral de retención desde BusinessSettings
+     */
+    private BusinessSettings obtenerConfiguracionRetencion() {
+        try {
+            List<BusinessSettings> settings = businessSettingsRepository.findAll();
+            if (!settings.isEmpty()) {
+                return settings.get(0);
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ WARNING: No se pudo obtener configuración de retención: " + e.getMessage());
+        }
+        // Fallback a valores por defecto
+        BusinessSettings defaultSettings = new BusinessSettings();
+        defaultSettings.setReteRate(2.5);
+        defaultSettings.setReteThreshold(1_000_000L);
+        return defaultSettings;
+    }
+
+    /**
+     * 💰 CALCULAR RETENCIÓN EN LA FUENTE
+     * Calcula la retención en la fuente si aplica según la configuración
+     * 
+     * @param subtotal Subtotal de la orden (con IVA incluido)
+     * @param descuentos Descuentos aplicados
+     * @param tieneRetencionFuente Si la orden tiene retención de fuente habilitada
+     * @return Valor de la retención (0.0 si no aplica)
+     */
+    private Double calcularRetencionFuente(Double subtotal, Double descuentos, boolean tieneRetencionFuente) {
+        if (!tieneRetencionFuente || subtotal == null || subtotal <= 0) {
+            return 0.0;
+        }
+        
+        // Calcular base imponible (subtotal - descuentos)
+        Double baseImponible = subtotal - (descuentos != null ? descuentos : 0.0);
+        
+        if (baseImponible <= 0) {
+            return 0.0;
+        }
+        
+        // Obtener configuración de retención
+        BusinessSettings config = obtenerConfiguracionRetencion();
+        Double reteRate = config.getReteRate() != null ? config.getReteRate() : 2.5;
+        Long reteThreshold = config.getReteThreshold() != null ? config.getReteThreshold() : 1_000_000L;
+        
+        // Verificar si supera el umbral
+        if (baseImponible < reteThreshold) {
+            return 0.0;
+        }
+        
+        // Calcular retención: baseImponible * (reteRate / 100)
+        Double retencion = baseImponible * (reteRate / 100.0);
+        
+        // Redondear a 2 decimales
+        return Math.round(retencion * 100.0) / 100.0;
     }
 
     /**
@@ -1229,6 +1335,7 @@ public class OrdenService {
         dto.setVenta(orden.isVenta());
         dto.setCredito(orden.isCredito());
         dto.setTieneRetencionFuente(orden.isTieneRetencionFuente());
+        dto.setRetencionFuente(orden.getRetencionFuente() != null ? orden.getRetencionFuente() : 0.0);
         dto.setEstado(orden.getEstado());
         dto.setSubtotal(orden.getSubtotal());
         dto.setDescuentos(orden.getDescuentos());
@@ -1335,6 +1442,9 @@ public class OrdenService {
         // Actualizar descuentos
         Double descuentos = dto.getDescuentos() != null ? dto.getDescuentos() : (orden.getDescuentos() != null ? orden.getDescuentos() : 0.0);
         orden.setDescuentos(descuentos);
+        
+        // Recalcular retención de fuente con el nuevo valor de tieneRetencionFuente
+        // (se calculará después cuando se actualice el subtotal)
 
         // 3️⃣ Actualizar referencias de entidades
         if (dto.getClienteId() != null) {
@@ -1368,8 +1478,12 @@ public class OrdenService {
         // NO se resta el IVA porque los precios ya lo incluyen
         orden.setSubtotal(subtotalBruto);
         
-        // Calcular total: subtotal - descuentos
-        Double total = subtotalBruto - orden.getDescuentos();
+        // Calcular retención de fuente si aplica (usar el valor actual de tieneRetencionFuente)
+        Double retencionFuente = calcularRetencionFuente(subtotalBruto, orden.getDescuentos(), orden.isTieneRetencionFuente());
+        orden.setRetencionFuente(retencionFuente);
+        
+        // Calcular total: subtotal - descuentos - retencionFuente
+        Double total = subtotalBruto - orden.getDescuentos() - retencionFuente;
         orden.setTotal(Math.round(total * 100.0) / 100.0);
 
         // 6️⃣ Guardar orden actualizada PRIMERO

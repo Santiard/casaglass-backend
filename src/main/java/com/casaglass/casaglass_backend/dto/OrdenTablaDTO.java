@@ -26,11 +26,12 @@ public class OrdenTablaDTO {
     private boolean venta;
     private boolean credito;
     private boolean tieneRetencionFuente; // Indica si la orden tiene retención de fuente
+    private Double retencionFuente; // Valor monetario de la retención en la fuente
     private Orden.EstadoOrden estado;
     private boolean facturada;  // Indica si la orden tiene una factura asociada
     private Double subtotal; // Subtotal de la orden (suma de items)
     private Double descuentos; // Descuentos aplicados
-    private Double total; // Total final (subtotal - descuentos)
+    private Double total; // Total final (subtotal - descuentos - retencionFuente)
     
     // INFORMACION SIMPLIFICADA DE ENTIDADES RELACIONADAS
     private ClienteTablaDTO cliente;

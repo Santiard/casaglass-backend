@@ -13,6 +13,7 @@ public class ProductoInventarioCompletoDTO {
     private Long id;
     private String codigo;
     private String nombre;
+    private String descripcion;  // ✅ Campo descripción agregado
     private CategoriaDTO categoria;  // ✅ Cambiado de String a CategoriaDTO { id, nombre }
     private String tipo; // Campo tipo
     private String color; // Campo color
@@ -38,13 +39,14 @@ public class ProductoInventarioCompletoDTO {
     private Integer cantidadTotal; // suma de las 3 sedes
     
     // Constructor principal con cálculo automático de total
-    public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, CategoriaDTO categoria, String tipo, String color,
+    public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, String descripcion, CategoriaDTO categoria, String tipo, String color,
                                         Boolean esVidrio, Double mm, Double m1, Double m2,
                                         Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
                                         Double costo, Double precio1, Double precio2, Double precio3) {
         this.id = id;
         this.codigo = codigo;
         this.nombre = nombre;
+        this.descripcion = descripcion;
         this.categoria = categoria;
         this.tipo = tipo;
         this.color = color;
