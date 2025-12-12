@@ -102,14 +102,14 @@ public class OrdenService {
         Long numeroGenerado = generarNumeroOrden();
         orden.setNumero(numeroGenerado);
 
-        // Calcular subtotal bruto (suma de items con IVA incluido)
-        double subtotalBruto = 0.0;
+        // Calcular subtotal facturado (suma de items con IVA incluido)
+        double subtotalFacturado = 0.0;
         if (orden.getItems() != null) {
             for (OrdenItem it : orden.getItems()) {
                 it.setOrden(orden); // amarra relación
                 Double linea = it.getPrecioUnitario() * it.getCantidad();
                 it.setTotalLinea(linea);
-                subtotalBruto += linea;
+                subtotalFacturado += linea;
 
                 if ((it.getDescripcion() == null || it.getDescripcion().isBlank())
                         && it.getProducto() != null) {
@@ -117,23 +117,24 @@ public class OrdenService {
                 }
             }
         }
-        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
-        
-        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
-        // NO se resta el IVA porque los precios ya lo incluyen
-        orden.setSubtotal(subtotalBruto);
+        subtotalFacturado = Math.round(subtotalFacturado * 100.0) / 100.0;
         
         // Calcular descuentos (si no viene, usar 0.0)
         Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
         orden.setDescuentos(descuentos);
         
-        // Calcular retención de fuente si aplica (usar el valor actual de tieneRetencionFuente)
-        Double retencionFuente = calcularRetencionFuente(subtotalBruto, descuentos, orden.isTieneRetencionFuente());
-        orden.setRetencionFuente(retencionFuente);
+        // Calcular todos los valores monetarios según la especificación
+        Double[] valores = calcularValoresMonetariosOrden(subtotalFacturado, descuentos, orden.isTieneRetencionFuente());
+        Double subtotalSinIva = valores[0];  // Base imponible sin IVA
+        Double iva = valores[1];            // IVA calculado
+        Double retencionFuente = valores[2]; // Retención de fuente
+        Double total = valores[3];           // Total facturado
         
-        // Calcular total: subtotal - descuentos - retencionFuente
-        Double total = subtotalBruto - descuentos - retencionFuente;
-        orden.setTotal(Math.round(total * 100.0) / 100.0);
+        // Guardar valores en la orden
+        orden.setSubtotal(subtotalSinIva);        // Base sin IVA
+        orden.setIva(iva);                        // IVA
+        orden.setRetencionFuente(retencionFuente); // Retención
+        orden.setTotal(total);                    // Total facturado
         
         // Establecer estado activa por defecto
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
@@ -442,22 +443,23 @@ public class OrdenService {
         
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
-        // NO se resta el IVA porque los precios ya lo incluyen
-        ordenExistente.setSubtotal(subtotalBruto);
-        
         // Calcular descuentos (si no viene, usar el valor actual o 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
         ordenExistente.setDescuentos(descuentos);
-        
-        // Calcular retención de fuente si aplica
-        Double retencionFuente = calcularRetencionFuente(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
-        ordenExistente.setRetencionFuente(retencionFuente);
         ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         
-        // Calcular total: subtotal - descuentos - retencionFuente
-        Double total = subtotalBruto - descuentos - retencionFuente;
-        ordenExistente.setTotal(Math.round(total * 100.0) / 100.0);
+        // Calcular todos los valores monetarios según la especificación
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        Double subtotalSinIva = valores[0];  // Base imponible sin IVA
+        Double iva = valores[1];            // IVA calculado
+        Double retencionFuente = valores[2]; // Retención de fuente
+        Double total = valores[3];           // Total facturado
+        
+        // Guardar valores en la orden
+        ordenExistente.setSubtotal(subtotalSinIva);        // Base sin IVA
+        ordenExistente.setIva(iva);                        // IVA
+        ordenExistente.setRetencionFuente(retencionFuente); // Retención
+        ordenExistente.setTotal(total);                    // Total facturado
         
         // 💾 GUARDAR ORDEN ACTUALIZADA
         Orden ordenActualizada = repo.save(ordenExistente);
@@ -548,22 +550,23 @@ public class OrdenService {
         
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
-        // NO se resta el IVA porque los precios ya lo incluyen
-        ordenExistente.setSubtotal(subtotalBruto);
-        
         // Calcular descuentos (si no viene, usar el valor actual o 0.0)
         Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
         ordenExistente.setDescuentos(descuentos);
-        
-        // Calcular retención de fuente si aplica
-        Double retencionFuente = calcularRetencionFuente(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
-        ordenExistente.setRetencionFuente(retencionFuente);
         ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         
-        // Calcular total: subtotal - descuentos - retencionFuente
-        Double total = subtotalBruto - descuentos - retencionFuente;
-        ordenExistente.setTotal(Math.round(total * 100.0) / 100.0);
+        // Calcular todos los valores monetarios según la especificación
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        Double subtotalSinIva = valores[0];  // Base imponible sin IVA
+        Double iva = valores[1];            // IVA calculado
+        Double retencionFuente = valores[2]; // Retención de fuente
+        Double total = valores[3];           // Total facturado
+        
+        // Guardar valores en la orden
+        ordenExistente.setSubtotal(subtotalSinIva);        // Base sin IVA
+        ordenExistente.setIva(iva);                        // IVA
+        ordenExistente.setRetencionFuente(retencionFuente); // Retención
+        ordenExistente.setTotal(total);                    // Total facturado
         
         // 💾 GUARDAR ORDEN ACTUALIZADA PRIMERO
         Orden ordenActualizada = repo.save(ordenExistente);
@@ -648,6 +651,62 @@ public class OrdenService {
         Double iva = subtotal * (ivaRate / (100.0 + ivaRate));
         // Redondear a 2 decimales
         return Math.round(iva * 100.0) / 100.0;
+    }
+
+    /**
+     * 💰 CALCULAR VALORES MONETARIOS DE LA ORDEN
+     * Calcula subtotal (base sin IVA), IVA, retención de fuente y total
+     * según la especificación del frontend
+     * 
+     * @param subtotalFacturado Suma de (precioUnitario × cantidad) de todos los items (CON IVA incluido)
+     * @param descuentos Monto de descuentos aplicados
+     * @param tieneRetencionFuente Boolean que indica si aplica retención de fuente
+     * @return Array con [subtotalSinIva, iva, retencionFuente, total]
+     */
+    private Double[] calcularValoresMonetariosOrden(Double subtotalFacturado, Double descuentos, boolean tieneRetencionFuente) {
+        if (subtotalFacturado == null || subtotalFacturado <= 0) {
+            return new Double[]{0.0, 0.0, 0.0, 0.0};
+        }
+        
+        // Asegurar que descuentos no sea null
+        if (descuentos == null) {
+            descuentos = 0.0;
+        }
+        
+        // Paso 1: Calcular base imponible (total facturado - descuentos)
+        Double baseConIva = subtotalFacturado - descuentos;
+        if (baseConIva <= 0) {
+            return new Double[]{0.0, 0.0, 0.0, 0.0};
+        }
+        
+        // Paso 2: Calcular subtotal sin IVA (base imponible / 1.19)
+        Double ivaRate = obtenerIvaRate();
+        Double subtotalSinIva = baseConIva / (1.0 + (ivaRate / 100.0));
+        subtotalSinIva = Math.round(subtotalSinIva * 100.0) / 100.0;
+        
+        // Paso 3: Calcular IVA
+        Double iva = baseConIva - subtotalSinIva;
+        iva = Math.round(iva * 100.0) / 100.0;
+        
+        // Paso 4: Calcular retención de fuente (sobre subtotal sin IVA)
+        Double retencionFuente = 0.0;
+        if (tieneRetencionFuente) {
+            BusinessSettings config = obtenerConfiguracionRetencion();
+            Double reteRate = config.getReteRate() != null ? config.getReteRate() : 2.5;
+            Long reteThreshold = config.getReteThreshold() != null ? config.getReteThreshold() : 1_000_000L;
+            
+            // Verificar si supera el umbral
+            if (subtotalSinIva >= reteThreshold) {
+                retencionFuente = subtotalSinIva * (reteRate / 100.0);
+                retencionFuente = Math.round(retencionFuente * 100.0) / 100.0;
+            }
+        }
+        
+        // Paso 5: Calcular total (total facturado - descuentos, sin restar retención)
+        Double total = subtotalFacturado - descuentos;
+        total = Math.round(total * 100.0) / 100.0;
+        
+        return new Double[]{subtotalSinIva, iva, retencionFuente, total};
     }
 
     /**
@@ -1338,6 +1397,7 @@ public class OrdenService {
         dto.setRetencionFuente(orden.getRetencionFuente() != null ? orden.getRetencionFuente() : 0.0);
         dto.setEstado(orden.getEstado());
         dto.setSubtotal(orden.getSubtotal());
+        dto.setIva(orden.getIva() != null ? orden.getIva() : 0.0);
         dto.setDescuentos(orden.getDescuentos());
         dto.setTotal(orden.getTotal());
         // Facturada si existe relación en memoria o en BD
@@ -1474,17 +1534,24 @@ public class OrdenService {
         }
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // El subtotal debe mantener el valor CON IVA incluido (los precios ya lo incluyen)
-        // NO se resta el IVA porque los precios ya lo incluyen
-        orden.setSubtotal(subtotalBruto);
+        // Asegurar que descuentos no sea null (ya se calculó arriba)
+        if (descuentos == null) {
+            descuentos = 0.0;
+            orden.setDescuentos(descuentos);
+        }
         
-        // Calcular retención de fuente si aplica (usar el valor actual de tieneRetencionFuente)
-        Double retencionFuente = calcularRetencionFuente(subtotalBruto, orden.getDescuentos(), orden.isTieneRetencionFuente());
-        orden.setRetencionFuente(retencionFuente);
+        // Calcular todos los valores monetarios según la especificación
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, descuentos, orden.isTieneRetencionFuente());
+        Double subtotalSinIva = valores[0];  // Base imponible sin IVA
+        Double iva = valores[1];            // IVA calculado
+        Double retencionFuente = valores[2]; // Retención de fuente
+        Double total = valores[3];           // Total facturado
         
-        // Calcular total: subtotal - descuentos - retencionFuente
-        Double total = subtotalBruto - orden.getDescuentos() - retencionFuente;
-        orden.setTotal(Math.round(total * 100.0) / 100.0);
+        // Guardar valores en la orden
+        orden.setSubtotal(subtotalSinIva);        // Base sin IVA
+        orden.setIva(iva);                        // IVA
+        orden.setRetencionFuente(retencionFuente); // Retención
+        orden.setTotal(total);                    // Total facturado
 
         // 6️⃣ Guardar orden actualizada PRIMERO
         Orden ordenActualizada = repo.save(orden);

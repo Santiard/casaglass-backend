@@ -77,8 +77,19 @@ public class Orden {
   @JsonIgnoreProperties({"orden", "hibernateLazyInitializer", "handler"})
   private List<OrdenItem> items = new ArrayList<>();
 
+  /**
+   * Subtotal de la orden (base imponible SIN IVA)
+   * Se calcula como: (suma de items - descuentos) / 1.19
+   */
   @Column(nullable = false)
   private Double subtotal = 0.0;
+
+  /**
+   * Valor del IVA calculado
+   * Se calcula como: (suma de items - descuentos) - subtotal
+   */
+  @Column(nullable = false)
+  private Double iva = 0.0;
 
   /**
    * Descuentos aplicados a la orden
@@ -86,6 +97,10 @@ public class Orden {
   @Column(nullable = false)
   private Double descuentos = 0.0;
 
+  /**
+   * Total de la orden (total facturado CON IVA, sin restar retención)
+   * Se calcula como: suma de items - descuentos
+   */
   @Column(nullable = false)
   private Double total = 0.0;
 
