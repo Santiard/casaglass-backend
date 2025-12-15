@@ -401,10 +401,13 @@ public class FacturaService {
         dto.setFechaPago(factura.getFechaPago());
         dto.setObservaciones(factura.getObservaciones());
 
-        // Obra desde la orden
+        // Obra y datos básicos de la orden
         if (factura.getOrden() != null) {
             dto.setObra(factura.getOrden().getObra());
-            dto.setOrden(new FacturaTablaDTO.OrdenTabla(factura.getOrden().getNumero()));
+            dto.setOrden(new FacturaTablaDTO.OrdenTabla(
+                    factura.getOrden().getId(),      // ID de la orden para \"Ver detalles\"
+                    factura.getOrden().getNumero()   // Número legible de la orden
+            ));
         }
 
         // Cliente: usar el de la factura si existe, sino el de la orden

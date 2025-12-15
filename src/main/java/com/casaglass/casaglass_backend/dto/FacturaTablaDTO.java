@@ -46,7 +46,8 @@ public class FacturaTablaDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class OrdenTabla {
-        private Long numero;
+        private Long id;      // ID interno de la orden (para navegar a detalles)
+        private Long numero;  // Número legible de la orden
     }
 
     public enum EstadoFactura {
