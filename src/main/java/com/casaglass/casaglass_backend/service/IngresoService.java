@@ -3,6 +3,7 @@ package com.casaglass.casaglass_backend.service;
 import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.*;
 import com.casaglass.casaglass_backend.dto.IngresoCreateDTO;
+import com.casaglass.casaglass_backend.dto.IngresoTablaDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -41,8 +43,10 @@ public class IngresoService {
     }
 
     @Transactional(readOnly = true)
-    public List<Ingreso> listarIngresos() {
-        return ingresoRepository.findAllWithProveedores();
+    public List<IngresoTablaDTO> listarIngresos() {
+        return ingresoRepository.findAllWithProveedores().stream()
+                .map(this::convertirAIngresoTablaDTO)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -111,11 +115,49 @@ public class IngresoService {
             // Obtener solo la página solicitada
             List<Ingreso> ingresosPagina = ingresos.subList(fromIndex, toIndex);
             
-            return com.casaglass.casaglass_backend.dto.PageResponse.of(ingresosPagina, totalElements, page, size);
+            // Convertir a DTOs para evitar LazyInitializationException
+            List<IngresoTablaDTO> contenido = ingresosPagina.stream()
+                    .map(this::convertirAIngresoTablaDTO)
+                    .collect(Collectors.toList());
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(contenido, totalElements, page, size);
         }
         
-        // Sin paginación: retornar lista completa
-        return ingresos;
+        // Sin paginación: retornar lista completa convertida a DTOs
+        return ingresos.stream()
+                .map(this::convertirAIngresoTablaDTO)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 🔄 CONVERSOR: Ingreso Entity → IngresoTablaDTO optimizado
+     * Extrae solo los campos necesarios para la tabla
+     * NO incluye detalles para evitar LazyInitializationException
+     */
+    private IngresoTablaDTO convertirAIngresoTablaDTO(Ingreso ingreso) {
+        IngresoTablaDTO dto = new IngresoTablaDTO();
+        
+        // 📝 CAMPOS PRINCIPALES DEL INGRESO
+        dto.setId(ingreso.getId());
+        dto.setFecha(ingreso.getFecha());
+        dto.setNumeroFactura(ingreso.getNumeroFactura());
+        dto.setObservaciones(ingreso.getObservaciones());
+        dto.setTotalCosto(ingreso.getTotalCosto());
+        dto.setProcesado(ingreso.getProcesado());
+        
+        // 👤 PROVEEDOR SIMPLIFICADO
+        if (ingreso.getProveedor() != null) {
+            // Inicializar el proxy lazy accediendo a sus propiedades
+            Proveedor proveedor = ingreso.getProveedor();
+            IngresoTablaDTO.ProveedorTablaDTO proveedorDTO = new IngresoTablaDTO.ProveedorTablaDTO(
+                proveedor.getId(),
+                proveedor.getNombre(),
+                proveedor.getNit()
+            );
+            dto.setProveedor(proveedorDTO);
+        }
+        
+        return dto;
     }
     
     /**
@@ -163,10 +205,12 @@ public class IngresoService {
      * Si en el futuro se agrega un campo sede a Ingreso, este método deberá ser actualizado.
      */
     @Transactional(readOnly = true)
-    public List<Ingreso> listarIngresosPorSede(Long sedeId) {
+    public List<IngresoTablaDTO> listarIngresosPorSede(Long sedeId) {
         // TODO: Si se agrega campo sede a Ingreso, filtrar por sedeId
         // Por ahora, retornamos todos los ingresos ya que todos se procesan en la sede principal
-        return ingresoRepository.findAllWithProveedores();
+        return ingresoRepository.findAllWithProveedores().stream()
+                .map(this::convertirAIngresoTablaDTO)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

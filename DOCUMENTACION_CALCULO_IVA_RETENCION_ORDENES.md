@@ -265,3 +265,4 @@ Si tienes dudas sobre estos cambios, consulta:
 - **2025-01-XX:** Corregido cálculo de `retencionFuente` para usar subtotal sin IVA
 - **2025-01-XX:** Corregido cálculo de `total` para no restar retención
 
+

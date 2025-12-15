@@ -246,3 +246,4 @@
 **El frontend puede usar el campo `descripcion` sin problemas.**
 
 
+

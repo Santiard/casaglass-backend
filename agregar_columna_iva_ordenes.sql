@@ -32,3 +32,4 @@ COMMENT 'Valor monetario del IVA calculado. Se calcula como: (total facturado - 
 --    - iva = (subtotalFacturado - descuentos) - subtotal
 -- ============================================================================
 
+
