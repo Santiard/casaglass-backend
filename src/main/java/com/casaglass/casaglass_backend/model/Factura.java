@@ -88,9 +88,10 @@ public class Factura {
   private Double retencionFuente = 0.0;
 
   /**
-   * Total final de la factura
-   * Fórmula: (subtotal - descuentos) - retencionFuente
-   * NOTA: El subtotal ya incluye IVA, por lo que NO se suma el IVA al total
+   * Total final de la factura (total facturado CON IVA, sin restar retención)
+   * Fórmula: total = subtotal + iva
+   * NOTA: El subtotal es SIN IVA, por lo que se suma el IVA para obtener el total facturado
+   * La retención NO se resta del total, solo se registra para contabilidad
    */
   @NotNull
   @Positive
@@ -130,13 +131,13 @@ public class Factura {
 
   /**
    * Método helper para calcular el total automáticamente
-   * NOTA: El subtotal ya incluye IVA, por lo que NO se suma el IVA al total
-   * Fórmula: total = (subtotal - descuentos) - retencionFuente
+   * NOTA: El subtotal es SIN IVA, por lo que se debe SUMAR el IVA al total
+   * Fórmula: total = subtotal + iva (total facturado CON IVA, sin restar retención)
+   * La retención NO se resta del total, solo se registra para contabilidad
    */
   public void calcularTotal() {
-    double baseImponible = subtotal - descuentos;
-    // El subtotal ya incluye IVA, solo se resta la retención de fuente
-    double totalCalculado = baseImponible - retencionFuente;
+    // El subtotal es SIN IVA, el total facturado es subtotal + IVA
+    double totalCalculado = subtotal + iva;
     // Redondear a 2 decimales
     this.total = Math.round(totalCalculado * 100.0) / 100.0;
   }

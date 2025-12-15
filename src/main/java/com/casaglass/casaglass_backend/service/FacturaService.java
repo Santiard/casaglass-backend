@@ -74,30 +74,26 @@ public class FacturaService {
         // Crear factura
         Factura factura = new Factura();
         factura.setOrden(orden);
-        // Si se proporciona un cliente, usarlo; si no, usar el de la orden (o null, se manejará en los DTOs)
-        factura.setCliente(cliente);
+        // Si se proporciona un cliente, usarlo; si no, usar el de la orden
+        factura.setCliente(cliente != null ? cliente : orden.getCliente());
         factura.setFecha(facturaDTO.getFecha() != null ? facturaDTO.getFecha() : LocalDate.now());
-        factura.setSubtotal(facturaDTO.getSubtotal());
-        factura.setDescuentos(facturaDTO.getDescuentos() != null ? facturaDTO.getDescuentos() : 0.0);
-        // Calcular IVA: si viene en el DTO se usa, si no se calcula desde el subtotal
-        if (facturaDTO.getIva() != null && facturaDTO.getIva() > 0) {
-            factura.setIva(facturaDTO.getIva());
-        } else {
-            // Calcular IVA automáticamente desde el subtotal (que ya incluye IVA)
-            Double ivaCalculado = calcularIvaDesdeSubtotal(facturaDTO.getSubtotal());
-            factura.setIva(ivaCalculado);
-        }
-        factura.setRetencionFuente(facturaDTO.getRetencionFuente() != null ? facturaDTO.getRetencionFuente() : 0.0);
+        
+        // ✅ USAR VALORES DIRECTAMENTE DE LA ORDEN (ignorar los del DTO)
+        // Esto garantiza que la factura siempre coincida con la orden y evita discrepancias contables
+        // Todos los valores se redondean a 2 decimales para cumplir con estándares contables legales
+        factura.setSubtotal(redondearMoneda(orden.getSubtotal())); // Base sin IVA (ya calculada correctamente en la orden)
+        factura.setDescuentos(redondearMoneda(orden.getDescuentos() != null ? orden.getDescuentos() : 0.0));
+        factura.setIva(redondearMoneda(orden.getIva())); // IVA calculado correctamente en la orden
+        factura.setRetencionFuente(redondearMoneda(orden.getRetencionFuente() != null ? orden.getRetencionFuente() : 0.0));
+        
+        // Otros campos del DTO (no monetarios)
         factura.setFormaPago(facturaDTO.getFormaPago());
         factura.setObservaciones(facturaDTO.getObservaciones());
         factura.setEstado(Factura.EstadoFactura.PENDIENTE);
 
-        // Calcular total automáticamente
-        if (facturaDTO.getTotal() != null) {
-            factura.setTotal(facturaDTO.getTotal());
-        } else {
-            factura.calcularTotal();
-        }
+        // ✅ USAR DIRECTAMENTE EL TOTAL DE LA ORDEN (más seguro que calcular)
+        // El total de la orden es: subtotal + iva (total facturado CON IVA, sin restar retención)
+        factura.setTotal(redondearMoneda(orden.getTotal()));
 
         // Generar o usar número de factura
         if (facturaDTO.getNumeroFactura() != null && !facturaDTO.getNumeroFactura().isEmpty()) {
@@ -603,6 +599,22 @@ public class FacturaService {
         }
         
         return facturas;
+    }
+
+    /**
+     * 💰 REDONDEAR VALOR MONETARIO A 2 DECIMALES
+     * Garantiza que todos los valores monetarios tengan exactamente 2 decimales
+     * para cumplir con estándares contables legales (formato: 1.000.000,00)
+     * 
+     * @param valor Valor a redondear
+     * @return Valor redondeado a 2 decimales
+     */
+    private Double redondearMoneda(Double valor) {
+        if (valor == null) {
+            return 0.0;
+        }
+        // Redondear a 2 decimales usando Math.round
+        return Math.round(valor * 100.0) / 100.0;
     }
 }
 

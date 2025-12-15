@@ -22,9 +22,11 @@ public class OrdenDetalleDTO {
     private String obra;
     private String descripcion; // Descripción/observaciones adicionales
     private boolean tieneRetencionFuente; // Indica si la orden tiene retención de fuente
-    private Double subtotal; // Subtotal de la orden (suma de items)
+    private Double subtotal; // Subtotal de la orden (base imponible SIN IVA)
+    private Double iva; // Valor del IVA calculado
+    private Double retencionFuente; // Valor monetario de la retención en la fuente
     private Double descuentos; // Descuentos aplicados
-    private Double total; // Total final (subtotal - descuentos)
+    private Double total; // Total facturado (subtotal facturado - descuentos, sin restar retención)
     private ClienteDetalleDTO cliente;
     private List<ItemDetalleDTO> items;
     
@@ -98,6 +100,8 @@ public class OrdenDetalleDTO {
         this.descripcion = orden.getDescripcion();
         this.tieneRetencionFuente = orden.isTieneRetencionFuente();
         this.subtotal = orden.getSubtotal();
+        this.iva = orden.getIva();
+        this.retencionFuente = orden.getRetencionFuente();
         this.descuentos = orden.getDescuentos();
         this.total = orden.getTotal();
         this.cliente = new ClienteDetalleDTO(orden.getCliente());
