@@ -346,10 +346,15 @@ public class OrdenService {
         // 💳 CREAR CRÉDITO SI ES NECESARIO (en la misma transacción)
         if (ventaDTO.isCredito()) {
             System.out.println("🔍 DEBUG: Creando crédito para orden " + ordenGuardada.getId());
+            // Reutilizar retencionFuente ya calculada arriba (línea 330)
+            Double retencionParaCredito = ordenGuardada.getRetencionFuente() != null 
+                ? ordenGuardada.getRetencionFuente() 
+                : 0.0;
             creditoService.crearCreditoParaOrden(
                 ordenGuardada.getId(), 
                 ventaDTO.getClienteId(), 
-                ordenGuardada.getTotal()
+                ordenGuardada.getTotal(),  // Total orden
+                retencionParaCredito  // ✅ Pasar también la retención
             );
         }
         
@@ -580,16 +585,19 @@ public class OrdenService {
             
             // Si ya existe crédito, actualizarlo
             if (ordenActualizada.getCreditoDetalle() != null) {
+                // Reutilizar retencionFuente ya calculada arriba (línea 568)
                 creditoService.actualizarCreditoParaOrden(
                     ordenActualizada.getCreditoDetalle().getId(),
-                    ordenActualizada.getTotal()
+                    ordenActualizada.getTotal(),  // Total orden
+                    retencionFuente  // ✅ Pasar también la retención (ya calculada)
                 );
             } else {
                 // Si no existe crédito, crearlo
                 creditoService.crearCreditoParaOrden(
                     ordenActualizada.getId(), 
                     ventaDTO.getClienteId(), 
-                    ordenActualizada.getTotal()
+                    ordenActualizada.getTotal(),  // Total orden
+                    retencionFuente  // ✅ Pasar también la retención (ya calculada)
                 );
             }
         } else {
@@ -1580,15 +1588,19 @@ public class OrdenService {
             
             // Verificar si ya existe crédito para esta orden
             if (ordenActualizada.getCreditoDetalle() != null) {
-                // Si ya existe crédito, actualizarlo con el nuevo total
+                // Si ya existe crédito, actualizarlo con el nuevo total y retención
                 System.out.println("🔄 DEBUG: Actualizando crédito existente ID: " + 
                                   ordenActualizada.getCreditoDetalle().getId());
+                // Reutilizar retencionFuente ya calculada arriba (línea 1557)
                 creditoService.actualizarCreditoParaOrden(
                     ordenActualizada.getCreditoDetalle().getId(),
-                    ordenActualizada.getTotal()
+                    ordenActualizada.getTotal(),  // Total orden
+                    retencionFuente  // ✅ Pasar también la retención (ya calculada)
                 );
-                System.out.println("✅ DEBUG: Crédito actualizado con saldo pendiente: " + 
-                                  ordenActualizada.getTotal());
+                Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente;
+                System.out.println("✅ DEBUG: Crédito actualizado - Total: " + ordenActualizada.getTotal() + 
+                                  ", Retención: " + retencionFuente + 
+                                  ", Saldo pendiente inicial: " + saldoPendienteInicial);
             } else {
                 // Si no existe crédito, crearlo
                 System.out.println("🆕 DEBUG: Creando nuevo crédito para orden " + ordenActualizada.getId() + 
@@ -1598,13 +1610,17 @@ public class OrdenService {
                 if (clienteId == null) {
                     System.err.println("⚠️ WARNING: No se puede crear crédito - cliente es null");
                 } else {
+                    // Reutilizar retencionFuente ya calculada arriba (línea 1557)
                     creditoService.crearCreditoParaOrden(
                         ordenActualizada.getId(),
                         clienteId,
-                        ordenActualizada.getTotal()
+                        ordenActualizada.getTotal(),  // Total orden
+                        retencionFuente  // ✅ Pasar también la retención (ya calculada)
                     );
-                    System.out.println("✅ DEBUG: Crédito creado con saldo pendiente: " + 
-                                      ordenActualizada.getTotal());
+                    Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente;
+                    System.out.println("✅ DEBUG: Crédito creado con saldo pendiente inicial: " + 
+                                      saldoPendienteInicial + " (Total: " + ordenActualizada.getTotal() + 
+                                      ", Retención: " + retencionFuente + ")");
                     
                     // Recargar la orden para obtener el crédito recién creado
                     ordenActualizada = repo.findById(ordenActualizada.getId())

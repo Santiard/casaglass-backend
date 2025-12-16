@@ -165,9 +165,14 @@ public class CreditoService {
     /**
      * 💳 CREAR CRÉDITO PARA UNA ORDEN
      * Se ejecuta cuando una orden se marca como crédito
+     * 
+     * @param ordenId ID de la orden
+     * @param clienteId ID del cliente
+     * @param totalOrden Total de la orden (total facturado CON IVA, sin restar retención)
+     * @param retencionFuente Valor de la retención en la fuente (se resta del saldo pendiente inicial)
      */
     @Transactional(propagation = Propagation.REQUIRED)
-    public Credito crearCreditoParaOrden(Long ordenId, Long clienteId, Double totalOrden) {
+    public Credito crearCreditoParaOrden(Long ordenId, Long clienteId, Double totalOrden, Double retencionFuente) {
         try {
             System.out.println("🔍 DEBUG: Verificando si ya existe crédito para orden " + ordenId);
             
@@ -186,13 +191,21 @@ public class CreditoService {
                 throw new IllegalArgumentException("Orden no encontrada con ID: " + ordenId);
             }
             
+            // ✅ CALCULAR SALDO PENDIENTE INICIAL: Total orden - Retención de fuente
+            Double retencion = (retencionFuente != null && retencionFuente > 0) ? retencionFuente : 0.0;
+            Double saldoPendienteInicial = totalOrden - retencion;
+            
+            System.out.println("💰 DEBUG: Total orden: " + totalOrden + 
+                             ", Retención: " + retencion + 
+                             ", Saldo pendiente inicial: " + saldoPendienteInicial);
+            
             Credito credito = new Credito();
             credito.setCliente(entityManager.getReference(Cliente.class, clienteId));
             credito.setOrden(orden); // Usar la orden completa, no una referencia
             credito.setFechaInicio(LocalDate.now());
             credito.setTotalCredito(normalize(totalOrden));
             credito.setTotalAbonado(0.0);
-            credito.setSaldoPendiente(normalize(totalOrden));
+            credito.setSaldoPendiente(normalize(saldoPendienteInicial)); // ✅ Ahora resta la retención
             credito.setEstado(Credito.EstadoCredito.ABIERTO);
 
             // ⚡ ESTABLECER RELACIÓN BIDIRECCIONAL CORRECTAMENTE
@@ -213,11 +226,17 @@ public class CreditoService {
     /**
      * 🔄 ACTUALIZAR CRÉDITO PARA UNA ORDEN
      * Se ejecuta cuando se actualiza una orden que tiene crédito
+     * 
+     * @param creditoId ID del crédito a actualizar
+     * @param nuevoTotalOrden Nuevo total de la orden (total facturado CON IVA, sin restar retención)
+     * @param nuevaRetencionFuente Nueva retención de fuente (se resta del saldo pendiente)
      */
     @Transactional(propagation = Propagation.REQUIRED)
-    public Credito actualizarCreditoParaOrden(Long creditoId, Double nuevoTotalOrden) {
+    public Credito actualizarCreditoParaOrden(Long creditoId, Double nuevoTotalOrden, Double nuevaRetencionFuente) {
         try {
-            System.out.println("🔄 DEBUG: Actualizando crédito ID: " + creditoId + " con nuevo total: " + nuevoTotalOrden);
+            System.out.println("🔄 DEBUG: Actualizando crédito ID: " + creditoId + 
+                             " con nuevo total: " + nuevoTotalOrden + 
+                             ", retención: " + nuevaRetencionFuente);
             
             Credito credito = creditoRepo.findById(creditoId)
                 .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado con ID: " + creditoId));
@@ -226,11 +245,34 @@ public class CreditoService {
             Double totalNormalizado = normalize(nuevoTotalOrden);
             credito.setTotalCredito(totalNormalizado);
             
-            // Recalcular el saldo pendiente
-            credito.actualizarSaldo();
+            // ✅ RECALCULAR SALDO PENDIENTE CONSIDERANDO LA RETENCIÓN
+            // El saldo pendiente inicial debe ser: totalOrden - retencionFuente
+            Double retencion = (nuevaRetencionFuente != null && nuevaRetencionFuente > 0) ? nuevaRetencionFuente : 0.0;
+            Double saldoPendienteInicial = totalNormalizado - retencion;
+            
+            // El saldo pendiente actual = saldo pendiente inicial - total abonado
+            Double totalAbonado = credito.getTotalAbonado() != null ? credito.getTotalAbonado() : 0.0;
+            Double nuevoSaldoPendiente = Math.max(0, saldoPendienteInicial - totalAbonado);
+            
+            credito.setSaldoPendiente(normalize(nuevoSaldoPendiente));
+            
+            // Actualizar estado si el saldo es 0
+            if (nuevoSaldoPendiente <= 0.0) {
+                credito.setEstado(Credito.EstadoCredito.CERRADO);
+                if (credito.getFechaCierre() == null) {
+                    credito.setFechaCierre(LocalDate.now());
+                }
+            } else if (credito.getEstado() == Credito.EstadoCredito.CERRADO) {
+                // Si había estado cerrado pero ahora tiene saldo, reabrir
+                credito.setEstado(Credito.EstadoCredito.ABIERTO);
+                credito.setFechaCierre(null);
+            }
             
             Credito creditoActualizado = creditoRepo.save(credito);
-            System.out.println("✅ DEBUG: Crédito actualizado - Total: " + totalNormalizado + ", Saldo: " + creditoActualizado.getSaldoPendiente());
+            System.out.println("✅ DEBUG: Crédito actualizado - Total: " + totalNormalizado + 
+                             ", Retención: " + retencion + 
+                             ", Saldo inicial: " + saldoPendienteInicial + 
+                             ", Saldo pendiente: " + creditoActualizado.getSaldoPendiente());
             
             return creditoActualizado;
             

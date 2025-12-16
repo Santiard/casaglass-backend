@@ -134,11 +134,12 @@ public class Factura {
    * NOTA: El subtotal es SIN IVA, por lo que se debe SUMAR el IVA al total
    * Fórmula: total = subtotal + iva (total facturado CON IVA, sin restar retención)
    * La retención NO se resta del total, solo se registra para contabilidad
+   * Todos los valores se redondean a 2 decimales para cumplir con estándares contables legales
    */
   public void calcularTotal() {
     // El subtotal es SIN IVA, el total facturado es subtotal + IVA
-    double totalCalculado = subtotal + iva;
-    // Redondear a 2 decimales
+    double totalCalculado = (subtotal != null ? subtotal : 0.0) + (iva != null ? iva : 0.0);
+    // Redondear a 2 decimales (formato contable: 1.000.000,00)
     this.total = Math.round(totalCalculado * 100.0) / 100.0;
   }
 }

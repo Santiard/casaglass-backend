@@ -25,9 +25,11 @@ public class CreditoController {
     @PostMapping("/orden/{ordenId}")
     public ResponseEntity<?> crearParaOrden(@PathVariable Long ordenId, 
                                            @RequestParam Long clienteId, 
-                                           @RequestParam Double totalOrden) {
+                                           @RequestParam Double totalOrden,
+                                           @RequestParam(required = false) Double retencionFuente) {
         try {
-            Credito credito = service.crearCreditoParaOrden(ordenId, clienteId, totalOrden);
+            Double retencion = (retencionFuente != null && retencionFuente > 0) ? retencionFuente : 0.0;
+            Credito credito = service.crearCreditoParaOrden(ordenId, clienteId, totalOrden, retencion);
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Crédito creado exitosamente",
                 "credito", new CreditoResponseDTO(credito)

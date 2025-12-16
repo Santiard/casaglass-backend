@@ -78,22 +78,57 @@ public class FacturaService {
         factura.setCliente(cliente != null ? cliente : orden.getCliente());
         factura.setFecha(facturaDTO.getFecha() != null ? facturaDTO.getFecha() : LocalDate.now());
         
-        // ✅ USAR VALORES DIRECTAMENTE DE LA ORDEN (ignorar los del DTO)
-        // Esto garantiza que la factura siempre coincida con la orden y evita discrepancias contables
-        // Todos los valores se redondean a 2 decimales para cumplir con estándares contables legales
-        factura.setSubtotal(redondearMoneda(orden.getSubtotal())); // Base sin IVA (ya calculada correctamente en la orden)
+        // ✅ LÓGICA DE PRIORIZACIÓN PARA VALORES MONETARIOS
+        // 1. Priorizar valores del DTO si están presentes y son válidos (> 0)
+        // 2. Si no, usar valores de la orden
+        // 3. Si la orden tampoco los tiene, calcularlos desde el total de la orden
+        
+        // Calcular IVA con priorización
+        Double ivaFactura = calcularIvaConPriorizacion(facturaDTO, orden);
+        
+        // Calcular retención con priorización
+        Double retencionFactura = calcularRetencionConPriorizacion(facturaDTO, orden);
+        
+        // Calcular subtotal sin IVA (necesario para cálculos)
+        Double subtotalSinIva = calcularSubtotalSinIva(facturaDTO, orden);
+        
+        // ✅ VERIFICACIÓN DEL TOTAL DE LA FACTURA
+        // El total de la factura debe coincidir con el total de la orden (total facturado con IVA)
+        Double totalOrden = orden.getTotal();
+        Double totalCalculado = redondearMoneda(subtotalSinIva + ivaFactura);
+        
+        // Si hay diferencia significativa (> 0.01), usar el total de la orden y recalcular
+        if (totalOrden != null && Math.abs(totalCalculado - totalOrden) > 0.01) {
+            System.out.println("⚠️ WARNING: Diferencia entre total calculado (" + totalCalculado + 
+                             ") y total de orden (" + totalOrden + "). Usando total de orden.");
+            // Usar el total de la orden como fuente de verdad
+            totalCalculado = totalOrden;
+            
+            // Recalcular subtotal e IVA para que coincidan con el total de la orden
+            Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
+            Double baseConIva = Math.max(0, totalOrden - descuentos);
+            
+            if (baseConIva > 0) {
+                Double ivaRate = obtenerIvaRate();
+                Double divisorIva = 1.0 + (ivaRate / 100.0);
+                subtotalSinIva = redondearMoneda(baseConIva / divisorIva);
+                ivaFactura = redondearMoneda(baseConIva - subtotalSinIva);
+            }
+        }
+        
+        // Asignar valores a la factura (todos redondeados a 2 decimales)
+        factura.setSubtotal(redondearMoneda(subtotalSinIva));
         factura.setDescuentos(redondearMoneda(orden.getDescuentos() != null ? orden.getDescuentos() : 0.0));
-        factura.setIva(redondearMoneda(orden.getIva())); // IVA calculado correctamente en la orden
-        factura.setRetencionFuente(redondearMoneda(orden.getRetencionFuente() != null ? orden.getRetencionFuente() : 0.0));
+        factura.setIva(redondearMoneda(ivaFactura));
+        factura.setRetencionFuente(redondearMoneda(retencionFactura != null ? retencionFactura : 0.0));
         
         // Otros campos del DTO (no monetarios)
         factura.setFormaPago(facturaDTO.getFormaPago());
         factura.setObservaciones(facturaDTO.getObservaciones());
         factura.setEstado(Factura.EstadoFactura.PENDIENTE);
 
-        // ✅ USAR DIRECTAMENTE EL TOTAL DE LA ORDEN (más seguro que calcular)
-        // El total de la orden es: subtotal + iva (total facturado CON IVA, sin restar retención)
-        factura.setTotal(redondearMoneda(orden.getTotal()));
+        // Establecer total (usar total de la orden como fuente de verdad)
+        factura.setTotal(redondearMoneda(totalOrden != null ? totalOrden : totalCalculado));
 
         // Generar o usar número de factura
         if (facturaDTO.getNumeroFactura() != null && !facturaDTO.getNumeroFactura().isEmpty()) {
@@ -105,6 +140,32 @@ public class FacturaService {
 
         // Guardar factura
         Factura facturaGuardada = facturaRepo.save(factura);
+
+        // ✅ ACTUALIZACIÓN DE LA ORDEN DESPUÉS DE FACTURAR
+        // Si se calcularon valores que no estaban en la orden, actualizar la orden para mantener consistencia
+        boolean ordenActualizada = false;
+        
+        // Actualizar IVA y subtotal si no estaban calculados
+        if (orden.getIva() == null || orden.getIva() == 0) {
+            orden.setIva(ivaFactura);
+            orden.setSubtotal(subtotalSinIva);
+            ordenActualizada = true;
+            System.out.println("📝 Actualizando orden: IVA y subtotal calculados desde factura");
+        }
+        
+        // Actualizar retención si la orden tiene tieneRetencionFuente = true pero no tenía el valor calculado
+        if (orden.isTieneRetencionFuente() && 
+            (orden.getRetencionFuente() == null || orden.getRetencionFuente() == 0) &&
+            retencionFactura != null && retencionFactura > 0) {
+            orden.setRetencionFuente(retencionFactura);
+            ordenActualizada = true;
+            System.out.println("📝 Actualizando orden: Retención calculada desde factura");
+        }
+        
+        // Guardar orden si fue actualizada
+        if (ordenActualizada) {
+            ordenRepository.save(orden);
+        }
 
         // Asegurar consistencia bidireccional: enlazar en la orden
         try {
@@ -615,6 +676,165 @@ public class FacturaService {
         }
         // Redondear a 2 decimales usando Math.round
         return Math.round(valor * 100.0) / 100.0;
+    }
+
+    /**
+     * 💰 CALCULAR IVA CON PRIORIZACIÓN
+     * Prioriza: DTO > Orden > Cálculo desde total
+     * 
+     * @param facturaDTO DTO con valores del frontend
+     * @param orden Orden asociada
+     * @return IVA calculado o obtenido
+     */
+    private Double calcularIvaConPriorizacion(FacturaCreateDTO facturaDTO, Orden orden) {
+        // 1. Intentar usar valor del DTO si está presente y es válido (> 0)
+        if (facturaDTO.getIva() != null && facturaDTO.getIva() > 0) {
+            return facturaDTO.getIva();
+        }
+        
+        // 2. Si no está en el DTO, usar valor de la orden
+        if (orden.getIva() != null && orden.getIva() > 0) {
+            return orden.getIva();
+        }
+        
+        // 3. Si la orden tampoco lo tiene, calcularlo desde el total
+        Double totalOrden = orden.getTotal();
+        if (totalOrden == null || totalOrden <= 0) {
+            return 0.0;
+        }
+        
+        Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
+        Double baseConIva = Math.max(0, totalOrden - descuentos);
+        
+        if (baseConIva <= 0) {
+            return 0.0;
+        }
+        
+        // Obtener tasa de IVA desde configuración
+        Double ivaRate = obtenerIvaRate(); // Ej: 19.0
+        Double divisorIva = 1.0 + (ivaRate / 100.0); // Ej: 1.19
+        
+        // Calcular subtotal sin IVA
+        Double subtotalSinIva = baseConIva / divisorIva;
+        Double subtotalSinIvaRedondeado = redondearMoneda(subtotalSinIva);
+        
+        // Calcular IVA como diferencia
+        Double ivaCalculado = baseConIva - subtotalSinIvaRedondeado;
+        return redondearMoneda(ivaCalculado);
+    }
+
+    /**
+     * 💰 CALCULAR RETENCIÓN CON PRIORIZACIÓN
+     * Prioriza: DTO > Orden > Cálculo desde total (si tieneRetencionFuente = true)
+     * 
+     * @param facturaDTO DTO con valores del frontend
+     * @param orden Orden asociada
+     * @return Retención calculada o obtenida
+     */
+    private Double calcularRetencionConPriorizacion(FacturaCreateDTO facturaDTO, Orden orden) {
+        // 1. Intentar usar valor del DTO si está presente y es válido (> 0)
+        if (facturaDTO.getRetencionFuente() != null && facturaDTO.getRetencionFuente() > 0) {
+            return facturaDTO.getRetencionFuente();
+        }
+        
+        // 2. Si no está en el DTO, usar valor de la orden
+        if (orden.getRetencionFuente() != null && orden.getRetencionFuente() > 0) {
+            return orden.getRetencionFuente();
+        }
+        
+        // 3. Si la orden tiene tieneRetencionFuente = true pero no tiene el valor calculado,
+        // calcularlo desde el total (validando el umbral)
+        Boolean tieneRetencion = orden.isTieneRetencionFuente();
+        if (tieneRetencion == null || !tieneRetencion) {
+            return 0.0;
+        }
+        
+        // Calcular subtotal sin IVA para verificar umbral y calcular retención
+        // Usar el método calcularSubtotalSinIva para obtener el subtotal correcto
+        Double subtotalSinIva = calcularSubtotalSinIva(facturaDTO, orden);
+        
+        if (subtotalSinIva == null || subtotalSinIva <= 0) {
+            return 0.0;
+        }
+        
+        // ✅ VALIDACIÓN DEL UMBRAL DE RETEFUENTE
+        // Obtener configuración de retención
+        BusinessSettings config = obtenerConfiguracionRetencion();
+        Double reteRate = config.getReteRate() != null ? config.getReteRate() : 2.5;
+        Long reteThreshold = config.getReteThreshold() != null ? config.getReteThreshold() : 1_000_000L;
+        
+        // Verificar si supera el umbral antes de aplicar retención
+        // Esto puede pasar si el umbral cambió después de marcar la orden
+        if (subtotalSinIva >= reteThreshold) {
+            Double retencionCalculada = subtotalSinIva * (reteRate / 100.0);
+            return redondearMoneda(retencionCalculada);
+        } else {
+            // No aplicar retención aunque tengaRetencionFuente = true si no supera el umbral
+            System.out.println("⚠️ WARNING: Orden marcada con retefuente pero no supera el umbral (" + 
+                             subtotalSinIva + " < " + reteThreshold + "). No se aplicará retención.");
+            return 0.0;
+        }
+    }
+
+    /**
+     * 💰 CALCULAR SUBTOTAL SIN IVA CON PRIORIZACIÓN
+     * Prioriza: DTO > Orden > Cálculo desde total
+     * 
+     * @param facturaDTO DTO con valores del frontend
+     * @param orden Orden asociada
+     * @return Subtotal sin IVA calculado o obtenido
+     */
+    private Double calcularSubtotalSinIva(FacturaCreateDTO facturaDTO, Orden orden) {
+        // 1. Intentar usar valor del DTO si está presente y es válido (> 0)
+        if (facturaDTO.getSubtotal() != null && facturaDTO.getSubtotal() > 0) {
+            return facturaDTO.getSubtotal();
+        }
+        
+        // 2. Si no está en el DTO, usar valor de la orden
+        if (orden.getSubtotal() != null && orden.getSubtotal() > 0) {
+            return orden.getSubtotal();
+        }
+        
+        // 3. Si la orden tampoco lo tiene, calcularlo desde el total
+        Double totalOrden = orden.getTotal();
+        if (totalOrden == null || totalOrden <= 0) {
+            return 0.0;
+        }
+        
+        Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
+        Double baseConIva = Math.max(0, totalOrden - descuentos);
+        
+        if (baseConIva <= 0) {
+            return 0.0;
+        }
+        
+        // Obtener tasa de IVA desde configuración
+        Double ivaRate = obtenerIvaRate();
+        Double divisorIva = 1.0 + (ivaRate / 100.0);
+        
+        // Calcular subtotal sin IVA
+        Double subtotalSinIva = baseConIva / divisorIva;
+        return redondearMoneda(subtotalSinIva);
+    }
+
+    /**
+     * 💰 OBTENER CONFIGURACIÓN DE RETENCIÓN DESDE BUSINESS SETTINGS
+     * Obtiene la tasa y umbral de retención desde BusinessSettings
+     */
+    private BusinessSettings obtenerConfiguracionRetencion() {
+        try {
+            List<BusinessSettings> settings = businessSettingsRepository.findAll();
+            if (!settings.isEmpty()) {
+                return settings.get(0);
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ WARNING: No se pudo obtener configuración de retención: " + e.getMessage());
+        }
+        // Fallback a valores por defecto
+        BusinessSettings defaultSettings = new BusinessSettings();
+        defaultSettings.setReteRate(2.5);
+        defaultSettings.setReteThreshold(1_000_000L);
+        return defaultSettings;
     }
 }
 
