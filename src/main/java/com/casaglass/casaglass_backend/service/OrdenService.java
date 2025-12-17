@@ -2115,4 +2115,90 @@ public class OrdenService {
     private String generarCodigoCorte(String codigoOriginal, Integer medida) {
         return codigoOriginal + "-" + medida;
     }
+
+    /**
+     * 💰 ACTUALIZAR RETENCIÓN DE FUENTE DE UNA ORDEN
+     * 
+     * Endpoint especializado para actualizar SOLO los campos de retención de fuente
+     * sin necesidad de enviar todos los datos de la orden (items, cliente, sede, etc.)
+     * 
+     * Características:
+     * - Actualiza tieneRetencionFuente, retencionFuente, e IVA
+     * - Recalcula el total de la orden
+     * - Si la orden tiene crédito, actualiza también el saldo del crédito
+     * - Validaciones de seguridad (orden debe existir y estar ACTIVA)
+     * 
+     * @param ordenId ID de la orden a actualizar
+     * @param dto DTO con los nuevos valores de retención
+     * @return Orden actualizada con todos sus campos
+     * @throws IllegalArgumentException si la orden no existe o está anulada
+     */
+    @Transactional
+    public Orden actualizarRetencionFuente(Long ordenId, com.casaglass.casaglass_backend.dto.RetencionFuenteDTO dto) {
+        System.out.println("💰 DEBUG: Actualizando retención de fuente para orden ID: " + ordenId);
+        System.out.println("💰 DEBUG: Datos recibidos: " + dto);
+        
+        // 1️⃣ BUSCAR ORDEN EXISTENTE
+        Orden orden = repo.findById(ordenId)
+            .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+        
+        // 2️⃣ VALIDAR QUE LA ORDEN ESTÉ ACTIVA
+        if (orden.getEstado() == Orden.EstadoOrden.ANULADA) {
+            throw new IllegalArgumentException("No se puede actualizar la retención de una orden anulada");
+        }
+        
+        // 3️⃣ VALIDAR DATOS DEL DTO
+        if (dto.getTieneRetencionFuente() == null) {
+            throw new IllegalArgumentException("El campo tieneRetencionFuente es obligatorio");
+        }
+        if (dto.getRetencionFuente() == null) {
+            throw new IllegalArgumentException("El valor de retencionFuente es obligatorio");
+        }
+        
+        // Si no tiene retención, el valor debe ser 0
+        if (!dto.getTieneRetencionFuente() && dto.getRetencionFuente() != 0.0) {
+            throw new IllegalArgumentException("Si tieneRetencionFuente es false, retencionFuente debe ser 0.0");
+        }
+        
+        // 4️⃣ ACTUALIZAR CAMPOS DE RETENCIÓN
+        orden.setTieneRetencionFuente(dto.getTieneRetencionFuente());
+        orden.setRetencionFuente(dto.getRetencionFuente());
+        
+        // 5️⃣ ACTUALIZAR IVA SI SE PROPORCIONÓ (OPCIONAL)
+        if (dto.getIva() != null) {
+            orden.setIva(dto.getIva());
+            System.out.println("💰 DEBUG: IVA actualizado a: " + dto.getIva());
+        }
+        
+        // 6️⃣ RECALCULAR TOTAL (suma de items - descuentos, SIN restar retención)
+        // El total facturado NO incluye la retención restada
+        // La retención se resta solo para el saldo del crédito
+        double subtotalBruto = 0.0;
+        if (orden.getItems() != null && !orden.getItems().isEmpty()) {
+            for (OrdenItem item : orden.getItems()) {
+                subtotalBruto += item.getTotalLinea() != null ? item.getTotalLinea() : 0.0;
+            }
+        }
+        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        
+        Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
+        Double totalFacturado = subtotalBruto - descuentos;
+        totalFacturado = Math.round(totalFacturado * 100.0) / 100.0;
+        
+        orden.setTotal(totalFacturado);
+        System.out.println("💰 DEBUG: Total facturado recalculado: " + totalFacturado);
+        
+        // 7️⃣ GUARDAR ORDEN
+        Orden ordenActualizada = repo.save(orden);
+        System.out.println("✅ DEBUG: Orden actualizada exitosamente");
+        
+        // 8️⃣ ACTUALIZAR CRÉDITO SI EXISTE
+        if (orden.isCredito() && orden.getCreditoDetalle() != null) {
+            System.out.println("💳 DEBUG: Actualizando crédito asociado...");
+            creditoService.recalcularTotales(orden.getCreditoDetalle().getId());
+            System.out.println("✅ DEBUG: Crédito recalculado exitosamente");
+        }
+        
+        return ordenActualizada;
+    }
 }

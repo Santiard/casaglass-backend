@@ -441,6 +441,79 @@ public class OrdenController {
         }
     }
 
+    /**
+     * 💰 ACTUALIZAR RETENCIÓN DE FUENTE DE UNA ORDEN
+     * PUT /api/ordenes/{id}/retencion-fuente
+     * 
+     * Endpoint especializado para actualizar SOLO los campos de retención de fuente
+     * sin necesidad de enviar todos los datos de la orden (items, cliente, sede, etc.)
+     * 
+     * Request Body:
+     * {
+     *   "tieneRetencionFuente": true,     // OBLIGATORIO: boolean
+     *   "retencionFuente": 25000.50,      // OBLIGATORIO: número (0.0 si no tiene retención)
+     *   "iva": 47500.00                   // OPCIONAL: número (se calcula automáticamente si no se envía)
+     * }
+     * 
+     * Response 200 OK:
+     * {
+     *   "id": 124,
+     *   "numero": 1001,
+     *   "tieneRetencionFuente": true,
+     *   "retencionFuente": 25000.50,
+     *   "iva": 47500.00,
+     *   "total": 297500.50,
+     *   "creditoDetalle": {
+     *     "id": 45,
+     *     "saldoPendiente": 272500.00,
+     *     ...
+     *   },
+     *   ...
+     * }
+     * 
+     * Características:
+     * - Actualiza tieneRetencionFuente, retencionFuente, e IVA
+     * - Recalcula el total de la orden
+     * - Si la orden tiene crédito, actualiza también el saldo del crédito
+     * - Validaciones de seguridad (orden debe existir y estar ACTIVA)
+     * 
+     * Errores posibles:
+     * - 400 Bad Request: Validaciones fallidas (retención inválida, orden anulada)
+     * - 404 Not Found: Orden no existe
+     * - 500 Internal Server Error: Error inesperado
+     */
+    @PutMapping("/{id}/retencion-fuente")
+    public ResponseEntity<?> actualizarRetencionFuente(
+            @PathVariable Long id,
+            @RequestBody com.casaglass.casaglass_backend.dto.RetencionFuenteDTO retencionDTO) {
+        try {
+            System.out.println("💰 DEBUG: Actualizando retención de fuente para orden ID: " + id);
+            System.out.println("💰 DEBUG: Datos recibidos: " + retencionDTO);
+            
+            Orden ordenActualizada = service.actualizarRetencionFuente(id, retencionDTO);
+            
+            System.out.println("✅ DEBUG: Retención actualizada exitosamente");
+            
+            return ResponseEntity.ok(Map.of(
+                "mensaje", "Retención de fuente actualizada exitosamente",
+                "orden", ordenActualizada
+            ));
+        } catch (IllegalArgumentException e) {
+            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "VALIDACION"
+            ));
+        } catch (Exception e) {
+            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error interno del servidor: " + e.getMessage(),
+                "tipo", "SERVIDOR"
+            ));
+        }
+    }
+
     // 🎯 ================================
     // 🎯 ENDPOINTS OPTIMIZADOS PARA TABLA
     // 🎯 ================================
