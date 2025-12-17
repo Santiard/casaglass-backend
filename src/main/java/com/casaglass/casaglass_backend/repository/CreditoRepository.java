@@ -23,6 +23,9 @@ public interface CreditoRepository extends JpaRepository<Credito, Long> {
     // Métodos adicionales para consultas específicas
     List<Credito> findByClienteIdAndEstado(Long clienteId, Credito.EstadoCredito estado);
     
+    // 💰 MÉTODO ESPECIALIZADO PARA PÁGINA DE ABONOS - Créditos pendientes con saldo > 0
+    List<Credito> findByClienteIdAndEstadoAndSaldoPendienteGreaterThan(Long clienteId, Credito.EstadoCredito estado, Double saldoPendiente);
+    
     // Para compatibilidad con código anterior (método único)
     Optional<Credito> findFirstByClienteId(Long clienteId);
     

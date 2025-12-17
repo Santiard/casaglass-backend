@@ -95,7 +95,18 @@ public class Credito {
      * Se debe llamar después de agregar/modificar abonos
      */
     public void actualizarSaldo() {
-        this.saldoPendiente = this.totalCredito - this.totalAbonado;
+        // 💰 Obtener retención de fuente de la orden asociada (si existe)
+        Double retencionFuente = 0.0;
+        if (this.orden != null && 
+            this.orden.isTieneRetencionFuente() && 
+            this.orden.getRetencionFuente() != null) {
+            retencionFuente = this.orden.getRetencionFuente();
+        }
+        
+        // ✅ FÓRMULA CORRECTA: Funciona para órdenes CON y SIN retención
+        // - Si NO tiene retención: retencionFuente = 0.0 → saldo = total - abonado
+        // - Si SÍ tiene retención: retencionFuente > 0 → saldo = total - abonado - retención
+        this.saldoPendiente = this.totalCredito - this.totalAbonado - retencionFuente;
         
         // Actualizar estado automáticamente
         if (this.saldoPendiente <= 0.0) {

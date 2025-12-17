@@ -1,0 +1,763 @@
+================================================================================
+🎯 DOCUMENTACIÓN: ENDPOINT LISTAR CRÉDITOS PENDIENTES
+================================================================================
+
+📋 ÍNDICE:
+1. Resumen del Endpoint
+2. Código Backend (Java Spring Boot)
+   2.1. DTO: CreditoPendienteDTO.java
+   2.2. Repository: CreditoRepository.java (query method)
+   2.3. Service: CreditoService.java (método listarCreditosPendientes)
+   2.4. Controller: CreditoController.java (endpoint GET)
+3. Código Frontend (JavaScript/React)
+   3.1. Servicio API
+   3.2. Uso en componente
+4. Ejemplos de Uso
+5. Comparación: Antes vs Ahora
+
+================================================================================
+1. RESUMEN DEL ENDPOINT
+================================================================================
+
+MÉTODO:     GET
+URL:        /api/creditos/cliente/{clienteId}/pendientes
+PROPÓSITO:  Obtener SOLO los créditos con saldo pendiente > 0 para la 
+            página de abonos
+
+VENTAJAS:
+✅ Solo trae créditos con saldo > 0 (filtro en backend)
+✅ Incluye tieneRetencionFuente (CRÍTICO para cálculos)
+✅ Incluye subtotal (necesario para calcular retención)
+✅ Incluye toda la info de la orden sin consultas adicionales
+✅ Ordenado por fecha (más recientes primero)
+✅ Reduce tráfico de red (solo lo necesario)
+
+FILTROS AUTOMÁTICOS EN BACKEND:
+- estado = ABIERTO
+- saldoPendiente > 0
+- clienteId = {parámetro}
+
+REQUEST:
+GET /api/creditos/cliente/7/pendientes
+
+RESPONSE 200 OK:
+[
+  {
+    // === DATOS DEL CRÉDITO ===
+    "creditoId": 31,
+    "totalCredito": 500000.00,
+    "totalAbonado": 200000.00,
+    "saldoPendiente": 300000.00,
+    "estado": "ABIERTO",
+    
+    // === DATOS DE LA ORDEN ===
+    "ordenId": 124,
+    "ordenNumero": 1001,
+    "ordenFecha": "2025-12-01",
+    "ordenObra": "Casa Matriz",
+    
+    // === MONTOS DE LA ORDEN ===
+    "total": 500000.00,           // Total facturado (con IVA)
+    "subtotal": 420168.07,        // Subtotal SIN IVA (IMPORTANTE para retefuente)
+    "iva": 79831.93,              // IVA calculado
+    "descuentos": 0.00,
+    
+    // === RETENCIÓN DE FUENTE ===
+    "tieneRetencionFuente": true,  // CRÍTICO para cálculos
+    "retencionFuente": 45693.28,
+    
+    // === DATOS ADICIONALES ===
+    "fechaUltimoAbono": "2025-12-15",
+    "cantidadAbonos": 3,
+    
+    // === RELACIONES ===
+    "sede": {
+      "id": 1,
+      "nombre": "Insula"
+    },
+    "cliente": {
+      "id": 7,
+      "nombre": "Juan Pérez",
+      "nit": "123456789"
+    }
+  }
+]
+
+ERRORES POSIBLES:
+- 400 Bad Request: Validaciones fallidas
+- 500 Internal Server Error: Error inesperado
+
+================================================================================
+2. CÓDIGO BACKEND (JAVA SPRING BOOT)
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1. DTO: CreditoPendienteDTO.java
+--------------------------------------------------------------------------------
+UBICACIÓN: src/main/java/com/casaglass/casaglass_backend/dto/CreditoPendienteDTO.java
+
+COPIAR Y PEGAR:
+
+package com.casaglass.casaglass_backend.dto;
+
+import com.casaglass.casaglass_backend.model.Credito;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+
+/**
+ * 💰 DTO PARA LISTAR CRÉDITOS PENDIENTES EN LA PÁGINA DE ABONOS
+ * 
+ * Contiene toda la información necesaria para:
+ * - Mostrar créditos con saldo pendiente
+ * - Calcular retención de fuente
+ * - Registrar abonos
+ * 
+ * Endpoint: GET /api/creditos/cliente/{clienteId}/pendientes
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreditoPendienteDTO {
+    
+    // ========== DATOS DEL CRÉDITO ==========
+    
+    /** ID del crédito */
+    private Long creditoId;
+    
+    /** Monto total del crédito original */
+    private Double totalCredito;
+    
+    /** Monto total abonado hasta el momento */
+    private Double totalAbonado;
+    
+    /** Saldo pendiente (totalCredito - totalAbonado - retencionFuente si aplica) */
+    private Double saldoPendiente;
+    
+    /** Estado del crédito: ABIERTO, CERRADO, VENCIDO, ANULADO */
+    private String estado;
+    
+    // ========== DATOS DE LA ORDEN ==========
+    
+    /** ID de la orden que originó el crédito */
+    private Long ordenId;
+    
+    /** Número de orden único */
+    private Long ordenNumero;
+    
+    /** Fecha de la orden */
+    private LocalDate ordenFecha;
+    
+    /** Obra/proyecto de la orden */
+    private String ordenObra;
+    
+    // ========== MONTOS DE LA ORDEN ==========
+    
+    /** Total facturado (subtotal + IVA - descuentos) */
+    private Double total;
+    
+    /** Subtotal sin IVA - IMPORTANTE para calcular retención de fuente */
+    private Double subtotal;
+    
+    /** IVA calculado */
+    private Double iva;
+    
+    /** Descuentos aplicados */
+    private Double descuentos;
+    
+    // ========== RETENCIÓN DE FUENTE ==========
+    
+    /** Indica si la orden tiene retención de fuente - CRÍTICO */
+    private Boolean tieneRetencionFuente;
+    
+    /** Valor de la retención en la fuente */
+    private Double retencionFuente;
+    
+    // ========== DATOS ADICIONALES ==========
+    
+    /** Fecha del último abono realizado (opcional) */
+    private LocalDate fechaUltimoAbono;
+    
+    /** Cantidad total de abonos realizados */
+    private Integer cantidadAbonos;
+    
+    // ========== RELACIONES ==========
+    
+    /** Información de la sede */
+    private SedeSimpleDTO sede;
+    
+    /** Información del cliente (opcional, normalmente ya se tiene) */
+    private ClienteSimpleDTO cliente;
+    
+    // ========== DTOs INTERNOS ==========
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SedeSimpleDTO {
+        private Long id;
+        private String nombre;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ClienteSimpleDTO {
+        private Long id;
+        private String nombre;
+        private String nit;
+    }
+    
+    // ========== CONSTRUCTOR DESDE ENTIDAD ==========
+    
+    /**
+     * Constructor que mapea desde la entidad Credito
+     * Extrae todos los datos necesarios de la orden asociada
+     */
+    public CreditoPendienteDTO(Credito credito) {
+        // Datos del crédito
+        this.creditoId = credito.getId();
+        this.totalCredito = credito.getTotalCredito();
+        this.totalAbonado = credito.getTotalAbonado();
+        this.saldoPendiente = credito.getSaldoPendiente();
+        this.estado = credito.getEstado().name();
+        
+        // Datos de la orden
+        if (credito.getOrden() != null) {
+            this.ordenId = credito.getOrden().getId();
+            this.ordenNumero = credito.getOrden().getNumero();
+            this.ordenFecha = credito.getOrden().getFecha();
+            this.ordenObra = credito.getOrden().getObra();
+            
+            // Montos de la orden
+            this.total = credito.getOrden().getTotal();
+            this.subtotal = credito.getOrden().getSubtotal();
+            this.iva = credito.getOrden().getIva();
+            this.descuentos = credito.getOrden().getDescuentos();
+            
+            // Retención de fuente
+            this.tieneRetencionFuente = credito.getOrden().isTieneRetencionFuente();
+            this.retencionFuente = credito.getOrden().getRetencionFuente();
+            
+            // Sede
+            if (credito.getOrden().getSede() != null) {
+                this.sede = new SedeSimpleDTO(
+                    credito.getOrden().getSede().getId(),
+                    credito.getOrden().getSede().getNombre()
+                );
+            }
+        }
+        
+        // Cliente
+        if (credito.getCliente() != null) {
+            this.cliente = new ClienteSimpleDTO(
+                credito.getCliente().getId(),
+                credito.getCliente().getNombre(),
+                credito.getCliente().getNit()
+            );
+        }
+        
+        // Datos adicionales de abonos
+        if (credito.getAbonos() != null && !credito.getAbonos().isEmpty()) {
+            this.cantidadAbonos = credito.getAbonos().size();
+            
+            // Encontrar fecha del último abono
+            this.fechaUltimoAbono = credito.getAbonos().stream()
+                .map(abono -> abono.getFecha())
+                .max(LocalDate::compareTo)
+                .orElse(null);
+        } else {
+            this.cantidadAbonos = 0;
+            this.fechaUltimoAbono = null;
+        }
+    }
+}
+
+--------------------------------------------------------------------------------
+2.2. Repository: CreditoRepository.java (agregar este método)
+--------------------------------------------------------------------------------
+UBICACIÓN: src/main/java/com/casaglass/casaglass_backend/repository/CreditoRepository.java
+
+COPIAR Y PEGAR DESPUÉS DE findByClienteIdAndEstado:
+
+    // 💰 MÉTODO ESPECIALIZADO PARA PÁGINA DE ABONOS - Créditos pendientes con saldo > 0
+    List<Credito> findByClienteIdAndEstadoAndSaldoPendienteGreaterThan(Long clienteId, Credito.EstadoCredito estado, Double saldoPendiente);
+
+--------------------------------------------------------------------------------
+2.3. Service: CreditoService.java (agregar este método)
+--------------------------------------------------------------------------------
+UBICACIÓN: src/main/java/com/casaglass/casaglass_backend/service/CreditoService.java
+
+COPIAR Y PEGAR AL FINAL DE LA CLASE (antes del cierre }):
+
+    /**
+     * 💰 LISTAR CRÉDITOS PENDIENTES DE UN CLIENTE
+     * 
+     * Endpoint especializado para la página de abonos.
+     * Retorna SOLO los créditos con saldo pendiente > 0 y estado ABIERTO.
+     * 
+     * Características:
+     * - Filtra automáticamente: estado = ABIERTO AND saldoPendiente > 0
+     * - Incluye todos los datos necesarios para registrar abonos
+     * - Incluye información de retención de fuente
+     * - Incluye subtotal (necesario para calcular retención)
+     * - Ordenado por fecha de orden (más recientes primero)
+     * 
+     * @param clienteId ID del cliente
+     * @return Lista de CreditoPendienteDTO con toda la información necesaria
+     */
+    @Transactional(readOnly = true)
+    public List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> listarCreditosPendientes(Long clienteId) {
+        System.out.println("💰 DEBUG: Listando créditos pendientes para cliente ID: " + clienteId);
+        
+        // Buscar créditos del cliente con estado ABIERTO y saldo > 0
+        List<Credito> creditos = creditoRepo.findByClienteIdAndEstadoAndSaldoPendienteGreaterThan(
+            clienteId, 
+            Credito.EstadoCredito.ABIERTO, 
+            0.0
+        );
+        
+        System.out.println("💰 DEBUG: Encontrados " + creditos.size() + " créditos pendientes");
+        
+        // Convertir a DTO
+        List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> resultado = creditos.stream()
+            .map(com.casaglass.casaglass_backend.dto.CreditoPendienteDTO::new)
+            .sorted((a, b) -> {
+                // Ordenar por fecha de orden (más recientes primero)
+                if (a.getOrdenFecha() == null && b.getOrdenFecha() == null) return 0;
+                if (a.getOrdenFecha() == null) return 1;
+                if (b.getOrdenFecha() == null) return -1;
+                return b.getOrdenFecha().compareTo(a.getOrdenFecha());
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
+        System.out.println("✅ DEBUG: Retornando " + resultado.size() + " créditos pendientes");
+        
+        return resultado;
+    }
+
+--------------------------------------------------------------------------------
+2.4. Controller: CreditoController.java (agregar este endpoint)
+--------------------------------------------------------------------------------
+UBICACIÓN: src/main/java/com/casaglass/casaglass_backend/controller/CreditoController.java
+
+COPIAR Y PEGAR AL FINAL DE LA CLASE (antes del cierre }):
+
+    /**
+     * 💰 LISTAR CRÉDITOS PENDIENTES DE UN CLIENTE
+     * GET /api/creditos/cliente/{clienteId}/pendientes
+     * 
+     * Endpoint especializado para la página de abonos.
+     * Retorna SOLO los créditos con saldo pendiente > 0 y estado ABIERTO.
+     * 
+     * Incluye:
+     * - Datos del crédito (id, totalCredito, totalAbonado, saldoPendiente, estado)
+     * - Datos de la orden (id, numero, fecha, obra)
+     * - Montos (total, subtotal, iva, descuentos)
+     * - Retención de fuente (tieneRetencionFuente, retencionFuente)
+     * - Sede y cliente
+     * - Información de abonos (fechaUltimoAbono, cantidadAbonos)
+     * 
+     * Response 200 OK:
+     * [
+     *   {
+     *     "creditoId": 31,
+     *     "totalCredito": 500000.00,
+     *     "saldoPendiente": 300000.00,
+     *     "ordenNumero": 1001,
+     *     "subtotal": 420168.07,
+     *     "tieneRetencionFuente": true,
+     *     "retencionFuente": 45693.28,
+     *     ...
+     *   }
+     * ]
+     */
+    @GetMapping("/cliente/{clienteId}/pendientes")
+    public ResponseEntity<?> listarCreditosPendientes(@PathVariable Long clienteId) {
+        try {
+            System.out.println("💰 DEBUG: Endpoint /creditos/cliente/" + clienteId + "/pendientes");
+            
+            List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> creditos = 
+                service.listarCreditosPendientes(clienteId);
+            
+            return ResponseEntity.ok(creditos);
+        } catch (IllegalArgumentException e) {
+            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "VALIDACION"
+            ));
+        } catch (Exception e) {
+            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error interno del servidor: " + e.getMessage(),
+                "tipo", "SERVIDOR"
+            ));
+        }
+    }
+
+================================================================================
+3. CÓDIGO FRONTEND (JAVASCRIPT/REACT)
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1. Servicio API
+--------------------------------------------------------------------------------
+UBICACIÓN: src/services/CreditosService.js (o similar)
+
+COPIAR Y PEGAR:
+
+/**
+ * 💰 Listar créditos pendientes de un cliente
+ * 
+ * Obtiene SOLO los créditos con saldo pendiente > 0
+ * Incluye toda la información necesaria para la página de abonos
+ * 
+ * @param {number} clienteId - ID del cliente
+ * @returns {Promise<Array>} Array de créditos pendientes
+ */
+export async function listarCreditosPendientes(clienteId) {
+  try {
+    const { data } = await api.get(`/creditos/cliente/${clienteId}/pendientes`);
+    console.log('✅ Créditos pendientes obtenidos:', data.length);
+    return data;
+  } catch (error) {
+    console.error('❌ Error obteniendo créditos pendientes:', error);
+    throw error;
+  }
+}
+
+--------------------------------------------------------------------------------
+3.2. Uso en Componente React
+--------------------------------------------------------------------------------
+UBICACIÓN: Componente donde necesitas los créditos (ej: AbonoPage.jsx)
+
+COPIAR Y PEGAR:
+
+import { listarCreditosPendientes } from '../services/CreditosService';
+
+// Dentro de tu componente:
+
+const [creditosPendientes, setCreditosPendientes] = useState([]);
+const [loading, setLoading] = useState(false);
+
+// Cargar créditos pendientes cuando se selecciona un cliente
+const cargarCreditosPendientes = async (clienteId) => {
+  try {
+    setLoading(true);
+    
+    // Llamar al endpoint especializado
+    const creditos = await listarCreditosPendientes(clienteId);
+    
+    console.log('📊 Créditos con saldo pendiente:', creditos.length);
+    
+    // Actualizar estado
+    setCreditosPendientes(creditos);
+    
+    // Mostrar información útil
+    creditos.forEach(credito => {
+      console.log(`Orden ${credito.ordenNumero}: Saldo $${credito.saldoPendiente.toLocaleString()}`);
+      console.log(`  - Retención: ${credito.tieneRetencionFuente ? 'SÍ' : 'NO'}`);
+      console.log(`  - Subtotal: $${credito.subtotal?.toLocaleString()}`);
+    });
+    
+  } catch (error) {
+    console.error('❌ Error:', error);
+    toast.error('Error al cargar créditos pendientes');
+    setCreditosPendientes([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Uso en useEffect cuando cambia el cliente seleccionado
+useEffect(() => {
+  if (clienteSeleccionado?.id) {
+    cargarCreditosPendientes(clienteSeleccionado.id);
+  }
+}, [clienteSeleccionado]);
+
+// Renderizar en la tabla
+{creditosPendientes.map(credito => (
+  <tr key={credito.creditoId}>
+    <td>{credito.ordenNumero}</td>
+    <td>{credito.ordenFecha}</td>
+    <td>${credito.total?.toLocaleString()}</td>
+    <td>${credito.saldoPendiente?.toLocaleString()}</td>
+    <td>
+      {credito.tieneRetencionFuente && (
+        <Badge variant="warning">
+          Retención: ${credito.retencionFuente?.toLocaleString()}
+        </Badge>
+      )}
+    </td>
+    <td>
+      <Button onClick={() => registrarAbono(credito)}>
+        Abonar
+      </Button>
+    </td>
+  </tr>
+))}
+
+================================================================================
+4. EJEMPLOS DE USO
+================================================================================
+
+--------------------------------------------------------------------------------
+EJEMPLO 1: Cliente con 2 créditos pendientes
+--------------------------------------------------------------------------------
+
+REQUEST:
+GET /api/creditos/cliente/7/pendientes
+
+RESPONSE 200 OK:
+[
+  {
+    "creditoId": 31,
+    "totalCredito": 500000.00,
+    "totalAbonado": 200000.00,
+    "saldoPendiente": 254306.72,  // 500000 - 200000 - 45693.28 (retención)
+    "estado": "ABIERTO",
+    "ordenId": 124,
+    "ordenNumero": 1001,
+    "ordenFecha": "2025-12-01",
+    "ordenObra": "Casa Matriz",
+    "total": 500000.00,
+    "subtotal": 420168.07,
+    "iva": 79831.93,
+    "descuentos": 0.00,
+    "tieneRetencionFuente": true,
+    "retencionFuente": 45693.28,
+    "fechaUltimoAbono": "2025-12-15",
+    "cantidadAbonos": 3,
+    "sede": {
+      "id": 1,
+      "nombre": "Insula"
+    },
+    "cliente": {
+      "id": 7,
+      "nombre": "Juan Pérez",
+      "nit": "123456789"
+    }
+  },
+  {
+    "creditoId": 45,
+    "totalCredito": 300000.00,
+    "totalAbonado": 100000.00,
+    "saldoPendiente": 200000.00,
+    "estado": "ABIERTO",
+    "ordenId": 156,
+    "ordenNumero": 1025,
+    "ordenFecha": "2025-12-10",
+    "ordenObra": "Proyecto Norte",
+    "total": 300000.00,
+    "subtotal": 252100.84,
+    "iva": 47899.16,
+    "descuentos": 0.00,
+    "tieneRetencionFuente": false,
+    "retencionFuente": 0.00,
+    "fechaUltimoAbono": "2025-12-12",
+    "cantidadAbonos": 1,
+    "sede": {
+      "id": 2,
+      "nombre": "Sucursal Norte"
+    },
+    "cliente": {
+      "id": 7,
+      "nombre": "Juan Pérez",
+      "nit": "123456789"
+    }
+  }
+]
+
+--------------------------------------------------------------------------------
+EJEMPLO 2: Cliente sin créditos pendientes
+--------------------------------------------------------------------------------
+
+REQUEST:
+GET /api/creditos/cliente/15/pendientes
+
+RESPONSE 200 OK:
+[]
+
+NOTA: Array vacío porque todos los créditos están cerrados o con saldo = 0
+
+--------------------------------------------------------------------------------
+EJEMPLO 3: Error - Cliente no existe (manejado por validaciones)
+--------------------------------------------------------------------------------
+
+REQUEST:
+GET /api/creditos/cliente/999/pendientes
+
+RESPONSE 200 OK:
+[]
+
+NOTA: No es error, simplemente no tiene créditos pendientes
+
+================================================================================
+5. COMPARACIÓN: ANTES VS AHORA
+================================================================================
+
+--------------------------------------------------------------------------------
+ANTES ❌ (GET /api/ordenes/credito?clienteId=7)
+--------------------------------------------------------------------------------
+
+PROBLEMAS:
+❌ Traía TODAS las órdenes a crédito (13+)
+❌ No filtraba por saldo > 0 (traía órdenes ya pagadas)
+❌ NO incluía tieneRetencionFuente
+❌ NO incluía subtotal (necesario para calcular retención)
+❌ Frontend tenía que filtrar manualmente
+❌ Más datos transferidos
+❌ Más procesamiento en frontend
+
+DATOS QUE FALTABAN:
+- tieneRetencionFuente (CRÍTICO)
+- subtotal (necesario para retención)
+- fechaUltimoAbono
+- cantidadAbonos
+
+--------------------------------------------------------------------------------
+AHORA ✅ (GET /api/creditos/cliente/7/pendientes)
+--------------------------------------------------------------------------------
+
+VENTAJAS:
+✅ Solo trae créditos con saldo > 0 (filtro en backend)
+✅ Incluye tieneRetencionFuente (CRÍTICO)
+✅ Incluye subtotal (para calcular retención)
+✅ Incluye fechaUltimoAbono y cantidadAbonos
+✅ Backend filtra (más eficiente)
+✅ Menos datos transferidos
+✅ Menos procesamiento en frontend
+✅ Ordenado por fecha (más recientes primero)
+
+TODOS LOS DATOS NECESARIOS:
+✅ creditoId, saldoPendiente, estado
+✅ ordenId, ordenNumero, ordenFecha, ordenObra
+✅ total, subtotal, iva, descuentos
+✅ tieneRetencionFuente, retencionFuente
+✅ sede, cliente
+✅ fechaUltimoAbono, cantidadAbonos
+
+================================================================================
+6. CASOS DE USO EN LA PÁGINA DE ABONOS
+================================================================================
+
+--------------------------------------------------------------------------------
+CASO 1: Mostrar lista de créditos pendientes
+--------------------------------------------------------------------------------
+
+const creditosPendientes = await listarCreditosPendientes(clienteId);
+
+// Renderizar tabla
+creditosPendientes.map(credito => (
+  <tr key={credito.creditoId}>
+    <td>ORD-{credito.ordenNumero}</td>
+    <td>${credito.saldoPendiente.toLocaleString()}</td>
+    <td>
+      {credito.tieneRetencionFuente && (
+        <Badge>Retención: ${credito.retencionFuente.toLocaleString()}</Badge>
+      )}
+    </td>
+  </tr>
+))
+
+--------------------------------------------------------------------------------
+CASO 2: Calcular si aplicar retención de fuente
+--------------------------------------------------------------------------------
+
+// El endpoint ya incluye tieneRetencionFuente
+const aplicarRetencion = credito.tieneRetencionFuente;
+
+// También incluye subtotal para validaciones
+const subtotal = credito.subtotal;
+const umbralRetencion = 800000;
+
+if (subtotal >= umbralRetencion) {
+  // Puede aplicar retención
+}
+
+--------------------------------------------------------------------------------
+CASO 3: Mostrar información adicional
+--------------------------------------------------------------------------------
+
+// Último abono
+{credito.fechaUltimoAbono && (
+  <small>
+    Último abono: {formatearFecha(credito.fechaUltimoAbono)}
+  </small>
+)}
+
+// Cantidad de abonos
+<Badge>{credito.cantidadAbonos} abonos realizados</Badge>
+
+// Sede
+<span>Sede: {credito.sede.nombre}</span>
+
+--------------------------------------------------------------------------------
+CASO 4: Registrar nuevo abono
+--------------------------------------------------------------------------------
+
+const registrarAbono = async (credito) => {
+  // Validar que tenga saldo pendiente
+  if (credito.saldoPendiente <= 0) {
+    toast.error('Este crédito no tiene saldo pendiente');
+    return;
+  }
+  
+  // Calcular retención si aplica
+  const retencion = credito.tieneRetencionFuente 
+    ? credito.retencionFuente 
+    : 0;
+  
+  // Mostrar modal con información
+  abrirModalAbono({
+    creditoId: credito.creditoId,
+    ordenNumero: credito.ordenNumero,
+    saldoPendiente: credito.saldoPendiente,
+    retencionFuente: retencion
+  });
+};
+
+================================================================================
+7. CHECKLIST DE IMPLEMENTACIÓN
+================================================================================
+
+BACKEND:
+[✅] Crear archivo CreditoPendienteDTO.java
+[✅] Agregar método en CreditoRepository.java
+[✅] Agregar método listarCreditosPendientes en CreditoService.java
+[✅] Agregar endpoint GET en CreditoController.java
+[ ] Compilar proyecto (mvn clean install)
+[ ] Reiniciar servidor Spring Boot
+[ ] Probar con Postman/Insomnia
+
+FRONTEND:
+[ ] Agregar función listarCreditosPendientes en CreditosService.js
+[ ] Actualizar componente de abonos para usar el nuevo endpoint
+[ ] Eliminar filtrado manual en frontend (ya filtra el backend)
+[ ] Probar en interfaz de usuario
+[ ] Verificar que muestre tieneRetencionFuente correctamente
+
+TESTING:
+[ ] Probar con cliente con créditos pendientes
+[ ] Probar con cliente sin créditos pendientes
+[ ] Probar con cliente que tiene créditos cerrados (no deben aparecer)
+[ ] Verificar ordenamiento por fecha
+[ ] Verificar datos de retención de fuente
+[ ] Verificar subtotal incluido
+
+================================================================================
+FIN DE LA DOCUMENTACIÓN
+================================================================================
+
+✅ Código backend completamente implementado
+✅ DTO creado con todos los campos necesarios
+✅ Filtrado automático en backend (saldo > 0, estado ABIERTO)
+✅ Incluye tieneRetencionFuente y subtotal (CRÍTICO)
+✅ Listo para copiar y pegar en frontend
+
+¡Listo para compartir con tus compañeros! 🚀

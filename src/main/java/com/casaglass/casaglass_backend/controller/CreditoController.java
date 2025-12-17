@@ -229,4 +229,58 @@ public class CreditoController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    /**
+     * 💰 LISTAR CRÉDITOS PENDIENTES DE UN CLIENTE
+     * GET /api/creditos/cliente/{clienteId}/pendientes
+     * 
+     * Endpoint especializado para la página de abonos.
+     * Retorna SOLO los créditos con saldo pendiente > 0 y estado ABIERTO.
+     * 
+     * Incluye:
+     * - Datos del crédito (id, totalCredito, totalAbonado, saldoPendiente, estado)
+     * - Datos de la orden (id, numero, fecha, obra)
+     * - Montos (total, subtotal, iva, descuentos)
+     * - Retención de fuente (tieneRetencionFuente, retencionFuente)
+     * - Sede y cliente
+     * - Información de abonos (fechaUltimoAbono, cantidadAbonos)
+     * 
+     * Response 200 OK:
+     * [
+     *   {
+     *     "creditoId": 31,
+     *     "totalCredito": 500000.00,
+     *     "saldoPendiente": 300000.00,
+     *     "ordenNumero": 1001,
+     *     "subtotal": 420168.07,
+     *     "tieneRetencionFuente": true,
+     *     "retencionFuente": 45693.28,
+     *     ...
+     *   }
+     * ]
+     */
+    @GetMapping("/cliente/{clienteId}/pendientes")
+    public ResponseEntity<?> listarCreditosPendientes(@PathVariable Long clienteId) {
+        try {
+            System.out.println("💰 DEBUG: Endpoint /creditos/cliente/" + clienteId + "/pendientes");
+            
+            List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> creditos = 
+                service.listarCreditosPendientes(clienteId);
+            
+            return ResponseEntity.ok(creditos);
+        } catch (IllegalArgumentException e) {
+            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "VALIDACION"
+            ));
+        } catch (Exception e) {
+            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error interno del servidor: " + e.getMessage(),
+                "tipo", "SERVIDOR"
+            ));
+        }
+    }
 }

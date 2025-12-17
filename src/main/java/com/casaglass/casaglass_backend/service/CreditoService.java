@@ -368,4 +368,50 @@ public class CreditoService {
     public void eliminar(Long creditoId) {
         creditoRepo.deleteById(creditoId);
     }
+
+    /**
+     * 💰 LISTAR CRÉDITOS PENDIENTES DE UN CLIENTE
+     * 
+     * Endpoint especializado para la página de abonos.
+     * Retorna SOLO los créditos con saldo pendiente > 0 y estado ABIERTO.
+     * 
+     * Características:
+     * - Filtra automáticamente: estado = ABIERTO AND saldoPendiente > 0
+     * - Incluye todos los datos necesarios para registrar abonos
+     * - Incluye información de retención de fuente
+     * - Incluye subtotal (necesario para calcular retención)
+     * - Ordenado por fecha de orden (más recientes primero)
+     * 
+     * @param clienteId ID del cliente
+     * @return Lista de CreditoPendienteDTO con toda la información necesaria
+     */
+    @Transactional(readOnly = true)
+    public List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> listarCreditosPendientes(Long clienteId) {
+        System.out.println("💰 DEBUG: Listando créditos pendientes para cliente ID: " + clienteId);
+        
+        // Buscar créditos del cliente con estado ABIERTO y saldo > 0
+        List<Credito> creditos = creditoRepo.findByClienteIdAndEstadoAndSaldoPendienteGreaterThan(
+            clienteId, 
+            Credito.EstadoCredito.ABIERTO, 
+            0.0
+        );
+        
+        System.out.println("💰 DEBUG: Encontrados " + creditos.size() + " créditos pendientes");
+        
+        // Convertir a DTO
+        List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> resultado = creditos.stream()
+            .map(com.casaglass.casaglass_backend.dto.CreditoPendienteDTO::new)
+            .sorted((a, b) -> {
+                // Ordenar por fecha de orden (más recientes primero)
+                if (a.getOrdenFecha() == null && b.getOrdenFecha() == null) return 0;
+                if (a.getOrdenFecha() == null) return 1;
+                if (b.getOrdenFecha() == null) return -1;
+                return b.getOrdenFecha().compareTo(a.getOrdenFecha());
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
+        System.out.println("✅ DEBUG: Retornando " + resultado.size() + " créditos pendientes");
+        
+        return resultado;
+    }
 }
