@@ -270,7 +270,12 @@ public class OrdenService {
         orden.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
-        // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
+        // � MONTOS POR MÉTODO DE PAGO (solo para órdenes de contado)
+        orden.setMontoEfectivo(ventaDTO.getMontoEfectivo() != null ? ventaDTO.getMontoEfectivo() : 0.0);
+        orden.setMontoTransferencia(ventaDTO.getMontoTransferencia() != null ? ventaDTO.getMontoTransferencia() : 0.0);
+        orden.setMontoCheque(ventaDTO.getMontoCheque() != null ? ventaDTO.getMontoCheque() : 0.0);
+        
+        // �🔗 ESTABLECER RELACIONES (usando referencias ligeras)
         Cliente cliente = clienteRepository.findById(ventaDTO.getClienteId())
             .orElseThrow(() -> new RuntimeException("Cliente no encontrado con ID: " + ventaDTO.getClienteId()));
         

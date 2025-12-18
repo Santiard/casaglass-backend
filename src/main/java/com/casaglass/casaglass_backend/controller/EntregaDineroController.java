@@ -430,6 +430,12 @@ public class EntregaDineroController {
         dto.setDescripcion(orden.getDescripcion());
         dto.setSedeNombre(orden.getSede() != null ? orden.getSede().getNombre() : null);
         dto.setTrabajadorNombre(orden.getTrabajador() != null ? orden.getTrabajador().getNombre() : null);
+        
+        // 💰 MONTOS POR MÉTODO DE PAGO (solo para órdenes de contado)
+        dto.setMontoEfectivo(orden.getMontoEfectivo());
+        dto.setMontoTransferencia(orden.getMontoTransferencia());
+        dto.setMontoCheque(orden.getMontoCheque());
+        
         dto.setYaEntregada(orden.isIncluidaEntrega());
         dto.setEsContado(!orden.isCredito());
         dto.setEstado(orden.getEstado().name());
@@ -448,6 +454,12 @@ public class EntregaDineroController {
         dto.setMontoAbono(abono.getTotal());
         dto.setMetodoPago(abono.getMetodoPago());
         dto.setFactura(abono.getFactura());
+        
+        // 💰 MONTOS POR MÉTODO DE PAGO
+        dto.setMontoEfectivo(abono.getMontoEfectivo());
+        dto.setMontoTransferencia(abono.getMontoTransferencia());
+        dto.setMontoCheque(abono.getMontoCheque());
+        dto.setMontoRetencion(abono.getMontoRetencion());
         
         // Información de la orden
         if (abono.getOrden() != null) {

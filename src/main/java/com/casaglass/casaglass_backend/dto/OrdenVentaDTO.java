@@ -26,6 +26,11 @@ public class OrdenVentaDTO {
     private boolean tieneRetencionFuente = false; // si la orden tiene retención de fuente
     private Double descuentos = 0.0; // Descuentos aplicados a la orden
     
+    // 💰 MONTOS POR MÉTODO DE PAGO (solo para órdenes de contado)
+    private Double montoEfectivo = 0.0;
+    private Double montoTransferencia = 0.0;
+    private Double montoCheque = 0.0;
+    
     // IDs DE ENTIDADES RELACIONADAS (requeridos)
     private Long clienteId; // OBLIGATORIO
     private Long sedeId; // OBLIGATORIO - sede donde se realiza la venta

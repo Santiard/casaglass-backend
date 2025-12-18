@@ -60,6 +60,13 @@ public class EntregaDinero {
     @Column(name = "monto_deposito", nullable = false)
     private Double montoDeposito = 0.0;
 
+    /**
+     * Suma de todas las retenciones en la fuente de los abonos incluidos en esta entrega
+     * El montoRetencion de la entrega = SUMA de todos los montoRetencion de los abonos
+     */
+    @Column(name = "monto_retencion", nullable = false)
+    private Double montoRetencion = 0.0;
+
     /** Modalidad de entrega */
     @Enumerated(EnumType.STRING)
     @Column(name = "modalidad_entrega", length = 20, nullable = false)

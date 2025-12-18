@@ -51,6 +51,20 @@ public class Orden {
   @Column(name = "descripcion", columnDefinition = "TEXT")
   private String descripcion; // Descripción/observaciones adicionales de la orden
 
+  /**
+   * 💰 MONTOS POR MÉTODO DE PAGO (solo para órdenes de contado)
+   * Almacenamiento numérico estructurado para cálculos exactos y auditoría
+   * Para órdenes a crédito estos valores serán 0.00
+   */
+  @Column(name = "monto_efectivo", nullable = false)
+  private Double montoEfectivo = 0.0;
+
+  @Column(name = "monto_transferencia", nullable = false)
+  private Double montoTransferencia = 0.0;
+
+  @Column(name = "monto_cheque", nullable = false)
+  private Double montoCheque = 0.0;
+
   @Column(nullable = false)
   private boolean venta = false;
 

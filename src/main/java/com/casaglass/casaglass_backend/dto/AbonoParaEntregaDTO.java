@@ -29,6 +29,13 @@ public class AbonoParaEntregaDTO {
     private String obra; // Obra de la orden
     private String sedeNombre; // Nombre de la sede
     private String trabajadorNombre; // Nombre del trabajador
+    
+    // 💰 MONTOS POR MÉTODO DE PAGO
+    private Double montoEfectivo;
+    private Double montoTransferencia;
+    private Double montoCheque;
+    private Double montoRetencion; // Retención en la fuente de este abono
+    
     private boolean yaEntregado; // Si el abono ya está en otra entrega (basado en si la orden está incluida)
     private String estadoOrden; // ACTIVA, ANULADA
     private boolean ventaOrden; // true si la orden asociada es una venta (no compra)

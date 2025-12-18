@@ -25,6 +25,12 @@ public class OrdenParaEntregaDTO {
     private String descripcion; // Descripción/observaciones adicionales de la orden
     private String sedeNombre;
     private String trabajadorNombre;
+    
+    // 💰 MONTOS POR MÉTODO DE PAGO (solo para órdenes de contado)
+    private Double montoEfectivo;
+    private Double montoTransferencia;
+    private Double montoCheque;
+    
     private boolean yaEntregada; // Si ya está en otra entrega
     private Long entregaId; // ID de la entrega actual (si aplica)
     

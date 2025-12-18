@@ -55,6 +55,27 @@ public class Abono {
     @Column(name = "metodo_pago", length = 3000, nullable = false)
     private String metodoPago = "TRANSFERENCIA";
 
+    /**
+     * 💰 MONTOS POR MÉTODO DE PAGO
+     * Almacenamiento numérico estructurado para cálculos exactos y auditoría
+     * La suma de efectivo + transferencia + cheque DEBE igualar el total del abono
+     */
+    @Column(name = "monto_efectivo", nullable = false)
+    private Double montoEfectivo = 0.0;
+
+    @Column(name = "monto_transferencia", nullable = false)
+    private Double montoTransferencia = 0.0;
+
+    @Column(name = "monto_cheque", nullable = false)
+    private Double montoCheque = 0.0;
+
+    /**
+     * Monto de retención en la fuente aplicado en ESTE abono específico
+     * NO se suma a los métodos de pago (es informativa/contable)
+     */
+    @Column(name = "monto_retencion", nullable = false)
+    private Double montoRetencion = 0.0;
+
     /** Número de factura/recibo/soporte del abono */
     @Column(name = "factura", length = 50)
     private String factura;

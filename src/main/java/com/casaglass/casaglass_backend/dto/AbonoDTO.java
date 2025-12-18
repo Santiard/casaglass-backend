@@ -29,4 +29,17 @@ public class AbonoDTO {
     /** Número de factura/recibo (OBLIGATORIO - puede ser string vacío) */
     @NotNull(message = "El número de factura es obligatorio")
     private String factura;
+    
+    // 💰 MONTOS POR MÉTODO DE PAGO
+    /** Monto abonado en efectivo */
+    private Double montoEfectivo = 0.0;
+    
+    /** Monto abonado por transferencia bancaria */
+    private Double montoTransferencia = 0.0;
+    
+    /** Monto abonado con cheque */
+    private Double montoCheque = 0.0;
+    
+    /** Monto de retención en la fuente aplicado en este abono específico */
+    private Double montoRetencion = 0.0;
 }

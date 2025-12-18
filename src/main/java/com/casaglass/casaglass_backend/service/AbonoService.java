@@ -109,6 +109,21 @@ public class AbonoService {
         abono.setMetodoPago(abonoDTO.getMetodoPago());
         abono.setFactura(abonoDTO.getFactura());
         abono.setTotal(monto);
+        
+        // 💰 MONTOS POR MÉTODO DE PAGO
+        abono.setMontoEfectivo(abonoDTO.getMontoEfectivo() != null ? abonoDTO.getMontoEfectivo() : 0.0);
+        abono.setMontoTransferencia(abonoDTO.getMontoTransferencia() != null ? abonoDTO.getMontoTransferencia() : 0.0);
+        abono.setMontoCheque(abonoDTO.getMontoCheque() != null ? abonoDTO.getMontoCheque() : 0.0);
+        abono.setMontoRetencion(abonoDTO.getMontoRetencion() != null ? abonoDTO.getMontoRetencion() : 0.0);
+        
+        // ✅ VALIDAR QUE LA SUMA DE MÉTODOS DE PAGO IGUALA EL TOTAL
+        Double sumaMetodos = abono.getMontoEfectivo() + abono.getMontoTransferencia() + abono.getMontoCheque();
+        if (Math.abs(sumaMetodos - monto) > 0.01) { // Tolerancia de 1 centavo por redondeo
+            throw new IllegalArgumentException(
+                String.format("La suma de los métodos de pago ($%.2f) no coincide con el monto total ($%.2f)", 
+                            sumaMetodos, monto)
+            );
+        }
 
         // Calcular saldo posterior al abono
         Double saldoPosterior = norm(credito.getSaldoPendiente() - monto);
