@@ -70,4 +70,12 @@ public interface IngresoRepository extends JpaRepository<Ingreso, Long> {
         @Param("procesado") Boolean procesado,
         @Param("numeroFactura") String numeroFactura
     );
+
+    /**
+     * 🔢 CALCULAR LA SUMA TOTAL DE CANTIDADES DE DETALLES DE UN INGRESO
+     * Retorna la suma de todas las cantidades de los detalles de un ingreso específico
+     * Retorna 0 si el ingreso no tiene detalles
+     */
+    @Query("SELECT COALESCE(SUM(d.cantidad), 0) FROM IngresoDetalle d WHERE d.ingreso.id = :ingresoId")
+    Integer calcularCantidadTotal(@Param("ingresoId") Long ingresoId);
 }

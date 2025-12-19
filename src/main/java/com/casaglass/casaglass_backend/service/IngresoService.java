@@ -145,7 +145,11 @@ public class IngresoService {
         dto.setTotalCosto(ingreso.getTotalCosto());
         dto.setProcesado(ingreso.getProcesado());
         
-        // 👤 PROVEEDOR SIMPLIFICADO
+        // � CANTIDAD TOTAL (suma de cantidades de detalles)
+        Integer cantidadTotal = ingresoRepository.calcularCantidadTotal(ingreso.getId());
+        dto.setCantidadTotal(cantidadTotal != null ? cantidadTotal : 0);
+        
+        // �👤 PROVEEDOR SIMPLIFICADO
         if (ingreso.getProveedor() != null) {
             // Inicializar el proxy lazy accediendo a sus propiedades
             Proveedor proveedor = ingreso.getProveedor();

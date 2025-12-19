@@ -24,6 +24,9 @@ public class IngresoTablaDTO {
     private Double totalCosto;
     private Boolean procesado;
     
+    // SUMA DE TODAS LAS CANTIDADES DE LOS DETALLES
+    private Integer cantidadTotal;
+    
     // INFORMACIÓN DEL PROVEEDOR (simplificada)
     private ProveedorTablaDTO proveedor;
     
