@@ -137,12 +137,14 @@ public class CreditoController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /** 👤 Listar créditos por cliente */
+    /** 👤 Listar créditos por cliente (con filtros opcionales de fecha) */
     @GetMapping("/cliente/{clienteId}")
-    public List<CreditoResponseDTO> listarPorCliente(@PathVariable Long clienteId) {
-        return service.listarPorCliente(clienteId).stream()
-                .map(CreditoResponseDTO::new)
-                .collect(Collectors.toList());
+    public ResponseEntity<List<CreditoResponseDTO>> listarPorCliente(
+            @PathVariable Long clienteId,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fechaDesde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fechaHasta) {
+        List<CreditoResponseDTO> creditos = service.listarCreditosClienteConFiltros(clienteId, fechaDesde, fechaHasta);
+        return ResponseEntity.ok(creditos);
     }
 
     /** 📊 Listar créditos por estado */

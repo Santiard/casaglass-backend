@@ -15,6 +15,7 @@ public class EntregaDetalleSimpleDTO {
     private Long id;
     private Long ordenId;
     private Long abonoId; // ID del abono específico (si aplica)
+    private Long reembolsoId; // ID del reembolso (si aplica)
     private Long numeroOrden;
     private LocalDate fechaOrden;
     private Double montoOrden;
@@ -27,18 +28,43 @@ public class EntregaDetalleSimpleDTO {
     private String descripcion; // Para órdenes a contado (ventaCredito = false): descripcion de la orden
     private String metodoPago; // Para abonos (ventaCredito = true y abonoId != null): metodoPago del abono
     
+    // ✅ TIPO DE MOVIMIENTO: "INGRESO" o "EGRESO"
+    private String tipoMovimiento; // INGRESO: órdenes y abonos normales | EGRESO: reembolsos/devoluciones
+    
     // Constructor desde entidad (SIN referencia a entrega para evitar ciclos)
     // Sin cálculo de abonos (para compatibilidad)
     public EntregaDetalleSimpleDTO(EntregaDetalle detalle) {
         this.id = detalle.getId();
         this.ordenId = detalle.getOrden() != null ? detalle.getOrden().getId() : null;
         this.abonoId = detalle.getAbono() != null ? detalle.getAbono().getId() : null;
+        this.reembolsoId = detalle.getReembolsoVenta() != null ? detalle.getReembolsoVenta().getId() : null;
         this.numeroOrden = detalle.getNumeroOrden();
         this.fechaOrden = detalle.getFechaOrden();
-        this.montoOrden = detalle.getMontoOrden();
+        
+        // ✅ MONTO: Usar fuente correcta según el tipo
+        if (detalle.getReembolsoVenta() != null) {
+            // Es reembolso: usar monto del reembolso (negativo)
+            this.montoOrden = -Math.abs(detalle.getReembolsoVenta().getTotalReembolso());
+        } else {
+            // Es orden/abono normal: usar montoOrden del detalle
+            this.montoOrden = detalle.getMontoOrden();
+        }
+        
         this.ventaCredito = detalle.getVentaCredito();
         this.clienteNombre = detalle.getClienteNombre();
         this.observaciones = detalle.getObservaciones();
+        
+        // ✅ MAPEAR TIPO DE MOVIMIENTO
+        // Si el campo tipoMovimiento está establecido, usarlo
+        // Si no, inferir: si tiene reembolsoVenta = EGRESO, de lo contrario = INGRESO
+        if (detalle.getTipoMovimiento() != null) {
+            this.tipoMovimiento = detalle.getTipoMovimiento().name();
+        } else if (detalle.getReembolsoVenta() != null) {
+            this.tipoMovimiento = "EGRESO";
+        } else {
+            this.tipoMovimiento = "INGRESO";
+        }
+        
         // Si hay un abono específico, usar su monto; si no, null
         this.abonosDelPeriodo = detalle.getAbono() != null && detalle.getAbono().getTotal() != null 
             ? detalle.getAbono().getTotal() 
@@ -65,12 +91,33 @@ public class EntregaDetalleSimpleDTO {
         this.id = detalle.getId();
         this.ordenId = detalle.getOrden() != null ? detalle.getOrden().getId() : null;
         this.abonoId = detalle.getAbono() != null ? detalle.getAbono().getId() : null;
+        this.reembolsoId = detalle.getReembolsoVenta() != null ? detalle.getReembolsoVenta().getId() : null;
         this.numeroOrden = detalle.getNumeroOrden();
         this.fechaOrden = detalle.getFechaOrden();
-        this.montoOrden = detalle.getMontoOrden();
+        
+        // ✅ MONTO: Usar fuente correcta según el tipo
+        if (detalle.getReembolsoVenta() != null) {
+            // Es reembolso: usar monto del reembolso (negativo)
+            this.montoOrden = -Math.abs(detalle.getReembolsoVenta().getTotalReembolso());
+        } else {
+            // Es orden/abono normal: usar montoOrden del detalle
+            this.montoOrden = detalle.getMontoOrden();
+        }
+        
         this.ventaCredito = detalle.getVentaCredito();
         this.clienteNombre = detalle.getClienteNombre();
         this.observaciones = detalle.getObservaciones();
+        
+        // ✅ MAPEAR TIPO DE MOVIMIENTO
+        // Si el campo tipoMovimiento está establecido, usarlo
+        // Si no, inferir: si tiene reembolsoVenta = EGRESO, de lo contrario = INGRESO
+        if (detalle.getTipoMovimiento() != null) {
+            this.tipoMovimiento = detalle.getTipoMovimiento().name();
+        } else if (detalle.getReembolsoVenta() != null) {
+            this.tipoMovimiento = "EGRESO";
+        } else {
+            this.tipoMovimiento = "INGRESO";
+        }
         
         // Si hay un abono específico, usar su monto directamente
         if (detalle.getAbono() != null && detalle.getAbono().getTotal() != null) {

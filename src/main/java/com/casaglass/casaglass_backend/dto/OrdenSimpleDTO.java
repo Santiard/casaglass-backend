@@ -20,6 +20,7 @@ public class OrdenSimpleDTO {
     private boolean credito;
     private Double subtotal;
     private Double total;
+    private Double retencionFuente;
     private String estado;
     
     // Constructor desde entidad (SIN referencias a Cliente ni otros objetos complejos)
@@ -32,6 +33,7 @@ public class OrdenSimpleDTO {
         this.credito = orden.isCredito();
         this.subtotal = orden.getSubtotal();
         this.total = orden.getTotal();
+        this.retencionFuente = orden.getRetencionFuente();
         this.estado = orden.getEstado().name();
     }
 }

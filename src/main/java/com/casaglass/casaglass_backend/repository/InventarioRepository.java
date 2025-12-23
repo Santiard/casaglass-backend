@@ -27,6 +27,13 @@ public interface InventarioRepository extends JpaRepository<Inventario, Long> {
            "WHERE i.sede.id = :sedeId")
     List<Inventario> findBySedeId(@Param("sedeId") Long sedeId);
 
+    /**
+     * 🔒 BUSCAR INVENTARIO CON LOCK OPTIMISTA
+     * 
+     * Usa el campo @Version en la entidad Inventario para control de concurrencia
+     * No bloquea registros → operaciones concurrentes sin esperas
+     * Si hay conflicto real (muy raro) → OptimisticLockException
+     */
     @Query("SELECT i FROM Inventario i " +
            "LEFT JOIN FETCH i.producto p " +
            "LEFT JOIN FETCH p.categoria " +
@@ -35,18 +42,13 @@ public interface InventarioRepository extends JpaRepository<Inventario, Long> {
     Optional<Inventario> findByProductoIdAndSedeId(@Param("productoId") Long productoId, @Param("sedeId") Long sedeId);
 
     /**
-     * 🔒 BUSCAR INVENTARIO CON LOCK PESIMISTA PARA CONCURRENCIA
-     * 
-     * Usa SELECT FOR UPDATE para evitar race conditions
-     * Bloquea el registro hasta que termine la transacción
+     * @deprecated Usar findByProductoIdAndSedeId() - ahora usa lock optimista
+     * Mantenido temporalmente para compatibilidad, redirige al método principal
      */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT i FROM Inventario i " +
-           "LEFT JOIN FETCH i.producto p " +
-           "LEFT JOIN FETCH p.categoria " +
-           "LEFT JOIN FETCH i.sede " +
-           "WHERE p.id = :productoId AND i.sede.id = :sedeId")
-    Optional<Inventario> findByProductoIdAndSedeIdWithLock(@Param("productoId") Long productoId, @Param("sedeId") Long sedeId);
+    @Deprecated
+    default Optional<Inventario> findByProductoIdAndSedeIdWithLock(Long productoId, Long sedeId) {
+        return findByProductoIdAndSedeId(productoId, sedeId);
+    }
 
     // Nuevo: buscar inventarios para una lista de productos con FETCH
     @Query("SELECT i FROM Inventario i " +

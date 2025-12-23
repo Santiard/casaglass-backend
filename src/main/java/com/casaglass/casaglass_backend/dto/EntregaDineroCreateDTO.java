@@ -30,6 +30,9 @@ public class EntregaDineroCreateDTO {
     // Lista de IDs de abonos a incluir (para órdenes a crédito - cada abono se agrega individualmente)
     private List<Long> abonosIds;
     
+    // Lista de IDs de reembolsos a incluir (egresos - se restan del total)
+    private List<Long> reembolsosIds;
+    
     // Monto (opcional - el backend puede calcularlo automáticamente desde las órdenes)
     private Double monto;
 

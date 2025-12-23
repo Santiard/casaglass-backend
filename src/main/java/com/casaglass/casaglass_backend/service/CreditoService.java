@@ -49,6 +49,48 @@ public class CreditoService {
     }
 
     /**
+     * 📅 LISTAR CRÉDITOS DE UN CLIENTE CON FILTROS DE FECHA
+     * Retorna todos los créditos del cliente, opcionalmente filtrados por fecha de la orden
+     * @param clienteId ID del cliente
+     * @param fechaDesde Fecha desde (inclusive) - filtra por orden.fecha
+     * @param fechaHasta Fecha hasta (inclusive) - filtra por orden.fecha
+     * @return Lista de créditos mapeados a CreditoResponseDTO
+     */
+    @Transactional(readOnly = true)
+    public List<com.casaglass.casaglass_backend.dto.CreditoResponseDTO> listarCreditosClienteConFiltros(
+            Long clienteId,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta) {
+        
+        List<Credito> creditos = creditoRepo.findByClienteId(clienteId);
+        
+        // Filtrar por fecha de la orden si se proporcionan fechas
+        if (fechaDesde != null || fechaHasta != null) {
+            creditos = creditos.stream()
+                .filter(credito -> {
+                    LocalDate fechaOrden = credito.getOrden().getFecha();
+                    
+                    if (fechaDesde != null && fechaHasta != null) {
+                        // Ambas fechas: entre fechaDesde y fechaHasta (inclusive)
+                        return !fechaOrden.isBefore(fechaDesde) && !fechaOrden.isAfter(fechaHasta);
+                    } else if (fechaDesde != null) {
+                        // Solo fechaDesde: >= fechaDesde
+                        return !fechaOrden.isBefore(fechaDesde);
+                    } else {
+                        // Solo fechaHasta: <= fechaHasta
+                        return !fechaOrden.isAfter(fechaHasta);
+                    }
+                })
+                .collect(java.util.stream.Collectors.toList());
+        }
+        
+        // Mapear a DTO
+        return creditos.stream()
+            .map(com.casaglass.casaglass_backend.dto.CreditoResponseDTO::new)
+            .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
      * 🚀 LISTADO DE CRÉDITOS CON FILTROS COMPLETOS
      * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
      */

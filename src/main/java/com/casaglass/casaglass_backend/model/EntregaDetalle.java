@@ -37,6 +37,16 @@ public class EntregaDetalle {
     @JoinColumn(name = "abono_id")
     private Abono abono;
 
+    /** Reembolso de venta incluido en la entrega (opcional - solo para egresos) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reembolso_venta_id")
+    private ReembolsoVenta reembolsoVenta;
+
+    /** Tipo de movimiento (INGRESO para ventas/abonos, EGRESO para reembolsos) */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_movimiento", length = 20, nullable = false)
+    private TipoMovimiento tipoMovimiento = TipoMovimiento.INGRESO;
+
     /** Monto de la orden al momento de la entrega (snapshot para auditoría) */
     @Column(name = "monto_orden", nullable = false)
     @NotNull
@@ -63,6 +73,12 @@ public class EntregaDetalle {
     @Column(name = "observaciones", length = 255)
     private String observaciones;
 
+    /** Enumeración para tipo de movimiento en la entrega */
+    public enum TipoMovimiento {
+        INGRESO,   // Ventas a contado o abonos a créditos (suma)
+        EGRESO     // Reembolsos de venta (resta)
+    }
+
     /** Método para inicializar campos snapshot desde la orden */
     public void inicializarDesdeOrden() {
         if (this.orden != null) {
@@ -75,6 +91,7 @@ public class EntregaDetalle {
             this.numeroOrden = this.orden.getNumero();
             this.fechaOrden = this.orden.getFecha();
             this.ventaCredito = this.orden.isCredito();
+            this.tipoMovimiento = TipoMovimiento.INGRESO;
             if (this.orden.getCliente() != null) {
                 this.clienteNombre = this.orden.getCliente().getNombre();
             }
@@ -90,8 +107,26 @@ public class EntregaDetalle {
             this.numeroOrden = abono.getNumeroOrden() != null ? abono.getNumeroOrden() : abono.getOrden().getNumero();
             this.fechaOrden = abono.getOrden().getFecha();
             this.ventaCredito = true; // Los abonos siempre son de órdenes a crédito
+            this.tipoMovimiento = TipoMovimiento.INGRESO;
             if (abono.getCliente() != null) {
                 this.clienteNombre = abono.getCliente().getNombre();
+            }
+        }
+    }
+
+    /** Método para inicializar desde un reembolso de venta (EGRESO) */
+    public void inicializarDesdeReembolso(ReembolsoVenta reembolso) {
+        if (reembolso != null && reembolso.getOrdenOriginal() != null) {
+            this.reembolsoVenta = reembolso;
+            this.orden = reembolso.getOrdenOriginal();
+            // Monto negativo para representar egreso en cálculos
+            this.montoOrden = -Math.abs(reembolso.getTotalReembolso());
+            this.numeroOrden = reembolso.getOrdenOriginal().getNumero();
+            this.fechaOrden = reembolso.getFecha();
+            this.ventaCredito = reembolso.getOrdenOriginal().isCredito();
+            this.tipoMovimiento = TipoMovimiento.EGRESO;
+            if (reembolso.getCliente() != null) {
+                this.clienteNombre = reembolso.getCliente().getNombre();
             }
         }
     }

@@ -183,11 +183,15 @@ public class AbonoController {
     @PutMapping("/creditos/{creditoId}/abonos/{abonoId}")
     public ResponseEntity<?> actualizar(@PathVariable Long creditoId,
                                         @PathVariable Long abonoId,
-                                        @Valid @RequestBody Abono abono) {
+                                        @Valid @RequestBody AbonoDTO abonoDTO) {
         try {
-            return ResponseEntity.ok(service.actualizar(creditoId, abonoId, abono));
+            Abono abono = service.actualizarDesdeDTO(creditoId, abonoId, abonoDTO);
+            return ResponseEntity.ok(new AbonoSimpleDTO(abono));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "VALIDACION"
+            ));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }

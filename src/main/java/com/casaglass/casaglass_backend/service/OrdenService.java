@@ -1808,11 +1808,17 @@ public class OrdenService {
         } catch (IllegalArgumentException e) {
             // Re-lanzar errores de validación
             throw e;
-        } catch (org.springframework.dao.PessimisticLockingFailureException e) {
-            // Error específico de lock pesimista (timeout o deadlock)
-            System.err.println("❌ Error de lock pesimista: " + e.getMessage());
+        } catch (jakarta.persistence.OptimisticLockException e) {
+            // 🔒 Lock optimista: Otro proceso modificó el inventario (muy raro)
+            System.err.println("⚠️ Conflicto de versión (lock optimista): " + e.getMessage());
             throw new RuntimeException(
-                String.format("❌ Conflicto de concurrencia: Otro proceso está usando el inventario del producto ID %d. Espere unos segundos e intente nuevamente.", productoId)
+                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
+            );
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            // 🔒 Variante de Spring para OptimisticLockException
+            System.err.println("⚠️ Conflicto de versión (Spring): " + e.getMessage());
+            throw new RuntimeException(
+                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
         } catch (org.springframework.dao.DataAccessException e) {
             // Otros errores de base de datos
@@ -1821,7 +1827,7 @@ public class OrdenService {
                 String.format("❌ Error de base de datos al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
             );
         } catch (Exception e) {
-            // Manejar otros errores de concurrencia
+            // Manejar otros errores inesperados
             System.err.println("❌ Error inesperado en inventario: " + e.getMessage());
             throw new RuntimeException(
                 String.format("❌ Error inesperado al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)

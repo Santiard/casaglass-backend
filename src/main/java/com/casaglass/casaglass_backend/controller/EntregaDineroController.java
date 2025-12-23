@@ -247,11 +247,17 @@ public class EntregaDineroController {
                 ? entregaDTO.getAbonosIds() 
                 : null;
             
-            // Llamar al servicio para crear la entrega
-            EntregaDinero entregaCreada = service.crearEntrega(
+            // Obtener IDs de reembolsos del DTO (para egresos)
+            List<Long> reembolsosIds = entregaDTO.getReembolsosIds() != null && !entregaDTO.getReembolsosIds().isEmpty() 
+                ? entregaDTO.getReembolsosIds() 
+                : null;
+            
+            // Llamar al servicio para crear la entrega (con soporte para reembolsos)
+            EntregaDinero entregaCreada = service.crearEntregaConReembolsos(
                 entrega, 
                 entregaDTO.getOrdenesIds(), 
-                abonosIds
+                abonosIds,
+                reembolsosIds
             );
             
             System.out.println("✅ DEBUG: Entrega creada con ID: " + entregaCreada.getId());

@@ -73,11 +73,12 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     /**
      * 🔍 BÚSQUEDA AVANZADA DE PRODUCTOS CON MÚLTIPLES FILTROS
      * Todos los parámetros son opcionales (nullable)
-     * Nota: Excluye cortes y productos vidrio (solo productos base)
+     * ✅ Incluye: Producto base y ProductoVidrio
+     * ❌ Excluye: Corte
      */
     @Query("SELECT DISTINCT p FROM Producto p " +
            "LEFT JOIN FETCH p.categoria c " +
-           "WHERE TYPE(p) = Producto AND " +
+           "WHERE TYPE(p) != Corte AND " +
            "(:categoriaId IS NULL OR p.categoria.id = :categoriaId) AND " +
            "(:categoriaNombre IS NULL OR LOWER(c.nombre) LIKE LOWER(CONCAT('%', :categoriaNombre, '%'))) AND " +
            "(:tipo IS NULL OR p.tipo = :tipo) AND " +

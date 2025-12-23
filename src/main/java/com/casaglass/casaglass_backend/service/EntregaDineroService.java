@@ -3,7 +3,9 @@ package com.casaglass.casaglass_backend.service;
 import com.casaglass.casaglass_backend.model.EntregaDinero;
 import com.casaglass.casaglass_backend.model.EntregaDetalle;
 import com.casaglass.casaglass_backend.model.Orden;
+import com.casaglass.casaglass_backend.model.ReembolsoVenta;
 import com.casaglass.casaglass_backend.repository.EntregaDineroRepository;
+import com.casaglass.casaglass_backend.repository.ReembolsoVentaRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,9 @@ public class EntregaDineroService {
 
     @Autowired
     private TrabajadorRepository trabajadorRepository;
+
+    @Autowired
+    private ReembolsoVentaRepository reembolsoVentaRepository;
 
     @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerTodas() {
@@ -191,6 +196,11 @@ public class EntregaDineroService {
 
     @Transactional
     public EntregaDinero crearEntrega(EntregaDinero entrega, List<Long> ordenIds, List<Long> abonoIds) {
+        return crearEntregaConReembolsos(entrega, ordenIds, abonoIds, null);
+    }
+
+    @Transactional
+    public EntregaDinero crearEntregaConReembolsos(EntregaDinero entrega, List<Long> ordenIds, List<Long> abonoIds, List<Long> reembolsoIds) {
         // Validar que la sede existe
         if (entrega.getSede() == null || !sedeRepository.existsById(entrega.getSede().getId())) {
             throw new RuntimeException("La sede especificada no existe");
@@ -267,8 +277,29 @@ public class EntregaDineroService {
             }
         }
         
-        // Recalcular monto desde las órdenes/abonos
-        if ((ordenIds != null && !ordenIds.isEmpty()) || (abonoIds != null && !abonoIds.isEmpty())) {
+        // 🆕 Crear detalles de entrega para cada REEMBOLSO (egresos)
+        if (reembolsoIds != null && !reembolsoIds.isEmpty()) {
+            for (Long reembolsoId : reembolsoIds) {
+                ReembolsoVenta reembolso = reembolsoVentaRepository.findById(reembolsoId)
+                    .orElseThrow(() -> new RuntimeException("Reembolso no encontrado con ID: " + reembolsoId));
+                
+                // Validar que el reembolso esté procesado
+                if (!reembolso.getProcesado() || reembolso.getEstado() != ReembolsoVenta.EstadoReembolso.PROCESADO) {
+                    throw new RuntimeException("El reembolso #" + reembolsoId + " no está procesado");
+                }
+                
+                EntregaDetalle detalle = new EntregaDetalle();
+                detalle.setEntrega(entregaGuardada);
+                detalle.inicializarDesdeReembolso(reembolso);
+                
+                entregaDetalleService.crearDetalle(detalle);
+            }
+        }
+        
+        // Recalcular monto desde las órdenes/abonos/reembolsos
+        if ((ordenIds != null && !ordenIds.isEmpty()) || 
+            (abonoIds != null && !abonoIds.isEmpty()) || 
+            (reembolsoIds != null && !reembolsoIds.isEmpty())) {
             Double montoCalculado = entregaDetalleService.calcularMontoTotalEntrega(
                 entregaGuardada.getId()
             );

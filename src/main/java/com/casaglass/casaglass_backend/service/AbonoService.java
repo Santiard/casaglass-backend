@@ -271,6 +271,71 @@ public class AbonoService {
     }
 
     /**
+     * 🆕 ACTUALIZAR ABONO DESDE DTO (CON VALIDACIÓN DE CAMPOS NUMÉRICOS)
+     * Método recomendado que valida la suma de métodos de pago
+     */
+    @Transactional
+    public Abono actualizarDesdeDTO(Long creditoId, Long abonoId, AbonoDTO abonoDTO) {
+        Abono abono = abonoRepo.findById(abonoId)
+                .orElseThrow(() -> new RuntimeException("Abono no encontrado: " + abonoId));
+
+        if (!abono.getCredito().getId().equals(creditoId)) {
+            throw new IllegalArgumentException("El abono no pertenece al crédito indicado");
+        }
+
+        Credito credito = abono.getCredito();
+        if (credito.getEstado() == Credito.EstadoCredito.ANULADO) {
+            throw new IllegalArgumentException("No se pueden modificar abonos de un crédito anulado");
+        }
+
+        // Actualizar fecha, método de pago, factura
+        if (abonoDTO.getFecha() != null) abono.setFecha(abonoDTO.getFecha());
+        if (abonoDTO.getMetodoPago() != null) abono.setMetodoPago(abonoDTO.getMetodoPago());
+        if (abonoDTO.getFactura() != null) abono.setFactura(abonoDTO.getFactura());
+
+        // ✅ ACTUALIZAR CAMPOS NUMÉRICOS
+        abono.setMontoEfectivo(abonoDTO.getMontoEfectivo() != null ? abonoDTO.getMontoEfectivo() : 0.0);
+        abono.setMontoTransferencia(abonoDTO.getMontoTransferencia() != null ? abonoDTO.getMontoTransferencia() : 0.0);
+        abono.setMontoCheque(abonoDTO.getMontoCheque() != null ? abonoDTO.getMontoCheque() : 0.0);
+        abono.setMontoRetencion(abonoDTO.getMontoRetencion() != null ? abonoDTO.getMontoRetencion() : 0.0);
+
+        // Si se cambia el monto, validar y recalcular
+        if (abonoDTO.getTotal() != null) {
+            Double nuevoMonto = norm(abonoDTO.getTotal());
+            if (nuevoMonto <= 0) {
+                throw new IllegalArgumentException("El monto debe ser mayor a 0");
+            }
+
+            // ✅ VALIDAR QUE LA SUMA DE MÉTODOS COINCIDA CON EL TOTAL
+            Double sumaMetodos = abono.getMontoEfectivo() + abono.getMontoTransferencia() + abono.getMontoCheque();
+            if (Math.abs(sumaMetodos - nuevoMonto) > 0.01) {
+                throw new IllegalArgumentException(
+                    String.format("La suma de los métodos de pago ($%.2f) no coincide con el monto total ($%.2f)", 
+                                sumaMetodos, nuevoMonto)
+                );
+            }
+
+            Double montoAnterior = abono.getTotal();
+            Double diferencia = nuevoMonto - montoAnterior;
+            Double nuevoSaldoPendiente = credito.getSaldoPendiente() + montoAnterior - nuevoMonto;
+
+            if (nuevoSaldoPendiente < 0) {
+                throw new IllegalArgumentException("El nuevo monto haría que se exceda el total del crédito");
+            }
+
+            abono.setTotal(nuevoMonto);
+            abono.setSaldo(nuevoSaldoPendiente);
+        }
+
+        Abono actualizado = abonoRepo.save(abono);
+        
+        // Recalcular totales del crédito
+        creditoService.recalcularTotales(creditoId);
+        
+        return actualizado;
+    }
+
+    /**
      * 🗑️ ELIMINAR ABONO
      */
     @Transactional

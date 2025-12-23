@@ -42,6 +42,12 @@ public class Inventario {
     @EqualsAndHashCode.Include
     private Long id;
 
+    // 🔒 CONTROL DE CONCURRENCIA OPTIMISTA
+    // Hibernate incrementa automáticamente este campo en cada UPDATE
+    // Si otro proceso modificó el registro, lanza OptimisticLockException
+    @Version
+    private Long version;
+
     // Mantén LAZY por defecto; evita ciclos/toString pesados                 ← CAMBIO
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "producto_id", nullable = false)
