@@ -24,8 +24,10 @@ public class Producto {
     @EqualsAndHashCode.Include
     private Long id;
 
-    // 🔧 COMENTAR temporalmente para debug
-    // @Version
+    // � CONTROL DE CONCURRENCIA OPTIMISTA
+    // Hibernate incrementa automáticamente este campo en cada UPDATE
+    // Si otro proceso modificó el registro, lanza OptimisticLockException
+    @Version
     @JsonIgnore  // Ignorar en serialización/deserialización JSON
     private Long version;
 

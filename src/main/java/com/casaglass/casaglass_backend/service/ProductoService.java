@@ -280,8 +280,28 @@ public class ProductoService {
                 
                 return saved;
                 
+            } catch (jakarta.persistence.OptimisticLockException e) {
+                // 🔒 Lock optimista: Otro proceso modificó el producto (muy raro)
+                System.err.println("⚠️ Conflicto de versión (lock optimista) en producto ID " + id);
+                System.err.println("⚠️ Tipo: " + e.getClass().getName());
+                System.err.println("⚠️ Mensaje: " + e.getMessage());
+                e.printStackTrace();
+                throw new RuntimeException(
+                    String.format("⚠️ Otro usuario modificó el producto ID %d. Por favor, recargue e intente nuevamente.", id)
+                );
+            } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+                // 🔒 Variante de Spring para OptimisticLockException
+                System.err.println("⚠️ Conflicto de versión (Spring) en producto ID " + id);
+                System.err.println("⚠️ Tipo: " + e.getClass().getName());
+                System.err.println("⚠️ Mensaje: " + e.getMessage());
+                e.printStackTrace();
+                throw new RuntimeException(
+                    String.format("⚠️ Otro usuario modificó el producto ID %d. Por favor, recargue e intente nuevamente.", id)
+                );
             } catch (Exception e) {
-                System.err.println("ERROR al actualizar producto: " + e.getMessage());
+                System.err.println("ERROR al actualizar producto ID " + id);
+                System.err.println("ERROR Tipo: " + e.getClass().getName());
+                System.err.println("ERROR Mensaje: " + e.getMessage());
                 e.printStackTrace();
                 throw new RuntimeException("Error al actualizar producto: " + e.getMessage(), e);
             }

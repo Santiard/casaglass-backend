@@ -1811,24 +1811,32 @@ public class OrdenService {
         } catch (jakarta.persistence.OptimisticLockException e) {
             // 🔒 Lock optimista: Otro proceso modificó el inventario (muy raro)
             System.err.println("⚠️ Conflicto de versión (lock optimista): " + e.getMessage());
+            e.printStackTrace(); // Log completo para debugging
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
             // 🔒 Variante de Spring para OptimisticLockException
             System.err.println("⚠️ Conflicto de versión (Spring): " + e.getMessage());
+            e.printStackTrace(); // Log completo para debugging
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
         } catch (org.springframework.dao.DataAccessException e) {
             // Otros errores de base de datos
-            System.err.println("❌ Error de base de datos: " + e.getMessage());
+            System.err.println("❌ Error de base de datos al actualizar inventario producto ID " + productoId);
+            System.err.println("❌ Tipo de excepción: " + e.getClass().getName());
+            System.err.println("❌ Mensaje: " + e.getMessage());
+            e.printStackTrace(); // Log completo para debugging
             throw new RuntimeException(
                 String.format("❌ Error de base de datos al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
             );
         } catch (Exception e) {
             // Manejar otros errores inesperados
-            System.err.println("❌ Error inesperado en inventario: " + e.getMessage());
+            System.err.println("❌ Error inesperado en inventario producto ID " + productoId);
+            System.err.println("❌ Tipo de excepción: " + e.getClass().getName());
+            System.err.println("❌ Mensaje: " + e.getMessage());
+            e.printStackTrace(); // Log completo para debugging
             throw new RuntimeException(
                 String.format("❌ Error inesperado al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
             );

@@ -56,20 +56,19 @@ public class InventarioService {
     }
 
     /**
-     * 🔒 OBTENER INVENTARIO CON LOCK PESIMISTA PARA CONCURRENCIA
+     * 🔒 OBTENER INVENTARIO CON LOCK OPTIMISTA
      * 
-     * Usa SELECT FOR UPDATE para evitar race conditions
-     * Bloquea el registro hasta que termine la transacción
+     * Usa @Version en la entidad Inventario para control de concurrencia
+     * No bloquea el registro → operaciones concurrentes sin esperas
+     * Si hay conflicto real (muy raro) → OptimisticLockException
+     * 
+     * @deprecated Nombre obsoleto, ahora usa lock optimista. Usar obtenerPorProductoYSede() directamente.
      */
+    @Deprecated
     @Transactional(readOnly = true)
     public Optional<Inventario> obtenerPorProductoYSedeConLock(Long productoId, Long sedeId) {
-        try {
-            return repo.findByProductoIdAndSedeIdWithLock(productoId, sedeId);
-        } catch (org.springframework.dao.PessimisticLockingFailureException e) {
-            // Si falla el lock pesimista, usar método sin lock como fallback
-            System.err.println("⚠️ Lock pesimista falló, usando método sin lock: " + e.getMessage());
-            return obtenerPorProductoYSede(productoId, sedeId);
-        }
+        // Simplemente redirige al método normal (ya usa lock optimista vía @Version)
+        return obtenerPorProductoYSede(productoId, sedeId);
     }
 
     @Transactional
@@ -81,25 +80,37 @@ public class InventarioService {
             throw new IllegalArgumentException("Se requieren producto.id y sede.id");
         }
 
-        // Buscar si ya existe inventario para esta combinación producto-sede
-        Optional<Inventario> inventarioExistente = obtenerPorProductoYSede(productoId, sedeId);
-        
-        if (inventarioExistente.isPresent()) {
-            // ACTUALIZAR inventario existente
-            Inventario inv = inventarioExistente.get();
-            inv.setCantidad(payload.getCantidad() == null ? 0 : payload.getCantidad());
-            return repo.save(inv);
-        } else {
-            // CREAR nuevo inventario
-            Producto productoRef = em.getReference(Producto.class, productoId);
-            Sede sedeRef = em.getReference(Sede.class, sedeId);
+        try {
+            // Buscar si ya existe inventario para esta combinación producto-sede
+            Optional<Inventario> inventarioExistente = obtenerPorProductoYSede(productoId, sedeId);
+            
+            if (inventarioExistente.isPresent()) {
+                // ACTUALIZAR inventario existente
+                Inventario inv = inventarioExistente.get();
+                inv.setCantidad(payload.getCantidad() == null ? 0 : payload.getCantidad());
+                return repo.save(inv);
+            } else {
+                // CREAR nuevo inventario
+                Producto productoRef = em.getReference(Producto.class, productoId);
+                Sede sedeRef = em.getReference(Sede.class, sedeId);
 
-            Inventario inv = new Inventario();
-            inv.setProducto(productoRef);
-            inv.setSede(sedeRef);
-            inv.setCantidad(payload.getCantidad() == null ? 0 : payload.getCantidad());
+                Inventario inv = new Inventario();
+                inv.setProducto(productoRef);
+                inv.setSede(sedeRef);
+                inv.setCantidad(payload.getCantidad() == null ? 0 : payload.getCantidad());
 
-            return repo.save(inv);
+                return repo.save(inv);
+            }
+        } catch (jakarta.persistence.OptimisticLockException e) {
+            System.err.println("⚠️ Conflicto de versión (lock optimista) guardando inventario - Producto ID: " + productoId + ", Sede ID: " + sedeId);
+            throw new RuntimeException(
+                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
+            );
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            System.err.println("⚠️ Conflicto de versión (Spring) guardando inventario - Producto ID: " + productoId + ", Sede ID: " + sedeId);
+            throw new RuntimeException(
+                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
+            );
         }
     }
 
@@ -114,44 +125,74 @@ public class InventarioService {
             throw new IllegalArgumentException("Se requieren producto ID y sede ID");
         }
 
-        // Buscar inventario existente
-        Optional<Inventario> inventarioOpt = obtenerPorProductoYSede(productoId, sedeId);
-        
-        if (inventarioOpt.isPresent()) {
-            // ACTUALIZAR inventario existente
-            Inventario inventario = inventarioOpt.get();
-            inventario.setCantidad(nuevaCantidad);
-            return repo.save(inventario);
-        } else {
-            // CREAR nuevo inventario solo si no existe
-            Producto productoRef = em.getReference(Producto.class, productoId);
-            Sede sedeRef = em.getReference(Sede.class, sedeId);
+        try {
+            // Buscar inventario existente
+            Optional<Inventario> inventarioOpt = obtenerPorProductoYSede(productoId, sedeId);
+            
+            if (inventarioOpt.isPresent()) {
+                // ACTUALIZAR inventario existente
+                Inventario inventario = inventarioOpt.get();
+                inventario.setCantidad(nuevaCantidad);
+                return repo.save(inventario);
+            } else {
+                // CREAR nuevo inventario solo si no existe
+                Producto productoRef = em.getReference(Producto.class, productoId);
+                Sede sedeRef = em.getReference(Sede.class, sedeId);
 
-            Inventario nuevoInventario = new Inventario();
-            nuevoInventario.setProducto(productoRef);
-            nuevoInventario.setSede(sedeRef);
-            nuevoInventario.setCantidad(nuevaCantidad);
+                Inventario nuevoInventario = new Inventario();
+                nuevoInventario.setProducto(productoRef);
+                nuevoInventario.setSede(sedeRef);
+                nuevoInventario.setCantidad(nuevaCantidad);
 
-            return repo.save(nuevoInventario);
+                return repo.save(nuevoInventario);
+            }
+        } catch (jakarta.persistence.OptimisticLockException e) {
+            System.err.println("⚠️ Conflicto de versión (lock optimista) actualizando inventario - Producto ID: " + productoId + ", Sede ID: " + sedeId);
+            throw new RuntimeException(
+                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
+            );
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            System.err.println("⚠️ Conflicto de versión (Spring) actualizando inventario - Producto ID: " + productoId + ", Sede ID: " + sedeId);
+            throw new RuntimeException(
+                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
+            );
         }
     }
 
     @Transactional
     public Inventario actualizar(Long id, Inventario payload) {
-        return repo.findById(id).map(actual -> {
-            // Permitir cambiar cantidad; cambiar producto/sede es posible,
-            // pero puede chocar con la uniqueConstraint si ya existe esa combinación.
-            if (payload.getProducto() != null && payload.getProducto().getId() != null) {
-                actual.setProducto(em.getReference(Producto.class, payload.getProducto().getId()));
-            }
-            if (payload.getSede() != null && payload.getSede().getId() != null) {
-                actual.setSede(em.getReference(Sede.class, payload.getSede().getId()));
-            }
-            if (payload.getCantidad() != null) {
-                actual.setCantidad(payload.getCantidad());
-            }
-            return repo.save(actual);
-        }).orElseThrow(() -> new RuntimeException("Inventario no encontrado con id " + id));
+        try {
+            return repo.findById(id).map(actual -> {
+                // Permitir cambiar cantidad; cambiar producto/sede es posible,
+                // pero puede chocar con la uniqueConstraint si ya existe esa combinación.
+                if (payload.getProducto() != null && payload.getProducto().getId() != null) {
+                    actual.setProducto(em.getReference(Producto.class, payload.getProducto().getId()));
+                }
+                if (payload.getSede() != null && payload.getSede().getId() != null) {
+                    actual.setSede(em.getReference(Sede.class, payload.getSede().getId()));
+                }
+                if (payload.getCantidad() != null) {
+                    actual.setCantidad(payload.getCantidad());
+                }
+                return repo.save(actual);
+            }).orElseThrow(() -> new RuntimeException("Inventario no encontrado con id " + id));
+        } catch (jakarta.persistence.OptimisticLockException e) {
+            System.err.println("⚠️ Conflicto de versión (lock optimista) en inventario ID " + id);
+            System.err.println("⚠️ Tipo: " + e.getClass().getName());
+            System.err.println("⚠️ Mensaje: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException(
+                String.format("⚠️ Otro usuario modificó el inventario ID %d. Por favor, intente nuevamente.", id)
+            );
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            System.err.println("⚠️ Conflicto de versión (Spring) en inventario ID " + id);
+            System.err.println("⚠️ Tipo: " + e.getClass().getName());
+            System.err.println("⚠️ Mensaje: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException(
+                String.format("⚠️ Otro usuario modificó el inventario ID %d. Por favor, intente nuevamente.", id)
+            );
+        }
     }
 
     public void eliminar(Long id) {

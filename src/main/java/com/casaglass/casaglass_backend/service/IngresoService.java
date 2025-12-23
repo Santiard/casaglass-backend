@@ -476,12 +476,24 @@ public class IngresoService {
             
             // Actualizar el costo del producto con el costoUnitarioPonderado recibido del frontend
             if (costoActual == null || !costoActual.equals(costoPonderado)) {
-                producto.setCosto(costoPonderado);
-                productoRepository.save(producto);
-                System.out.println("✅ Costo del producto actualizado: Producto ID=" + producto.getId() + 
-                                 ", Costo anterior=" + costoActual + 
-                                 ", Costo nuevo (ponderado del frontend)=" + costoPonderado +
-                                 ", Costo original del ingreso=" + detalle.getCostoUnitario());
+                try {
+                    producto.setCosto(costoPonderado);
+                    productoRepository.save(producto);
+                    System.out.println("✅ Costo del producto actualizado: Producto ID=" + producto.getId() + 
+                                     ", Costo anterior=" + costoActual + 
+                                     ", Costo nuevo (ponderado del frontend)=" + costoPonderado +
+                                     ", Costo original del ingreso=" + detalle.getCostoUnitario());
+                } catch (jakarta.persistence.OptimisticLockException e) {
+                    System.err.println("⚠️ Conflicto de versión al actualizar costo del producto ID " + producto.getId());
+                    throw new RuntimeException(
+                        String.format("⚠️ Otro usuario modificó el producto ID %d. Por favor, intente nuevamente.", producto.getId())
+                    );
+                } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+                    System.err.println("⚠️ Conflicto de versión (Spring) al actualizar costo del producto ID " + producto.getId());
+                    throw new RuntimeException(
+                        String.format("⚠️ Otro usuario modificó el producto ID %d. Por favor, intente nuevamente.", producto.getId())
+                    );
+                }
             }
         }
 
