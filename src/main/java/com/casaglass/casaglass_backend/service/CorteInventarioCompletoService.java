@@ -54,7 +54,7 @@ public class CorteInventarioCompletoService {
                 .findFirst()
                 .ifPresent(sede -> sedeIds.put("patios", sede.getId()));
             
-            System.out.println("🏢 CorteInventarioCompletoService - Sede IDs inicializados: " + sedeIds);
+            // Log removido para producción
         }
     }
 
@@ -62,28 +62,24 @@ public class CorteInventarioCompletoService {
         inicializarSedeIds();
         Long id = sedeIds.get(nombreSede.toLowerCase());
         if (id == null) {
-            System.err.println("⚠️ Sede '" + nombreSede + "' no encontrada. IDs disponibles: " + sedeIds);
+            // Log removido para producción
         }
         return id;
     }
 
     public List<CorteInventarioCompletoDTO> obtenerInventarioCompleto() {
-        System.out.println("🔍 obtenerInventarioCompleto - Iniciando consulta...");
+        // Log removido para producción
         
         // Obtener todos los cortes con sus categorías
         List<Corte> cortes = corteRepository.findAll();
-        System.out.println("🔍 Total de cortes encontrados: " + cortes.size());
+        // Log removido para producción
         
         // Obtener todos los inventarios de cortes
         List<InventarioCorte> todosLosInventarios = inventarioCorteRepository.findAll();
-        System.out.println("🔍 Total de registros en inventario_cortes: " + todosLosInventarios.size());
+        // Log removido para producción
         
         // Debug: mostrar algunos inventarios
-        todosLosInventarios.stream()
-            .limit(5)
-            .forEach(inv -> System.out.println("🔍   Inventario - Corte ID: " + inv.getCorte().getId() + 
-                                              ", Sede ID: " + inv.getSede().getId() + 
-                                              ", Cantidad: " + inv.getCantidad()));
+        // Log removido para producción
         
         // Obtener inventarios agrupados por corte y sede
         Map<Long, Map<Long, Integer>> inventariosPorCorteYSede = 
@@ -97,14 +93,14 @@ public class CorteInventarioCompletoService {
                     )
                 ));
         
-        System.out.println("🔍 Inventarios agrupados: " + inventariosPorCorteYSede.size() + " cortes con inventario");
+        // Log removido para producción
 
         // Convertir a DTOs
         List<CorteInventarioCompletoDTO> resultado = cortes.stream()
             .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
             .collect(Collectors.toList());
         
-        System.out.println("🔍 Total de DTOs generados: " + resultado.size());
+        // Log removido para producción
         return resultado;
     }
 
@@ -275,11 +271,7 @@ public class CorteInventarioCompletoService {
         Integer cantidadPatios = inventariosPorSede != null && patiosId != null ? inventariosPorSede.getOrDefault(patiosId, 0) : 0;
         
         // Debug logging para verificar mapeo
-        if (inventariosPorSede != null && !inventariosPorSede.isEmpty()) {
-            System.out.println("📊 Corte ID=" + corte.getId() + " - Inventarios recibidos: " + inventariosPorSede);
-            System.out.println("📊   Sede IDs - Insula: " + insulaId + ", Centro: " + centroId + ", Patios: " + patiosId);
-            System.out.println("📊   Cantidades mapeadas - Insula: " + cantidadInsula + ", Centro: " + cantidadCentro + ", Patios: " + cantidadPatios);
-        }
+        // Log removido para producción
 
         // Obtener nombre de la categoría, tipo y color
         String categoriaNombre = corte.getCategoria() != null ? corte.getCategoria().getNombre() : null;

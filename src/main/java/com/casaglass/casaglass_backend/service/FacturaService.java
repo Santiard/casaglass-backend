@@ -47,7 +47,7 @@ public class FacturaService {
      */
     @Transactional
     public Factura crearFactura(FacturaCreateDTO facturaDTO) {
-        System.out.println("🧾 Creando factura para orden ID: " + facturaDTO.getOrdenId());
+        // ...existing code...
 
         // Validar que no exista ya una factura para esta orden
         Optional<Factura> facturaExistente = facturaRepo.findByOrdenId(facturaDTO.getOrdenId());
@@ -99,8 +99,7 @@ public class FacturaService {
         
         // Si hay diferencia significativa (> 0.01), usar el total de la orden y recalcular
         if (totalOrden != null && Math.abs(totalCalculado - totalOrden) > 0.01) {
-            System.out.println("⚠️ WARNING: Diferencia entre total calculado (" + totalCalculado + 
-                             ") y total de orden (" + totalOrden + "). Usando total de orden.");
+            // ...existing code...
             // Usar el total de la orden como fuente de verdad
             totalCalculado = totalOrden;
             
@@ -150,7 +149,6 @@ public class FacturaService {
             orden.setIva(ivaFactura);
             orden.setSubtotal(subtotalSinIva);
             ordenActualizada = true;
-            System.out.println("📝 Actualizando orden: IVA y subtotal calculados desde factura");
         }
         
         // Actualizar retención si la orden tiene tieneRetencionFuente = true pero no tenía el valor calculado
@@ -159,7 +157,6 @@ public class FacturaService {
             retencionFactura != null && retencionFactura > 0) {
             orden.setRetencionFuente(retencionFactura);
             ordenActualizada = true;
-            System.out.println("📝 Actualizando orden: Retención calculada desde factura");
         }
         
         // Guardar orden si fue actualizada
@@ -176,6 +173,7 @@ public class FacturaService {
         }
 
         System.out.println("✅ Factura creada exitosamente - Número: " + facturaGuardada.getNumeroFactura());
+    // ...existing code...
 
         return facturaGuardada;
     }
@@ -190,14 +188,12 @@ public class FacturaService {
             List<BusinessSettings> settings = businessSettingsRepository.findAll();
             if (!settings.isEmpty() && settings.get(0).getIvaRate() != null) {
                 Double ivaRate = settings.get(0).getIvaRate();
-                System.out.println("💰 IVA Rate obtenido desde configuración: " + ivaRate + "%");
                 return ivaRate;
             }
         } catch (Exception e) {
-            System.err.println("⚠️ WARNING: No se pudo obtener IVA rate desde configuración: " + e.getMessage());
+            // ...existing code...
         }
         // Fallback a 19% por defecto
-        System.out.println("💰 IVA Rate usando valor por defecto: 19.0%");
         return 19.0;
     }
 
@@ -770,8 +766,7 @@ public class FacturaService {
             return redondearMoneda(retencionCalculada);
         } else {
             // No aplicar retención aunque tengaRetencionFuente = true si no supera el umbral
-            System.out.println("⚠️ WARNING: Orden marcada con retefuente pero no supera el umbral (" + 
-                             subtotalSinIva + " < " + reteThreshold + "). No se aplicará retención.");
+            // ...existing code...
             return 0.0;
         }
     }
@@ -828,7 +823,7 @@ public class FacturaService {
                 return settings.get(0);
             }
         } catch (Exception e) {
-            System.err.println("⚠️ WARNING: No se pudo obtener configuración de retención: " + e.getMessage());
+            // ...existing code...
         }
         // Fallback a valores por defecto
         BusinessSettings defaultSettings = new BusinessSettings();

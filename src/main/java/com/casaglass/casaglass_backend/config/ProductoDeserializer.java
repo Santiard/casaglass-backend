@@ -34,8 +34,6 @@ public class ProductoDeserializer extends JsonDeserializer<Producto> {
         boolean tieneCamposVidrio = node.has("mm") && node.has("m1") && node.has("m2");
         
         if (tieneCamposVidrio) {
-            // Deserializar como ProductoVidrio
-            System.out.println("🔍 ProductoDeserializer: Detectados campos mm, m1, m2 → Deserializando como ProductoVidrio");
             
             // ✅ Crear un ObjectMapper sin el deserializador para evitar recursión
             ObjectMapper mapper = new ObjectMapper();
@@ -92,7 +90,6 @@ public class ProductoDeserializer extends JsonDeserializer<Producto> {
             return pv;
         } else {
             // Deserializar como Producto base
-            System.out.println("🔍 ProductoDeserializer: No tiene campos de vidrio → Deserializando como Producto base");
             
             // ✅ Crear un ObjectMapper sin el deserializador personalizado para evitar recursión
             ObjectMapper mapper = new ObjectMapper();

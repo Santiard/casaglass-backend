@@ -282,7 +282,7 @@ public class IngresoService {
      * Crea un ingreso desde un DTO que contiene solo IDs de proveedor y productos
      */
     public Ingreso crearIngresoDesdeDTO(IngresoCreateDTO ingresoDTO) {
-        System.out.println("🔧 Servicio - Creando ingreso desde DTO");
+        // ...existing code...
         
         // Crear la entidad Ingreso
         Ingreso ingreso = new Ingreso();
@@ -344,7 +344,7 @@ public class IngresoService {
     }
 
     public Ingreso actualizarIngreso(Long id, Ingreso ingresoActualizado) {
-        System.out.println("🔧 Servicio - Actualizando ingreso ID: " + id);
+        // ...existing code...
         
         // 🔧 ARREGLO: Usar consulta con FETCH para evitar proxies lazy
         Ingreso ingresoExistente = ingresoRepository.findByIdWithDetalles(id);
@@ -353,6 +353,7 @@ public class IngresoService {
         }
 
         System.out.println("📋 Ingreso encontrado - Procesado: " + ingresoExistente.getProcesado());
+    // ...existing code...
 
         // Si ya fue procesado, no permitir cambios que afecten el inventario
         if (ingresoExistente.getProcesado()) {
@@ -401,11 +402,13 @@ public class IngresoService {
         }
 
         System.out.println("📊 Calculando total...");
+            // ...existing code...
         ingresoExistente.calcularTotal();
 
         System.out.println("💾 Guardando ingreso actualizado...");
+            // ...existing code...
         Ingreso resultado = ingresoRepository.save(ingresoExistente);
-        System.out.println("✅ Servicio - Ingreso guardado exitosamente ID: " + resultado.getId());
+        // ...existing code...
         
         // 🔧 ARREGLO: Forzar inicialización del proveedor para evitar proxy lazy en serialización
         if (resultado.getProveedor() != null) {
@@ -479,17 +482,14 @@ public class IngresoService {
                 try {
                     producto.setCosto(costoPonderado);
                     productoRepository.save(producto);
-                    System.out.println("✅ Costo del producto actualizado: Producto ID=" + producto.getId() + 
-                                     ", Costo anterior=" + costoActual + 
-                                     ", Costo nuevo (ponderado del frontend)=" + costoPonderado +
-                                     ", Costo original del ingreso=" + detalle.getCostoUnitario());
+                    // ...existing code...
                 } catch (jakarta.persistence.OptimisticLockException e) {
-                    System.err.println("⚠️ Conflicto de versión al actualizar costo del producto ID " + producto.getId());
+                    // ...existing code...
                     throw new RuntimeException(
                         String.format("⚠️ Otro usuario modificó el producto ID %d. Por favor, intente nuevamente.", producto.getId())
                     );
                 } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-                    System.err.println("⚠️ Conflicto de versión (Spring) al actualizar costo del producto ID " + producto.getId());
+                    // ...existing code...
                     throw new RuntimeException(
                         String.format("⚠️ Otro usuario modificó el producto ID %d. Por favor, intente nuevamente.", producto.getId())
                     );

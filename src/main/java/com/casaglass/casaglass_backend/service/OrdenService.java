@@ -1596,8 +1596,6 @@ public class OrdenService {
             // Verificar si ya existe crédito para esta orden
             if (ordenActualizada.getCreditoDetalle() != null) {
                 // Si ya existe crédito, actualizarlo con el nuevo total y retención
-                System.out.println("🔄 DEBUG: Actualizando crédito existente ID: " + 
-                    // ...existing code...
                 // Reutilizar retencionFuente ya calculada arriba (línea 1557)
                 creditoService.actualizarCreditoParaOrden(
                     ordenActualizada.getCreditoDetalle().getId(),
@@ -1605,13 +1603,9 @@ public class OrdenService {
                     retencionFuente  // ✅ Pasar también la retención (ya calculada)
                 );
                 Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente;
-                System.out.println("✅ DEBUG: Crédito actualizado - Total: " + ordenActualizada.getTotal() + 
-                    // ...existing code...
+                // ...existing code...
             } else {
                 // Si no existe crédito, crearlo
-                System.out.println("🆕 DEBUG: Creando nuevo crédito para orden " + ordenActualizada.getId() + 
-                    // ...existing code...
-                
                 Long clienteId = cliente != null ? cliente.getId() : null;
                 if (clienteId == null) {
                     // ...existing code...
@@ -1624,9 +1618,6 @@ public class OrdenService {
                         retencionFuente  // ✅ Pasar también la retención (ya calculada)
                     );
                     Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente;
-                    System.out.println("✅ DEBUG: Crédito creado con saldo pendiente inicial: " + 
-                    // ...existing code...
-                    
                     // Recargar la orden para obtener el crédito recién creado
                     ordenActualizada = repo.findById(ordenActualizada.getId())
                         .orElseThrow(() -> new RuntimeException("Error al recargar orden después de crear crédito"));

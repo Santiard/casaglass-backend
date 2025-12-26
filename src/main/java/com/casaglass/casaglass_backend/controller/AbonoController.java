@@ -35,27 +35,18 @@ public class AbonoController {
     public ResponseEntity<?> crearAbono(@PathVariable Long creditoId, 
                                        @Valid @RequestBody AbonoDTO abonoDTO) {
         try {
-            System.out.println("🔍 DEBUG: Creando abono para crédito " + creditoId);
-            System.out.println("🔍 DEBUG: Datos recibidos: " + abonoDTO);
-            
             Abono abono = service.crearDesdeDTO(creditoId, abonoDTO);
-            
-            System.out.println("✅ DEBUG: Abono creado con ID: " + abono.getId());
-            
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Abono registrado exitosamente",
                 "abono", new AbonoSimpleDTO(abono),
                 "saldoRestante", abono.getSaldo()
             ));
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION"
             ));
         } catch (Exception e) {
-            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"

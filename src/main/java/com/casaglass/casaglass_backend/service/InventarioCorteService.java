@@ -183,8 +183,6 @@ public class InventarioCorteService {
             nuevoInventario.setCorte(entityManager.getReference(Corte.class, corteId));
             nuevoInventario.setSede(entityManager.getReference(Sede.class, sedeId));
             nuevoInventario.setCantidad(-cantidad); // Cantidad negativa = venta anticipada
-            System.out.println("📦 Creando inventario de corte inexistente: Corte ID=" + corteId + 
-                             ", Sede ID=" + sedeId + ", Cantidad inicial=" + (-cantidad) + " (venta anticipada)");
             return repository.save(nuevoInventario);
         }
     }

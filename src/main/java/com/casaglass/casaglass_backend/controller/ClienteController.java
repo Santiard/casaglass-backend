@@ -70,8 +70,7 @@ public class ClienteController {
             
             return ResponseEntity.ok(resultado);
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", "Error interno: " + e.getMessage()));
+          return ResponseEntity.status(500).body(Map.of("error", "Error interno: " + e.getMessage()));
         }
     }
 

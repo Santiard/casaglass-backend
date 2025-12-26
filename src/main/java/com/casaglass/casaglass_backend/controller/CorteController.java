@@ -103,21 +103,9 @@ public class CorteController {
     @PostMapping
     public ResponseEntity<?> crear(@RequestBody Corte corte) {
         try {
-            // 🐛 DEBUG: Logging para verificar que llegan los datos de corte
-            System.out.println("=== CREANDO CORTE ===");
-            System.out.println("Nombre: " + corte.getNombre());
-            System.out.println("Código: " + corte.getCodigo());
-            System.out.println("Largo CM: " + corte.getLargoCm());
-            System.out.println("Precio1: " + corte.getPrecio1());
-            System.out.println("Observación: " + corte.getObservacion());
-            System.out.println("Categoría: " + (corte.getCategoria() != null ? corte.getCategoria().getId() : "null"));
-            System.out.println("======================");
-            
             Corte resultado = service.guardar(corte);
             return ResponseEntity.ok(resultado);
         } catch (Exception e) {
-            System.err.println("ERROR al crear corte: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -125,25 +113,13 @@ public class CorteController {
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Corte corte) {
         try {
-            // 🐛 DEBUG: Logging para debug
-            System.out.println("=== ACTUALIZANDO CORTE ===");
-            System.out.println("ID: " + id);
-            System.out.println("Código: " + corte.getCodigo());
-            System.out.println("Largo CM: " + corte.getLargoCm());
-            System.out.println("Precio1: " + corte.getPrecio1());
-            System.out.println("========================");
-            
             Corte resultado = service.actualizar(id, corte);
             return ResponseEntity.ok(resultado);
         } catch (IllegalArgumentException e) {
-            System.err.println("ERROR de validación: " + e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            System.err.println("ERROR no encontrado: " + e.getMessage());
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
-            System.err.println("ERROR general: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.badRequest().body("Error interno: " + e.getMessage());
         }
     }
@@ -151,19 +127,11 @@ public class CorteController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar(@PathVariable Long id) {
         try {
-            System.out.println("=== ELIMINANDO CORTE ===");
-            System.out.println("ID: " + id);
-            
             service.eliminar(id);
-            
-            System.out.println("Corte eliminado exitosamente");
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
-            System.err.println("ERROR: Corte no encontrado con ID " + id);
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
-            System.err.println("ERROR al eliminar corte: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.badRequest().body("Error al eliminar: " + e.getMessage());
         }
     }

@@ -216,31 +216,22 @@ public class CreditoService {
     @Transactional(propagation = Propagation.REQUIRED)
     public Credito crearCreditoParaOrden(Long ordenId, Long clienteId, Double totalOrden, Double retencionFuente) {
         try {
-            System.out.println("🔍 DEBUG: Verificando si ya existe crédito para orden " + ordenId);
-            
             // Verificar que no exista ya un crédito para esta orden
             Optional<Credito> existente = creditoRepo.findByOrdenId(ordenId);
             if (existente.isPresent()) {
-                System.out.println("⚠️ WARNING: Ya existe crédito para orden " + ordenId);
                 return existente.get(); // Devolver el existente en lugar de fallar
             }
 
-            System.out.println("🔍 DEBUG: Creando nuevo crédito...");
-            
             // ⚠️ OBTENER LA ORDEN COMPLETA PARA ESTABLECER RELACIÓN BIDIRECCIONAL
             Orden orden = entityManager.find(Orden.class, ordenId);
             if (orden == null) {
                 throw new IllegalArgumentException("Orden no encontrada con ID: " + ordenId);
             }
-            
+
             // ✅ CALCULAR SALDO PENDIENTE INICIAL: Total orden - Retención de fuente
             Double retencion = (retencionFuente != null && retencionFuente > 0) ? retencionFuente : 0.0;
             Double saldoPendienteInicial = totalOrden - retencion;
-            
-            System.out.println("💰 DEBUG: Total orden: " + totalOrden + 
-                             ", Retención: " + retencion + 
-                             ", Saldo pendiente inicial: " + saldoPendienteInicial);
-            
+
             Credito credito = new Credito();
             credito.setCliente(entityManager.getReference(Cliente.class, clienteId));
             credito.setOrden(orden); // Usar la orden completa, no una referencia
@@ -252,15 +243,11 @@ public class CreditoService {
 
             // ⚡ ESTABLECER RELACIÓN BIDIRECCIONAL CORRECTAMENTE
             orden.setCreditoDetalle(credito);
-            
+
             Credito creditoGuardado = creditoRepo.save(credito);
-            System.out.println("✅ DEBUG: Crédito guardado con ID: " + creditoGuardado.getId());
             return creditoGuardado;
-            
+
         } catch (Exception e) {
-            // Log del error para debugging
-            System.err.println("❌ ERROR al crear crédito: " + e.getMessage());
-            e.printStackTrace();
             throw new RuntimeException("Error al crear crédito: " + e.getMessage(), e);
         }
     }
@@ -276,28 +263,24 @@ public class CreditoService {
     @Transactional(propagation = Propagation.REQUIRED)
     public Credito actualizarCreditoParaOrden(Long creditoId, Double nuevoTotalOrden, Double nuevaRetencionFuente) {
         try {
-            System.out.println("🔄 DEBUG: Actualizando crédito ID: " + creditoId + 
-                             " con nuevo total: " + nuevoTotalOrden + 
-                             ", retención: " + nuevaRetencionFuente);
-            
             Credito credito = creditoRepo.findById(creditoId)
                 .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado con ID: " + creditoId));
 
             // Actualizar el total del crédito
             Double totalNormalizado = normalize(nuevoTotalOrden);
             credito.setTotalCredito(totalNormalizado);
-            
+
             // ✅ RECALCULAR SALDO PENDIENTE CONSIDERANDO LA RETENCIÓN
             // El saldo pendiente inicial debe ser: totalOrden - retencionFuente
             Double retencion = (nuevaRetencionFuente != null && nuevaRetencionFuente > 0) ? nuevaRetencionFuente : 0.0;
             Double saldoPendienteInicial = totalNormalizado - retencion;
-            
+
             // El saldo pendiente actual = saldo pendiente inicial - total abonado
             Double totalAbonado = credito.getTotalAbonado() != null ? credito.getTotalAbonado() : 0.0;
             Double nuevoSaldoPendiente = Math.max(0, saldoPendienteInicial - totalAbonado);
-            
+
             credito.setSaldoPendiente(normalize(nuevoSaldoPendiente));
-            
+
             // Actualizar estado si el saldo es 0
             if (nuevoSaldoPendiente <= 0.0) {
                 credito.setEstado(Credito.EstadoCredito.CERRADO);
@@ -309,18 +292,11 @@ public class CreditoService {
                 credito.setEstado(Credito.EstadoCredito.ABIERTO);
                 credito.setFechaCierre(null);
             }
-            
+
             Credito creditoActualizado = creditoRepo.save(credito);
-            System.out.println("✅ DEBUG: Crédito actualizado - Total: " + totalNormalizado + 
-                             ", Retención: " + retencion + 
-                             ", Saldo inicial: " + saldoPendienteInicial + 
-                             ", Saldo pendiente: " + creditoActualizado.getSaldoPendiente());
-            
             return creditoActualizado;
-            
+
         } catch (Exception e) {
-            System.err.println("❌ ERROR al actualizar crédito: " + e.getMessage());
-            e.printStackTrace();
             throw new RuntimeException("Error al actualizar crédito: " + e.getMessage(), e);
         }
     }
@@ -429,17 +405,13 @@ public class CreditoService {
      */
     @Transactional(readOnly = true)
     public List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> listarCreditosPendientes(Long clienteId) {
-        System.out.println("💰 DEBUG: Listando créditos pendientes para cliente ID: " + clienteId);
-        
         // Buscar créditos del cliente con estado ABIERTO y saldo > 0
         List<Credito> creditos = creditoRepo.findByClienteIdAndEstadoAndSaldoPendienteGreaterThan(
             clienteId, 
             Credito.EstadoCredito.ABIERTO, 
             0.0
         );
-        
-        System.out.println("💰 DEBUG: Encontrados " + creditos.size() + " créditos pendientes");
-        
+
         // Convertir a DTO
         List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> resultado = creditos.stream()
             .map(com.casaglass.casaglass_backend.dto.CreditoPendienteDTO::new)
@@ -451,9 +423,7 @@ public class CreditoService {
                 return b.getOrdenFecha().compareTo(a.getOrdenFecha());
             })
             .collect(java.util.stream.Collectors.toList());
-        
-        System.out.println("✅ DEBUG: Retornando " + resultado.size() + " créditos pendientes");
-        
+
         return resultado;
     }
 }

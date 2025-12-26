@@ -38,14 +38,6 @@ public class CorteService {
     @Transactional
     public Corte guardar(Corte corte) {
         try {
-            // 🐛 DEBUG: Logging para debug
-            System.out.println("=== GUARDANDO CORTE ===");
-            System.out.println("Código: " + corte.getCodigo());
-            System.out.println("Nombre: " + corte.getNombre());
-            System.out.println("Largo CM: " + corte.getLargoCm());
-            System.out.println("Precio1: " + corte.getPrecio1());
-            System.out.println("Tipo: " + corte.getTipo());
-            System.out.println("Color: " + corte.getColor());
             
             // Validaciones básicas
             if (corte.getCodigo() == null || corte.getCodigo().trim().isEmpty()) {
@@ -78,15 +70,12 @@ public class CorteService {
                 corte.setCategoria(null);
             }
 
-            System.out.println("Categoría asignada: " + (corte.getCategoria() != null ? corte.getCategoria().getNombre() : "null"));
+            // ...existing code...
             
             Corte saved = repository.save(corte);
-            System.out.println("Corte guardado exitosamente con ID: " + saved.getId());
             return saved;
             
         } catch (Exception e) {
-            System.err.println("ERROR al guardar corte: " + e.getMessage());
-            e.printStackTrace();
             throw new RuntimeException("Error al guardar corte: " + e.getMessage(), e);
         }
     }
@@ -96,12 +85,7 @@ public class CorteService {
         return repository.findById(id)
                 .map(corteExistente -> {
                     try {
-                        // 🐛 DEBUG: Logging para debug
-                        System.out.println("=== ACTUALIZANDO CORTE ===");
-                        System.out.println("ID: " + id);
-                        System.out.println("Nuevo código: " + corteActualizado.getCodigo());
-                        System.out.println("Nuevo largo: " + corteActualizado.getLargoCm());
-                        System.out.println("Nuevo precio1: " + corteActualizado.getPrecio1());
+                        // ...existing code...
                         
                         // Campos heredados de Producto - SOLO si no son null
                         if (corteActualizado.getPosicion() != null) {
@@ -164,14 +148,10 @@ public class CorteService {
                             corteExistente.setObservacion(corteActualizado.getObservacion());
                         }
 
-                        System.out.println("Corte antes de guardar: " + corteExistente.getCodigo());
                         Corte saved = repository.save(corteExistente);
-                        System.out.println("Corte actualizado exitosamente");
                         return saved;
                         
                     } catch (Exception e) {
-                        System.err.println("ERROR al actualizar corte: " + e.getMessage());
-                        e.printStackTrace();
                         throw new RuntimeException("Error al actualizar corte: " + e.getMessage(), e);
                     }
                 })
