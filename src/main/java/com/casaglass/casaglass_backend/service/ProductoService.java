@@ -58,20 +58,12 @@ public class ProductoService {
                 inventario.setCantidad(0);
                 
                 inventarioRepo.save(inventario);
-                System.out.println("✅ Inventario creado: Producto ID=" + producto.getId() + 
-                                 ", Sede ID=" + sedeId + ", Cantidad=0");
             }
         }
     }
 
     public List<Producto> listar() {
         List<Producto> productos = repo.findAll();
-        System.out.println("=== DEBUG PRODUCTOS ===");
-        System.out.println("Total productos encontrados: " + productos.size());
-        if (!productos.isEmpty()) {
-            System.out.println("Primer producto: ID=" + productos.get(0).getId() + ", Nombre=" + productos.get(0).getNombre());
-        }
-        System.out.println("======================");
         return productos;
     }
 
@@ -249,9 +241,7 @@ public class ProductoService {
                 
                 actual.setCantidad(dto.getCantidad());
                 // ✅ Actualizar costo explícitamente (permite null y 0)
-                System.out.println("🔧 DEBUG: Actualizando costo - DTO costo: " + dto.getCosto() + ", Costo actual antes: " + actual.getCosto());
                 actual.setCosto(dto.getCosto());
-                System.out.println("🔧 DEBUG: Costo actual después de set: " + actual.getCosto());
                 actual.setPrecio1(dto.getPrecio1());
                 actual.setPrecio2(dto.getPrecio2());
                 actual.setPrecio3(dto.getPrecio3());
@@ -268,7 +258,6 @@ public class ProductoService {
 
                 // ✅ Usar saveAndFlush para forzar la persistencia inmediata
                 Producto saved = repo.saveAndFlush(actual);
-                System.out.println("🔧 DEBUG: Costo guardado en BD: " + saved.getCosto());
                 
                 // 📦 ACTUALIZAR INVENTARIO EN LAS 3 SEDES si se enviaron las cantidades
                 if (dto.getCantidadInsula() != null || dto.getCantidadCentro() != null || dto.getCantidadPatios() != null) {
@@ -282,27 +271,15 @@ public class ProductoService {
                 
             } catch (jakarta.persistence.OptimisticLockException e) {
                 // 🔒 Lock optimista: Otro proceso modificó el producto (muy raro)
-                System.err.println("⚠️ Conflicto de versión (lock optimista) en producto ID " + id);
-                System.err.println("⚠️ Tipo: " + e.getClass().getName());
-                System.err.println("⚠️ Mensaje: " + e.getMessage());
-                e.printStackTrace();
                 throw new RuntimeException(
                     String.format("⚠️ Otro usuario modificó el producto ID %d. Por favor, recargue e intente nuevamente.", id)
                 );
             } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
                 // 🔒 Variante de Spring para OptimisticLockException
-                System.err.println("⚠️ Conflicto de versión (Spring) en producto ID " + id);
-                System.err.println("⚠️ Tipo: " + e.getClass().getName());
-                System.err.println("⚠️ Mensaje: " + e.getMessage());
-                e.printStackTrace();
                 throw new RuntimeException(
                     String.format("⚠️ Otro usuario modificó el producto ID %d. Por favor, recargue e intente nuevamente.", id)
                 );
             } catch (Exception e) {
-                System.err.println("ERROR al actualizar producto ID " + id);
-                System.err.println("ERROR Tipo: " + e.getClass().getName());
-                System.err.println("ERROR Mensaje: " + e.getMessage());
-                e.printStackTrace();
                 throw new RuntimeException("Error al actualizar producto: " + e.getMessage(), e);
             }
         }).orElseThrow(() -> new RuntimeException("Producto no encontrado con id " + id));
@@ -339,7 +316,6 @@ public class ProductoService {
         producto.setCosto(nuevoCosto);
         Producto saved = repo.saveAndFlush(producto);
         
-        System.out.println("🔧 DEBUG: Costo actualizado - ID: " + id + ", Nuevo costo: " + nuevoCosto + ", Costo guardado en BD: " + saved.getCosto());
         return saved;
     }
     
@@ -356,24 +332,12 @@ public class ProductoService {
         Long patiosId = obtenerSedeId("patios");
         
         if (insulaId == null || centroId == null || patiosId == null) {
-            System.err.println("⚠️ No se encontraron las 3 sedes. No se actualizará el inventario.");
             return;
         }
-        
         // Permitir valores negativos (ventas anticipadas) - usar 0 como default solo si es null
         cantidadInsula = cantidadInsula != null ? cantidadInsula : 0;
         cantidadCentro = cantidadCentro != null ? cantidadCentro : 0;
         cantidadPatios = cantidadPatios != null ? cantidadPatios : 0;
-        
-        System.out.println("📦 Actualizando inventario para producto " + productoId + " con valores del frontend:");
-        System.out.println("   Insula (ID " + insulaId + "): " + cantidadInsula + 
-                         (cantidadInsula < 0 ? " (⚠️ negativo)" : ""));
-        System.out.println("   Centro (ID " + centroId + "): " + cantidadCentro + 
-                         (cantidadCentro < 0 ? " (⚠️ negativo)" : ""));
-        System.out.println("   Patios (ID " + patiosId + "): " + cantidadPatios + 
-                         (cantidadPatios < 0 ? " (⚠️ negativo)" : ""));
-        System.out.println("   Total: " + (cantidadInsula + cantidadCentro + cantidadPatios));
-        
         // Actualizar o crear inventario para cada sede
         actualizarInventarioSede(productoId, insulaId, cantidadInsula);
         actualizarInventarioSede(productoId, centroId, cantidadCentro);

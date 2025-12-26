@@ -114,8 +114,9 @@ public class ReembolsoVentaService {
         }
         
         // Buscar reembolsos con filtros
+        // Por defecto, excluir reembolsos que ya están en entregas (incluyeEnEntregas = false)
         List<ReembolsoVenta> reembolsos = reembolsoVentaRepository.buscarConFiltros(
-            ordenId, clienteId, sedeId, estado, fechaDesde, fechaHasta, procesado
+            ordenId, clienteId, sedeId, estado, fechaDesde, fechaHasta, procesado, false
         );
         
         // Aplicar ordenamiento adicional si es necesario (el query ya ordena por fecha DESC)

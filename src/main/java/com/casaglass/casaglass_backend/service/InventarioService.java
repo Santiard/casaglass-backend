@@ -102,12 +102,10 @@ public class InventarioService {
                 return repo.save(inv);
             }
         } catch (jakarta.persistence.OptimisticLockException e) {
-            System.err.println("⚠️ Conflicto de versión (lock optimista) guardando inventario - Producto ID: " + productoId + ", Sede ID: " + sedeId);
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-            System.err.println("⚠️ Conflicto de versión (Spring) guardando inventario - Producto ID: " + productoId + ", Sede ID: " + sedeId);
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
@@ -128,7 +126,6 @@ public class InventarioService {
         try {
             // Buscar inventario existente
             Optional<Inventario> inventarioOpt = obtenerPorProductoYSede(productoId, sedeId);
-            
             if (inventarioOpt.isPresent()) {
                 // ACTUALIZAR inventario existente
                 Inventario inventario = inventarioOpt.get();
@@ -147,12 +144,10 @@ public class InventarioService {
                 return repo.save(nuevoInventario);
             }
         } catch (jakarta.persistence.OptimisticLockException e) {
-            System.err.println("⚠️ Conflicto de versión (lock optimista) actualizando inventario - Producto ID: " + productoId + ", Sede ID: " + sedeId);
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-            System.err.println("⚠️ Conflicto de versión (Spring) actualizando inventario - Producto ID: " + productoId + ", Sede ID: " + sedeId);
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
@@ -177,18 +172,10 @@ public class InventarioService {
                 return repo.save(actual);
             }).orElseThrow(() -> new RuntimeException("Inventario no encontrado con id " + id));
         } catch (jakarta.persistence.OptimisticLockException e) {
-            System.err.println("⚠️ Conflicto de versión (lock optimista) en inventario ID " + id);
-            System.err.println("⚠️ Tipo: " + e.getClass().getName());
-            System.err.println("⚠️ Mensaje: " + e.getMessage());
-            e.printStackTrace();
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario ID %d. Por favor, intente nuevamente.", id)
             );
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-            System.err.println("⚠️ Conflicto de versión (Spring) en inventario ID " + id);
-            System.err.println("⚠️ Tipo: " + e.getClass().getName());
-            System.err.println("⚠️ Mensaje: " + e.getMessage());
-            e.printStackTrace();
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario ID %d. Por favor, intente nuevamente.", id)
             );
@@ -235,32 +222,18 @@ public class InventarioService {
         Long insulaId = obtenerSedeId("insula");
         Long centroId = obtenerSedeId("centro");
         Long patiosId = obtenerSedeId("patios");
-        
         if (insulaId == null || centroId == null || patiosId == null) {
             throw new IllegalArgumentException("No se encontraron las 3 sedes (Insula, Centro, Patios)");
         }
-        
         // Permitir valores negativos (ventas anticipadas) - usar 0 como default solo si es null
         Integer cantidadInsula = dto.getCantidadInsula() != null ? dto.getCantidadInsula() : 0;
         Integer cantidadCentro = dto.getCantidadCentro() != null ? dto.getCantidadCentro() : 0;
         Integer cantidadPatios = dto.getCantidadPatios() != null ? dto.getCantidadPatios() : 0;
-        
-        System.out.println("📦 Actualizando inventario para producto " + productoId + " con valores:");
-        System.out.println("   Insula (ID " + insulaId + "): " + cantidadInsula + 
-                         (cantidadInsula < 0 ? " (⚠️ negativo)" : ""));
-        System.out.println("   Centro (ID " + centroId + "): " + cantidadCentro + 
-                         (cantidadCentro < 0 ? " (⚠️ negativo)" : ""));
-        System.out.println("   Patios (ID " + patiosId + "): " + cantidadPatios + 
-                         (cantidadPatios < 0 ? " (⚠️ negativo)" : ""));
-        System.out.println("   Total: " + (cantidadInsula + cantidadCentro + cantidadPatios));
-        
         List<Inventario> inventariosActualizados = new ArrayList<>();
-        
         // Actualizar o crear inventario para cada sede
         inventariosActualizados.add(actualizarInventarioSede(productoId, insulaId, cantidadInsula));
         inventariosActualizados.add(actualizarInventarioSede(productoId, centroId, cantidadCentro));
         inventariosActualizados.add(actualizarInventarioSede(productoId, patiosId, cantidadPatios));
-        
         return inventariosActualizados;
     }
     

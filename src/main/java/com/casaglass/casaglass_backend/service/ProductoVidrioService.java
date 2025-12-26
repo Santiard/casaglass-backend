@@ -66,17 +66,7 @@ public class ProductoVidrioService {
     }
 
     public ProductoVidrio guardar(ProductoVidrio p) {
-        System.out.println("🪟 DEBUG: Guardando ProductoVidrio...");
-        System.out.println("   - Tipo de objeto recibido: " + p.getClass().getName());
-        System.out.println("   - Es instancia de ProductoVidrio: " + (p instanceof ProductoVidrio));
-        System.out.println("   - Código: " + p.getCodigo());
-        System.out.println("   - Nombre: " + p.getNombre());
-        System.out.println("   - mm: " + p.getMm());
-        System.out.println("   - m1: " + p.getM1());
-        System.out.println("   - m2: " + p.getM2());
-        System.out.println("   - m1m2: " + p.getM1m2());
-        System.out.println("   - ID antes de guardar: " + p.getId());
-        
+
         // Validar categoría si viene con ID
         if (p.getCategoria() != null && p.getCategoria().getId() != null) {
             Categoria cat = categoriaRepo.findById(p.getCategoria().getId())
@@ -98,16 +88,12 @@ public class ProductoVidrioService {
         
         // ✅ USAR entityManager.persist() DIRECTAMENTE para forzar que Hibernate detecte el tipo
         // Esto asegura que Hibernate cree el registro en productos_vidrio
-        System.out.println("💾 Usando entityManager.persist() para forzar detección de tipo...");
         entityManager.persist(p);
         entityManager.flush();
         entityManager.refresh(p); // Refrescar para obtener el ID generado
         
-        System.out.println("✅ ProductoVidrio guardado con ID: " + p.getId());
-        
         // ✅ VERIFICAR que se creó el registro en productos_vidrio usando query nativo
         Long idGuardado = p.getId();
-        System.out.println("🔍 Verificando en BD si existe registro en productos_vidrio con ID=" + idGuardado);
         
         // Verificar con query nativo directo
         jakarta.persistence.Query query = entityManager.createNativeQuery(
@@ -116,13 +102,7 @@ public class ProductoVidrioService {
         query.setParameter(1, idGuardado);
         Long count = ((Number) query.getSingleResult()).longValue();
         
-        if (count > 0) {
-            System.out.println("✅ VERIFICACIÓN: Registro encontrado en productos_vidrio con ID=" + idGuardado);
-        } else {
-            System.err.println("❌ ERROR CRÍTICO: Producto guardado con ID=" + idGuardado + 
-                             " pero NO se encontró registro en productos_vidrio!");
-            System.err.println("   Intentando insertar manualmente...");
-            
+        if (count == 0) {
             // 🔧 SOLUCIÓN DE EMERGENCIA: Insertar manualmente en productos_vidrio
             try {
                 jakarta.persistence.Query insertQuery = entityManager.createNativeQuery(
@@ -135,10 +115,8 @@ public class ProductoVidrioService {
                 insertQuery.setParameter(5, p.getM1m2());
                 insertQuery.executeUpdate();
                 entityManager.flush();
-                System.out.println("✅ Insertado manualmente en productos_vidrio");
             } catch (Exception e) {
-                System.err.println("❌ ERROR al insertar manualmente: " + e.getMessage());
-                e.printStackTrace();
+                throw new RuntimeException("Error al insertar producto vidrio: " + e.getMessage(), e);
             }
         }
         
@@ -171,8 +149,6 @@ public class ProductoVidrioService {
                 inventario.setCantidad(0);
                 
                 inventarioRepo.save(inventario);
-                System.out.println("✅ Inventario creado: Producto ID=" + producto.getId() + 
-                                 ", Sede ID=" + sedeId + ", Cantidad=0");
             }
         }
     }

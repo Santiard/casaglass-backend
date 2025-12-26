@@ -62,8 +62,6 @@ public class TrasladoService {
 
     @Transactional
     public Traslado crear(Traslado payload) {
-        System.out.println("🔧 TrasladoService - Creando traslado");
-        
         if (payload.getSedeOrigen() == null || payload.getSedeOrigen().getId() == null)
             throw new IllegalArgumentException("Debe especificar sedeOrigen.id");
         if (payload.getSedeDestino() == null || payload.getSedeDestino().getId() == null)
@@ -99,9 +97,7 @@ public class TrasladoService {
             }
         }
 
-        System.out.println("💾 Guardando traslado...");
         Traslado resultado = repo.save(payload);
-        System.out.println("✅ Traslado creado exitosamente con ID: " + resultado.getId());
         
         // 🔄 ACTUALIZAR INVENTARIO: Restar de origen y sumar a destino
         actualizarInventarioTraslado(resultado);
@@ -115,16 +111,12 @@ public class TrasladoService {
      * - Suma la cantidad a la sede destino
      */
     private void actualizarInventarioTraslado(Traslado traslado) {
-        System.out.println("🔄 Actualizando inventario para traslado ID: " + traslado.getId());
-        
         Long sedeOrigenId = traslado.getSedeOrigen().getId();
         Long sedeDestinoId = traslado.getSedeDestino().getId();
         
         for (TrasladoDetalle detalle : traslado.getDetalles()) {
             Long productoId = detalle.getProducto().getId();
             Integer cantidad = detalle.getCantidad();
-            
-            System.out.println("📦 Procesando producto ID: " + productoId + ", cantidad: " + cantidad);
             
             // 1. RESTAR de sede origen
             Optional<Inventario> inventarioOrigen = inventarioService.obtenerPorProductoYSede(productoId, sedeOrigenId);
@@ -139,8 +131,6 @@ public class TrasladoService {
                 
                 invOrigen.setCantidad(nuevaCantidadOrigen);
                 inventarioService.actualizar(invOrigen.getId(), invOrigen);
-                System.out.println("➖ Restado de origen (ID: " + sedeOrigenId + "): " + cantidad + 
-                    ", nuevo total: " + nuevaCantidadOrigen);
             } else {
                 throw new RuntimeException("No existe inventario del producto ID " + productoId + 
                     " en sede origen ID " + sedeOrigenId);
@@ -153,8 +143,6 @@ public class TrasladoService {
                 Inventario invDestino = inventarioDestino.get();
                 invDestino.setCantidad(invDestino.getCantidad() + cantidad);
                 inventarioService.actualizar(invDestino.getId(), invDestino);
-                System.out.println("➕ Sumado a destino (ID: " + sedeDestinoId + "): " + cantidad + 
-                    ", nuevo total: " + invDestino.getCantidad());
             } else {
                 // Crear nuevo inventario en sede destino
                 Inventario nuevoInventario = new Inventario();
@@ -162,11 +150,8 @@ public class TrasladoService {
                 nuevoInventario.setSede(traslado.getSedeDestino());
                 nuevoInventario.setCantidad(cantidad);
                 inventarioService.guardar(nuevoInventario);
-                System.out.println("🆕 Creado inventario en destino (ID: " + sedeDestinoId + "): " + cantidad);
             }
         }
-        
-        System.out.println("✅ Inventario actualizado correctamente para traslado ID: " + traslado.getId());
     }
 
     @Transactional

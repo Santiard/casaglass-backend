@@ -43,7 +43,9 @@ public interface ReembolsoVentaRepository extends JpaRepository<ReembolsoVenta, 
            "(:estado IS NULL OR r.estado = :estado) AND " +
            "(:fechaDesde IS NULL OR r.fecha >= :fechaDesde) AND " +
            "(:fechaHasta IS NULL OR r.fecha <= :fechaHasta) AND " +
-           "(:procesado IS NULL OR r.procesado = :procesado) " +
+           "(:procesado IS NULL OR r.procesado = :procesado) AND " +
+           "(:incluyeEnEntregas IS NULL OR :incluyeEnEntregas = true OR " +
+           "NOT EXISTS (SELECT 1 FROM EntregaDetalle ed WHERE ed.reembolsoVenta.id = r.id)) " +
            "ORDER BY r.fecha DESC, r.id DESC")
     List<ReembolsoVenta> buscarConFiltros(
         @Param("ordenId") Long ordenId,
@@ -52,7 +54,8 @@ public interface ReembolsoVentaRepository extends JpaRepository<ReembolsoVenta, 
         @Param("estado") com.casaglass.casaglass_backend.model.ReembolsoVenta.EstadoReembolso estado,
         @Param("fechaDesde") java.time.LocalDate fechaDesde,
         @Param("fechaHasta") java.time.LocalDate fechaHasta,
-        @Param("procesado") Boolean procesado
+        @Param("procesado") Boolean procesado,
+        @Param("incluyeEnEntregas") Boolean incluyeEnEntregas
     );
 }
 

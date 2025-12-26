@@ -234,7 +234,7 @@ public class OrdenService {
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
         // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes...");
+            // ...existing code...
             procesarCortes(ordenGuardada, ventaDTO.getCortes());
         }
         
@@ -254,7 +254,7 @@ public class OrdenService {
      */
     @Transactional
     public Orden crearOrdenVentaConCredito(OrdenVentaDTO ventaDTO) {
-        System.out.println("🔍 DEBUG: Iniciando creación de orden con crédito");
+        // ...existing code...
         
         // 🔍 VALIDACIONES DE NEGOCIO
         validarDatosVenta(ventaDTO);
@@ -282,7 +282,7 @@ public class OrdenService {
         // 💳 ACTUALIZAR CLIENTE A CRÉDITO SI ES NECESARIO
         // Si se crea una venta a crédito, el cliente debe tener credito = true
         if (cliente.getCredito() == null || !cliente.getCredito()) {
-            System.out.println("🔄 Actualizando cliente ID " + cliente.getId() + " a credito = true");
+            // ...existing code...
             cliente.setCredito(true);
             clienteRepository.save(cliente);
         }
@@ -347,10 +347,11 @@ public class OrdenService {
         // 💾 GUARDAR ORDEN PRIMERO
         Orden ordenGuardada = repo.save(orden);
         System.out.println("✅ DEBUG: Orden guardada con ID: " + ordenGuardada.getId());
+            // ...existing code...
         
         // 💳 CREAR CRÉDITO SI ES NECESARIO (en la misma transacción)
         if (ventaDTO.isCredito()) {
-            System.out.println("🔍 DEBUG: Creando crédito para orden " + ordenGuardada.getId());
+            // ...existing code...
             // Reutilizar retencionFuente ya calculada arriba (línea 330)
             Double retencionParaCredito = ordenGuardada.getRetencionFuente() != null 
                 ? ordenGuardada.getRetencionFuente() 
@@ -366,7 +367,7 @@ public class OrdenService {
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
         // Esto crea los cortes nuevos y actualiza inventarios
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes...");
+            // ...existing code...
             procesarCortes(ordenGuardada, ventaDTO.getCortes());
         }
         
@@ -387,7 +388,7 @@ public class OrdenService {
      */
     @Transactional
     public Orden actualizarOrdenVenta(Long ordenId, OrdenVentaDTO ventaDTO) {
-        System.out.println("🔄 DEBUG: Iniciando actualización de orden ID: " + ordenId);
+        // ...existing code...
         
         // 🔍 VALIDACIONES DE NEGOCIO
         validarDatosVenta(ventaDTO);
@@ -398,6 +399,7 @@ public class OrdenService {
         
         // 🔄 RESTAURAR INVENTARIO DE LA ORDEN ANTERIOR
         System.out.println("🔄 Restaurando inventario de la orden anterior...");
+            // ...existing code...
         restaurarInventarioPorAnulacion(ordenExistente);
         
         // 📝 ACTUALIZAR CAMPOS BÁSICOS
@@ -415,7 +417,7 @@ public class OrdenService {
         // 💳 ACTUALIZAR CLIENTE A CRÉDITO SI ES NECESARIO
         // Si se actualiza a venta a crédito, el cliente debe tener credito = true
         if (ventaDTO.isCredito() && (cliente.getCredito() == null || !cliente.getCredito())) {
-            System.out.println("🔄 Actualizando cliente ID " + cliente.getId() + " a credito = true");
+            // ...existing code...
             cliente.setCredito(true);
             clienteRepository.save(cliente);
         }
@@ -481,11 +483,12 @@ public class OrdenService {
         
         // 🔪 PROCESAR CORTES SI EXISTEN
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes en actualización...");
+            // ...existing code...
             procesarCortes(ordenActualizada, ventaDTO.getCortes());
         }
         
         System.out.println("✅ Orden actualizada exitosamente: " + ordenActualizada.getId());
+            // ...existing code...
         return ordenActualizada;
     }
 
@@ -494,7 +497,8 @@ public class OrdenService {
      */
     @Transactional
     public Orden actualizarOrdenVentaConCredito(Long ordenId, OrdenVentaDTO ventaDTO) {
-        System.out.println("🔄 DEBUG: Actualizando orden con crédito ID: " + ordenId);
+        // ...existing code...
+            // ...existing code...
         
         // 🔍 VALIDACIONES DE NEGOCIO
         validarDatosVenta(ventaDTO);
@@ -522,7 +526,7 @@ public class OrdenService {
         // 💳 ACTUALIZAR CLIENTE A CRÉDITO SI ES NECESARIO
         // Si se actualiza a venta a crédito, el cliente debe tener credito = true
         if (ventaDTO.isCredito() && (cliente.getCredito() == null || !cliente.getCredito())) {
-            System.out.println("🔄 Actualizando cliente ID " + cliente.getId() + " a credito = true");
+            // ...existing code...
             cliente.setCredito(true);
             clienteRepository.save(cliente);
         }
@@ -583,10 +587,11 @@ public class OrdenService {
         // 💾 GUARDAR ORDEN ACTUALIZADA PRIMERO
         Orden ordenActualizada = repo.save(ordenExistente);
         System.out.println("✅ DEBUG: Orden actualizada con ID: " + ordenActualizada.getId());
+            // ...existing code...
         
         // 💳 ACTUALIZAR CRÉDITO SI ES NECESARIO
         if (ventaDTO.isCredito()) {
-            System.out.println("🔄 DEBUG: Actualizando crédito para orden " + ordenActualizada.getId());
+            // ...existing code...
             
             // Si ya existe crédito, actualizarlo
             if (ordenActualizada.getCreditoDetalle() != null) {
@@ -609,6 +614,7 @@ public class OrdenService {
             // Si se cambió de crédito a contado, anular el crédito existente
             if (ordenActualizada.getCreditoDetalle() != null) {
                 System.out.println("🔄 DEBUG: Anulando crédito existente...");
+                            // ...existing code...
                 creditoService.anularCredito(ordenActualizada.getCreditoDetalle().getId());
             }
         }
@@ -618,11 +624,12 @@ public class OrdenService {
         
         // 🔪 PROCESAR CORTES SI EXISTEN
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            System.out.println("🔪 Procesando " + ventaDTO.getCortes().size() + " cortes en actualización...");
+            // ...existing code...
             procesarCortes(ordenActualizada, ventaDTO.getCortes());
         }
         
         System.out.println("✅ Orden con crédito actualizada exitosamente: " + ordenActualizada.getId());
+            // ...existing code...
         return ordenActualizada;
     }
 
@@ -636,14 +643,12 @@ public class OrdenService {
             List<BusinessSettings> settings = businessSettingsRepository.findAll();
             if (!settings.isEmpty() && settings.get(0).getIvaRate() != null) {
                 Double ivaRate = settings.get(0).getIvaRate();
-                System.out.println("💰 IVA Rate obtenido desde configuración: " + ivaRate + "%");
                 return ivaRate;
             }
         } catch (Exception e) {
-            System.err.println("⚠️ WARNING: No se pudo obtener IVA rate desde configuración: " + e.getMessage());
+            // ...existing code...
         }
         // Fallback a 19% por defecto
-        System.out.println("💰 IVA Rate usando valor por defecto: 19.0%");
         return 19.0;
     }
 
@@ -735,7 +740,7 @@ public class OrdenService {
                 return settings.get(0);
             }
         } catch (Exception e) {
-            System.err.println("⚠️ WARNING: No se pudo obtener configuración de retención: " + e.getMessage());
+            // ...existing code...
         }
         // Fallback a valores por defecto
         BusinessSettings defaultSettings = new BusinessSettings();
@@ -1570,22 +1575,19 @@ public class OrdenService {
 
         // 6️⃣ Guardar orden actualizada PRIMERO
         Orden ordenActualizada = repo.save(orden);
-        System.out.println("✅ DEBUG: Orden actualizada con ID: " + ordenActualizada.getId() + 
-                          ", venta: " + ordenActualizada.isVenta() + 
-                          ", credito: " + ordenActualizada.isCredito() + 
-                          ", total: " + ordenActualizada.getTotal());
+        // ...existing code...
 
         // 7️⃣ MANEJAR CRÉDITO SI ES NECESARIO
         // Si se actualiza a venta a crédito, crear o actualizar el crédito
         if (ordenActualizada.isVenta() && ordenActualizada.isCredito()) {
-            System.out.println("💳 DEBUG: Orden actualizada a venta a crédito. Verificando crédito...");
+            // ...existing code...
             
             // Obtener cliente completo para actualizar si es necesario
             Cliente cliente = ordenActualizada.getCliente();
             if (cliente != null) {
                 // Actualizar cliente a crédito si es necesario
                 if (cliente.getCredito() == null || !cliente.getCredito()) {
-                    System.out.println("🔄 Actualizando cliente ID " + cliente.getId() + " a credito = true");
+                    // ...existing code...
                     cliente.setCredito(true);
                     clienteRepository.save(cliente);
                 }
@@ -1595,7 +1597,7 @@ public class OrdenService {
             if (ordenActualizada.getCreditoDetalle() != null) {
                 // Si ya existe crédito, actualizarlo con el nuevo total y retención
                 System.out.println("🔄 DEBUG: Actualizando crédito existente ID: " + 
-                                  ordenActualizada.getCreditoDetalle().getId());
+                    // ...existing code...
                 // Reutilizar retencionFuente ya calculada arriba (línea 1557)
                 creditoService.actualizarCreditoParaOrden(
                     ordenActualizada.getCreditoDetalle().getId(),
@@ -1604,16 +1606,15 @@ public class OrdenService {
                 );
                 Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente;
                 System.out.println("✅ DEBUG: Crédito actualizado - Total: " + ordenActualizada.getTotal() + 
-                                  ", Retención: " + retencionFuente + 
-                                  ", Saldo pendiente inicial: " + saldoPendienteInicial);
+                    // ...existing code...
             } else {
                 // Si no existe crédito, crearlo
                 System.out.println("🆕 DEBUG: Creando nuevo crédito para orden " + ordenActualizada.getId() + 
-                                  " con saldo pendiente: " + ordenActualizada.getTotal());
+                    // ...existing code...
                 
                 Long clienteId = cliente != null ? cliente.getId() : null;
                 if (clienteId == null) {
-                    System.err.println("⚠️ WARNING: No se puede crear crédito - cliente es null");
+                    // ...existing code...
                 } else {
                     // Reutilizar retencionFuente ya calculada arriba (línea 1557)
                     creditoService.crearCreditoParaOrden(
@@ -1624,8 +1625,7 @@ public class OrdenService {
                     );
                     Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente;
                     System.out.println("✅ DEBUG: Crédito creado con saldo pendiente inicial: " + 
-                                      saldoPendienteInicial + " (Total: " + ordenActualizada.getTotal() + 
-                                      ", Retención: " + retencionFuente + ")");
+                    // ...existing code...
                     
                     // Recargar la orden para obtener el crédito recién creado
                     ordenActualizada = repo.findById(ordenActualizada.getId())
@@ -1635,15 +1635,14 @@ public class OrdenService {
         } else if (ordenActualizada.isVenta() && !ordenActualizada.isCredito()) {
             // Si se cambió de crédito a contado, anular el crédito existente
             if (ordenActualizada.getCreditoDetalle() != null) {
-                System.out.println("🔄 DEBUG: Orden cambiada de crédito a contado. Anulando crédito existente...");
+                // ...existing code...
                 creditoService.anularCredito(ordenActualizada.getCreditoDetalle().getId());
-                System.out.println("✅ DEBUG: Crédito anulado exitosamente");
+                // ...existing code...
             }
         } else {
             // Si no es venta o no es crédito, verificar si hay crédito que anular
             if (ordenActualizada.getCreditoDetalle() != null) {
-                System.out.println("⚠️ WARNING: Orden tiene crédito pero venta=false o credito=false. " +
-                                  "Considerando anular crédito...");
+                // ...existing code...
                 // Opcional: anular crédito si la orden ya no es venta a crédito
                 // creditoService.anularCredito(ordenActualizada.getCreditoDetalle().getId());
             }
@@ -1656,15 +1655,9 @@ public class OrdenService {
         // Verificar que el crédito se creó correctamente
         if (ordenActualizada.isVenta() && ordenActualizada.isCredito()) {
             if (ordenActualizada.getCreditoDetalle() == null) {
-                System.err.println("❌ ERROR CRÍTICO: Orden es venta a crédito pero creditoDetalle es null!");
-                System.err.println("   - Orden ID: " + ordenActualizada.getId());
-                System.err.println("   - Venta: " + ordenActualizada.isVenta());
-                System.err.println("   - Crédito: " + ordenActualizada.isCredito());
-                System.err.println("   - Total: " + ordenActualizada.getTotal());
+                // ...existing code...
             } else {
-                System.out.println("✅ DEBUG: Crédito verificado - ID: " + 
-                                  ordenActualizada.getCreditoDetalle().getId() + 
-                                  ", Saldo: " + ordenActualizada.getCreditoDetalle().getSaldoPendiente());
+                // ...existing code...
             }
         }
         

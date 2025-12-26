@@ -61,10 +61,39 @@ public class EntregaDetalleService {
             throw new RuntimeException("La orden especificada no existe");
         }
 
-        // Verificar que la orden no esté ya incluida en esta entrega
-        if (detalle.getEntrega() != null && 
-            entregaDetalleRepository.existsByEntregaIdAndOrdenId(detalle.getEntrega().getId(), detalle.getOrden().getId())) {
-            throw new RuntimeException("La orden ya está incluida en esta entrega");
+        // ✅ VALIDACIÓN MEJORADA: Permitir la misma orden en diferentes tipos de transacciones
+        // (abono + reembolso), pero evitar duplicados del MISMO tipo
+        if (detalle.getEntrega() != null) {
+            Long entregaId = detalle.getEntrega().getId();
+            Long ordenId = detalle.getOrden().getId();
+            
+            // Obtener todos los detalles existentes de esta orden en esta entrega
+            List<EntregaDetalle> detallesExistentes = entregaDetalleRepository.findByEntregaId(entregaId).stream()
+                .filter(d -> d.getOrden() != null && d.getOrden().getId().equals(ordenId))
+                .collect(java.util.stream.Collectors.toList());
+            
+            // Si hay detalles existentes, validar que no sean del mismo tipo
+            for (EntregaDetalle existente : detallesExistentes) {
+                // Si ambos son órdenes a contado (sin abono ni reembolso): duplicado
+                if (existente.getAbono() == null && existente.getReembolsoVenta() == null &&
+                    detalle.getAbono() == null && detalle.getReembolsoVenta() == null) {
+                    throw new RuntimeException("La orden ya está incluida en esta entrega");
+                }
+                
+                // Si ambos son abonos: verificar que no sea el mismo abono
+                if (existente.getAbono() != null && detalle.getAbono() != null) {
+                    if (existente.getAbono().getId().equals(detalle.getAbono().getId())) {
+                        throw new RuntimeException("Este abono ya está incluido en esta entrega");
+                    }
+                }
+                
+                // Si ambos son reembolsos: verificar que no sea el mismo reembolso
+                if (existente.getReembolsoVenta() != null && detalle.getReembolsoVenta() != null) {
+                    if (existente.getReembolsoVenta().getId().equals(detalle.getReembolsoVenta().getId())) {
+                        throw new RuntimeException("Este reembolso ya está incluido en esta entrega");
+                    }
+                }
+            }
         }
 
         // Capturar datos de la orden en el momento de la entrega
@@ -81,11 +110,30 @@ public class EntregaDetalleService {
         }
 
         // ✅ VALIDACIÓN 2: Si es orden a crédito, validar que el crédito esté abierto
-        if (orden.isCredito()) {
+        // IMPORTANTE: Esta validación SOLO aplica a abonos (ingresos), NO a reembolsos (egresos)
+        if (orden.isCredito() && detalle.getReembolsoVenta() == null) {
             // Verificar que el crédito no esté cerrado (completamente saldado)
             if (orden.getCreditoDetalle() != null) {
                 if (orden.getCreditoDetalle().getEstado() == com.casaglass.casaglass_backend.model.Credito.EstadoCredito.CERRADO) {
                     throw new RuntimeException("No se puede agregar una orden a crédito completamente saldada. El dinero ya fue entregado en entregas anteriores.");
+                }
+            }
+        }
+
+        // ✅ VALIDACIÓN 3: Si es un reembolso, verificar que no esté ya incluido en otra entrega
+        if (detalle.getReembolsoVenta() != null) {
+            Long reembolsoId = detalle.getReembolsoVenta().getId();
+            
+            // Buscar si este reembolso ya está en alguna entrega
+            List<EntregaDetalle> detallesConReembolso = entregaDetalleRepository.findAll().stream()
+                .filter(d -> d.getReembolsoVenta() != null && d.getReembolsoVenta().getId().equals(reembolsoId))
+                .collect(java.util.stream.Collectors.toList());
+            
+            for (EntregaDetalle existente : detallesConReembolso) {
+                // Si el reembolso está en otra entrega (no en esta), rechazar
+                if (detalle.getEntrega() == null || 
+                    !existente.getEntrega().getId().equals(detalle.getEntrega().getId())) {
+                    throw new RuntimeException("Este reembolso ya está incluido en otra entrega de dinero");
                 }
             }
         }
