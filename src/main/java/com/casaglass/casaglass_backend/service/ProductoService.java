@@ -377,7 +377,27 @@ public class ProductoService {
     }
 
     public void eliminar(Long id) {
-        repo.deleteById(id);
+        Producto producto = repo.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Producto no encontrado"));
+
+        // Verificar si tiene movimientos en ingresos
+        if (!ingresoDetalleRepo.findByProductoOrderByIngreso_FechaDesc(producto).isEmpty()) {
+            throw new RuntimeException("No se puede eliminar el producto porque tiene movimientos de ingreso asociados");
+        }
+        // Verificar si tiene movimientos en traslados
+        if (!trasladoDetalleRepo.findByProducto(producto).isEmpty()) {
+            throw new RuntimeException("No se puede eliminar el producto porque tiene movimientos de traslado asociados");
+        }
+        // TODO: Agregar validación para ventas/órdenes si aplica
+
+        // Eliminar inventario asociado
+        List<Inventario> inventarios = inventarioRepo.findByProductoId(id);
+        for (Inventario inv : inventarios) {
+            inventarioRepo.delete(inv);
+        }
+
+        // Eliminar el producto
+        repo.delete(producto);
     }
 
     public List<String> listarCategoriasTexto() {
