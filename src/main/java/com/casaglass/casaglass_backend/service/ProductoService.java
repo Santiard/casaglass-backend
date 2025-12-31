@@ -11,6 +11,8 @@ import com.casaglass.casaglass_backend.repository.CategoriaRepository;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
+import com.casaglass.casaglass_backend.repository.IngresoDetalleRepository;
+import com.casaglass.casaglass_backend.repository.TrasladoDetalleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,17 +24,23 @@ import java.util.Optional;
 @Transactional
 public class ProductoService {
 
+    private final IngresoDetalleRepository ingresoDetalleRepo;
+    private final TrasladoDetalleRepository trasladoDetalleRepo;
+
     private final ProductoRepository repo;
     private final CategoriaRepository categoriaRepo;
     private final InventarioRepository inventarioRepo;
     private final SedeRepository sedeRepo;
 
     public ProductoService(ProductoRepository repo, CategoriaRepository categoriaRepo,
-                          InventarioRepository inventarioRepo, SedeRepository sedeRepo) {
+                          InventarioRepository inventarioRepo, SedeRepository sedeRepo,
+                          IngresoDetalleRepository ingresoDetalleRepo, TrasladoDetalleRepository trasladoDetalleRepo) {
         this.repo = repo;
         this.categoriaRepo = categoriaRepo;
         this.inventarioRepo = inventarioRepo;
         this.sedeRepo = sedeRepo;
+        this.ingresoDetalleRepo = ingresoDetalleRepo;
+        this.trasladoDetalleRepo = trasladoDetalleRepo;
     }
     
     /**

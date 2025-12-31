@@ -5,6 +5,7 @@ import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenDetalleDTO;
+import com.casaglass.casaglass_backend.dto.OrdenResponseDTO;
 import com.casaglass.casaglass_backend.dto.FacturaCreateDTO;
 import com.casaglass.casaglass_backend.service.OrdenService;
 import com.casaglass.casaglass_backend.service.FacturaService;
@@ -286,12 +287,10 @@ public class OrdenController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Orden> obtener(@PathVariable Long id) {
+    public ResponseEntity<OrdenResponseDTO> obtener(@PathVariable Long id) {
         return service.obtenerPorId(id)
-                .map(orden -> ResponseEntity.ok()
-                        .header("Content-Type", "application/json")
-                        .body(orden))
-                .orElse(ResponseEntity.notFound().build());
+            .map(orden -> ResponseEntity.ok(new OrdenResponseDTO(orden)))
+            .orElse(ResponseEntity.notFound().build());
     }
 
     /**
