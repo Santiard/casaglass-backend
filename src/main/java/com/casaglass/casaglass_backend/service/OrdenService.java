@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
 
 @Service
 public class OrdenService {
@@ -188,12 +190,16 @@ public class OrdenService {
             item.setOrden(orden);
             // Si se envía reutilizarCorteSolicitadoId, el item vende ese CORTE específico
             if (itemDTO.getReutilizarCorteSolicitadoId() != null) {
-                item.setProducto(entityManager.getReference(Corte.class, itemDTO.getReutilizarCorteSolicitadoId()));
+                Corte corteReutilizado = corteRepository.findById(itemDTO.getReutilizarCorteSolicitadoId())
+                    .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + itemDTO.getReutilizarCorteSolicitadoId()));
+                item.setProducto(corteReutilizado);
+                // ✅ Usar el nombre del corte de la BD (corregido) en lugar de la descripción del frontend
+                item.setDescripcion(corteReutilizado.getNombre());
             } else {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+                item.setDescripcion(itemDTO.getDescripcion());
             }
-            item.setDescripcion(itemDTO.getDescripcion());
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -244,7 +250,8 @@ public class OrdenService {
         incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
         
         // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
-        actualizarInventarioPorVenta(ordenGuardada);
+        // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
+        actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
         
         return ordenGuardada;
     }
@@ -304,12 +311,16 @@ public class OrdenService {
             OrdenItem item = new OrdenItem();
             item.setOrden(orden);
             if (itemDTO.getReutilizarCorteSolicitadoId() != null) {
-                item.setProducto(entityManager.getReference(Corte.class, itemDTO.getReutilizarCorteSolicitadoId()));
+                Corte corteReutilizado = corteRepository.findById(itemDTO.getReutilizarCorteSolicitadoId())
+                    .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + itemDTO.getReutilizarCorteSolicitadoId()));
+                item.setProducto(corteReutilizado);
+                // ✅ Usar el nombre del corte de la BD (corregido) en lugar de la descripción del frontend
+                item.setDescripcion(corteReutilizado.getNombre());
             } else {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+                item.setDescripcion(itemDTO.getDescripcion());
             }
-            item.setDescripcion(itemDTO.getDescripcion());
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -377,7 +388,8 @@ public class OrdenService {
         incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
         
         // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
-        actualizarInventarioPorVenta(ordenGuardada);
+        // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
+        actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
         
         return ordenGuardada;
     }
@@ -1718,12 +1730,30 @@ public class OrdenService {
      * - 🔪 EXCLUYE CORTES: Solo procesa productos normales
      */
     @Transactional
-    private void actualizarInventarioPorVenta(Orden orden) {
+    /**
+     * 📦 ACTUALIZAR INVENTARIO POR VENTA - Versión con DTO para excluir productos en cortes[]
+     * 
+     * ⚠️ IMPORTANTE: Si un producto está en cortes[], NO se decrementa su inventario aquí
+     * porque procesarCortes() ya maneja el decremento cuando se vende el corte solicitado.
+     * Esto evita conflictos de concurrencia al cortar un corte existente.
+     */
+    private void actualizarInventarioPorVenta(Orden orden, OrdenVentaDTO ventaDTO) {
         if (orden.getItems() == null || orden.getItems().isEmpty()) {
             return;
         }
 
         System.out.println("🔄 Actualizando inventario para orden ID: " + orden.getId());
+        
+        // 🔪 Obtener IDs de productos que están siendo cortados (en cortes[])
+        Set<Long> productosEnCortes = new HashSet<>();
+        if (ventaDTO != null && ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+            for (OrdenVentaDTO.CorteSolicitadoDTO corte : ventaDTO.getCortes()) {
+                if (corte.getProductoId() != null) {
+                    productosEnCortes.add(corte.getProductoId());
+                }
+            }
+            System.out.println("🔪 Productos en cortes[] que NO se decrementarán aquí: " + productosEnCortes);
+        }
         
         // Obtener la sede de la orden (donde se realiza la venta)
         Long sedeId = orden.getSede().getId();
@@ -1732,6 +1762,12 @@ public class OrdenService {
             if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
                 Long productoId = item.getProducto().getId();
                 Integer cantidadVendida = item.getCantidad();
+                
+                // ⚠️ SKIP: Si este producto está en cortes[], procesarCortes() ya maneja su inventario
+                if (productosEnCortes.contains(productoId)) {
+                    System.out.println("⏭️ SKIP: Producto ID " + productoId + " está en cortes[], procesarCortes() ya manejó su inventario");
+                    continue;
+                }
 
                 if (item.getProducto() instanceof Corte) {
                     // Venta de CORTE: decrementar inventario de cortes en la sede
@@ -1750,6 +1786,14 @@ public class OrdenService {
         }
         
         System.out.println("✅ Inventario actualizado correctamente para orden ID: " + orden.getId());
+    }
+    
+    /**
+     * 📦 ACTUALIZAR INVENTARIO POR VENTA - Versión sin DTO (para compatibilidad)
+     * Usado en métodos que no tienen acceso al DTO original
+     */
+    private void actualizarInventarioPorVenta(Orden orden) {
+        actualizarInventarioPorVenta(orden, null);
     }
 
     /**
@@ -1927,6 +1971,23 @@ public class OrdenService {
             Producto productoOriginal = productoRepository.findById(corteDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + corteDTO.getProductoId()));
             
+            // 1.5 🔪 SI SE ESTÁ CORTANDO UN CORTE EXISTENTE, DECREMENTAR SU INVENTARIO
+            // Verificar si el producto original es un Corte (instanceof)
+            if (productoOriginal instanceof Corte) {
+                Long sedeId = orden.getSede().getId();
+                Integer cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1;
+                System.out.println("🔪 Se está cortando un CORTE existente (ID=" + productoOriginal.getId() + 
+                                 "), decrementando inventario en -" + cantidad);
+                try {
+                    inventarioCorteService.decrementarStock(productoOriginal.getId(), sedeId, cantidad);
+                    System.out.println("✅ Inventario del corte original decrementado: Corte ID=" + productoOriginal.getId() + 
+                                     ", Sede ID=" + sedeId + ", Cantidad: -" + cantidad);
+                } catch (Exception e) {
+                    System.err.println("❌ Error al decrementar inventario del corte original: " + e.getMessage());
+                    throw new RuntimeException("Error al decrementar inventario del corte que se está cortando: " + e.getMessage());
+                }
+            }
+            
             // 2. Crear o reutilizar corte solicitado (para vender)
             Corte corteSolicitado = crearCorteIndividual(
                 productoOriginal, 
@@ -2041,7 +2102,16 @@ public class OrdenService {
             if (existenteOpt.isPresent()) {
                 Corte corteExistente = existenteOpt.get();
                 // Asegurarse de que el nombre esté correcto (no concatenado)
-                String nombreCorrecto = productoOriginal.getNombre() + " Corte de " + medida + " CMS";
+                // Si el producto original ya es un corte, extraer el nombre base antes de 'Corte de'
+                String nombreOriginal = productoOriginal.getNombre();
+                String baseNombre;
+                int idx = nombreOriginal.indexOf(" Corte de ");
+                if (idx != -1) {
+                    baseNombre = nombreOriginal.substring(0, idx);
+                } else {
+                    baseNombre = nombreOriginal;
+                }
+                String nombreCorrecto = baseNombre + " Corte de " + medida + " CMS";
                 if (!nombreCorrecto.equals(corteExistente.getNombre())) {
                     corteExistente.setNombre(nombreCorrecto);
                     corteService.guardar(corteExistente); // Actualiza el nombre si estaba mal
@@ -2060,8 +2130,17 @@ public class OrdenService {
         corte.setCodigo(codigoBase);
 
         // ✅ Nombre: "[Nombre Producto Base] Corte de X CMS"
-        // NO se incluye (SOBRANTE) ni (SOLICITADO) en el nombre, ni concatenaciones
-        corte.setNombre(productoOriginal.getNombre() + " Corte de " + medida + " CMS");
+        // Si el producto original ya es un corte, extraer el nombre base antes de 'Corte de'
+        String nombreOriginal = productoOriginal.getNombre();
+        String baseNombre;
+        int idx = nombreOriginal.indexOf(" Corte de ");
+        if (idx != -1) {
+            baseNombre = nombreOriginal.substring(0, idx);
+        } else {
+            baseNombre = nombreOriginal;
+        }
+        String nombreFinal = baseNombre + " Corte de " + medida + " CMS";
+        corte.setNombre(nombreFinal);
 
         // Medida específica en centímetros
         corte.setLargoCm(medida.doubleValue());
