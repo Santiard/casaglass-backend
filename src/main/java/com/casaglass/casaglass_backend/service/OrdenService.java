@@ -1752,7 +1752,6 @@ public class OrdenService {
                     productosEnCortes.add(corte.getProductoId());
                 }
             }
-            System.out.println("🔪 Productos en cortes[] que NO se decrementarán aquí: " + productosEnCortes);
         }
         
         // Obtener la sede de la orden (donde se realiza la venta)
@@ -1765,13 +1764,11 @@ public class OrdenService {
                 
                 // ⚠️ SKIP: Si este producto está en cortes[], procesarCortes() ya maneja su inventario
                 if (productosEnCortes.contains(productoId)) {
-                    System.out.println("⏭️ SKIP: Producto ID " + productoId + " está en cortes[], procesarCortes() ya manejó su inventario");
                     continue;
                 }
 
                 if (item.getProducto() instanceof Corte) {
                     // Venta de CORTE: decrementar inventario de cortes en la sede
-                    System.out.println("📦 Procesando venta de CORTE ID: " + productoId + ", cantidad: " + cantidadVendida);
                     try {
                         inventarioCorteService.decrementarStock(productoId, sedeId, cantidadVendida);
                     } catch (IllegalArgumentException e) {
@@ -1779,7 +1776,6 @@ public class OrdenService {
                     }
                 } else {
                     // Producto normal: restar del inventario normal
-                    System.out.println("📦 Procesando producto normal ID: " + productoId + ", cantidad: " + cantidadVendida);
                     actualizarInventarioConcurrente(productoId, sedeId, cantidadVendida);
                 }
             }
@@ -1976,14 +1972,9 @@ public class OrdenService {
             if (productoOriginal instanceof Corte) {
                 Long sedeId = orden.getSede().getId();
                 Integer cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1;
-                System.out.println("🔪 Se está cortando un CORTE existente (ID=" + productoOriginal.getId() + 
-                                 "), decrementando inventario en -" + cantidad);
                 try {
                     inventarioCorteService.decrementarStock(productoOriginal.getId(), sedeId, cantidad);
-                    System.out.println("✅ Inventario del corte original decrementado: Corte ID=" + productoOriginal.getId() + 
-                                     ", Sede ID=" + sedeId + ", Cantidad: -" + cantidad);
                 } catch (Exception e) {
-                    System.err.println("❌ Error al decrementar inventario del corte original: " + e.getMessage());
                     throw new RuntimeException("Error al decrementar inventario del corte que se está cortando: " + e.getMessage());
                 }
             }
