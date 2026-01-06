@@ -23,7 +23,9 @@ public interface EntregaDineroRepository extends JpaRepository<EntregaDinero, Lo
            "LEFT JOIN FETCH e.empleado " +
            "LEFT JOIN FETCH e.detalles d " +
            "LEFT JOIN FETCH d.orden o " +
+           "LEFT JOIN FETCH o.cliente " +
            "LEFT JOIN FETCH d.abono a " +
+           "LEFT JOIN FETCH d.reembolsoVenta r " +
            "WHERE e.id = :id")
     Optional<EntregaDinero> findById(@Param("id") Long id);
 

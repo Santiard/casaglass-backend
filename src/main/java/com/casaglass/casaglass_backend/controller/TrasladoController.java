@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.dto.TrasladoResponseDTO;
 import com.casaglass.casaglass_backend.model.Traslado;
 import com.casaglass.casaglass_backend.service.TrasladoService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -57,8 +58,10 @@ public class TrasladoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Traslado> obtener(@PathVariable Long id) {
-        return service.obtener(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<TrasladoResponseDTO> obtener(@PathVariable Long id) {
+        return service.obtener(id)
+                .map(traslado -> ResponseEntity.ok(new TrasladoResponseDTO(traslado)))
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
