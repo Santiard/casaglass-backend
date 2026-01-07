@@ -27,8 +27,30 @@ public class OrdenDetalleDTO {
     private Double retencionFuente; // Valor monetario de la retención en la fuente
     private Double descuentos; // Descuentos aplicados
     private Double total; // Total facturado (subtotal facturado - descuentos, sin restar retención)
+    private String estado; // Estado de la orden: ACTIVA, ENTREGADA, ANULADA
+    private SedeSimpleDTO sede; // Sede donde se realizó la orden
     private ClienteDetalleDTO cliente;
     private List<ItemDetalleDTO> items;
+    
+    // Clase anidada para Sede
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SedeSimpleDTO {
+        private Long id;
+        private String nombre;
+        private String direccion;
+        private String ciudad;
+        
+        public SedeSimpleDTO(com.casaglass.casaglass_backend.model.Sede sede) {
+            if (sede != null) {
+                this.id = sede.getId();
+                this.nombre = sede.getNombre();
+                this.direccion = sede.getDireccion();
+                this.ciudad = sede.getCiudad();
+            }
+        }
+    }
     
     // Clases anidadas para la estructura
     @Data
@@ -104,6 +126,8 @@ public class OrdenDetalleDTO {
         this.retencionFuente = orden.getRetencionFuente();
         this.descuentos = orden.getDescuentos();
         this.total = orden.getTotal();
+        this.estado = orden.getEstado() != null ? orden.getEstado().name() : "ACTIVA";
+        this.sede = orden.getSede() != null ? new SedeSimpleDTO(orden.getSede()) : null;
         this.cliente = new ClienteDetalleDTO(orden.getCliente());
         
         // Convertir items

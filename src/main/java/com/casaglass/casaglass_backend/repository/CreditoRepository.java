@@ -37,11 +37,16 @@ public interface CreditoRepository extends JpaRepository<Credito, Long> {
      * Todos los parámetros son opcionales (nullable)
      * Nota: fechaDesde y fechaHasta se aplican a fechaInicio del crédito
      */
+    /**
+     * 🚫 EXCLUYE al cliente especial (ID 499 - JAIRO JAVIER VELANDIA)
+     * Usar para listados normales de créditos
+     */
     @Query("SELECT DISTINCT c FROM Credito c " +
            "LEFT JOIN FETCH c.cliente cl " +
            "LEFT JOIN FETCH c.orden o " +
            "LEFT JOIN FETCH o.sede s " +
-           "WHERE (:clienteId IS NULL OR c.cliente.id = :clienteId) AND " +
+           "WHERE c.cliente.id != 499 AND " + // ⚠️ EXCLUIR CLIENTE ESPECIAL
+           "(:clienteId IS NULL OR c.cliente.id = :clienteId) AND " +
            "(:sedeId IS NULL OR o.sede.id = :sedeId) AND " +
            "(:estado IS NULL OR c.estado = :estado) AND " +
            "(:fechaDesde IS NULL OR c.fechaInicio >= :fechaDesde) AND " +
@@ -49,6 +54,27 @@ public interface CreditoRepository extends JpaRepository<Credito, Long> {
            "ORDER BY c.fechaInicio DESC, c.id DESC")
     List<Credito> buscarConFiltros(
         @Param("clienteId") Long clienteId,
+        @Param("sedeId") Long sedeId,
+        @Param("estado") Credito.EstadoCredito estado,
+        @Param("fechaDesde") LocalDate fechaDesde,
+        @Param("fechaHasta") LocalDate fechaHasta
+    );
+    
+    /**
+     * ⭐ SOLO créditos del cliente especial (ID 499 - JAIRO JAVIER VELANDIA)
+     * Usar para el módulo dedicado de este cliente
+     */
+    @Query("SELECT DISTINCT c FROM Credito c " +
+           "LEFT JOIN FETCH c.cliente cl " +
+           "LEFT JOIN FETCH c.orden o " +
+           "LEFT JOIN FETCH o.sede s " +
+           "WHERE c.cliente.id = 499 AND " + // ✅ SOLO CLIENTE ESPECIAL
+           "(:sedeId IS NULL OR o.sede.id = :sedeId) AND " +
+           "(:estado IS NULL OR c.estado = :estado) AND " +
+           "(:fechaDesde IS NULL OR c.fechaInicio >= :fechaDesde) AND " +
+           "(:fechaHasta IS NULL OR c.fechaInicio <= :fechaHasta) " +
+           "ORDER BY c.fechaInicio DESC, c.id DESC")
+    List<Credito> buscarClienteEspecial(
         @Param("sedeId") Long sedeId,
         @Param("estado") Credito.EstadoCredito estado,
         @Param("fechaDesde") LocalDate fechaDesde,

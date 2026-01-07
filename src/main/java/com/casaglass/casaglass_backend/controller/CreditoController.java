@@ -42,8 +42,74 @@ public class CreditoController {
     }
 
     /**
+     * ⭐ LISTADO DE CRÉDITOS DEL CLIENTE ESPECIAL SOLAMENTE
+     * GET /api/creditos/cliente-especial
+     * 
+     * Cliente especial: ID 499 - JAIRO JAVIER VELANDIA (NIT: 88249472)
+     * 
+     * Filtros disponibles (todos opcionales):
+     * - sedeId: Filtrar por sede
+     * - estado: ABIERTO, CERRADO, VENCIDO, ANULADO
+     * - fechaDesde: YYYY-MM-DD (fecha inicio del crédito, inclusive)
+     * - fechaHasta: YYYY-MM-DD (fecha inicio del crédito, inclusive)
+     * - page: Número de página (default: sin paginación)
+     * - size: Tamaño de página (default: 50, máximo: 200)
+     * - sortBy: Campo para ordenar (fecha, montoTotal, saldoPendiente) - default: fecha
+     * - sortOrder: ASC o DESC - default: DESC
+     */
+    @GetMapping("/cliente-especial")
+    public Object listarClienteEspecial(
+            @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fechaDesde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fechaHasta,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortOrder) {
+        
+        // Convertir estado String a enum
+        Credito.EstadoCredito estadoEnum = null;
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                estadoEnum = Credito.EstadoCredito.valueOf(estado.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Estado inválido: " + estado);
+            }
+        }
+        
+        Object resultado = service.listarClienteEspecial(
+            sedeId, estadoEnum, fechaDesde, fechaHasta, page, size, sortBy, sortOrder
+        );
+        
+        // Convertir a DTOs
+        if (resultado instanceof com.casaglass.casaglass_backend.dto.PageResponse) {
+            @SuppressWarnings("unchecked")
+            com.casaglass.casaglass_backend.dto.PageResponse<Credito> pageResponse = 
+                (com.casaglass.casaglass_backend.dto.PageResponse<Credito>) resultado;
+            
+            List<CreditoResponseDTO> contenidoDTO = pageResponse.getContent().stream()
+                    .map(CreditoResponseDTO::new)
+                    .collect(Collectors.toList());
+            
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                contenidoDTO, pageResponse.getTotalElements(), pageResponse.getPage(), pageResponse.getSize()
+            );
+        }
+        
+        @SuppressWarnings("unchecked")
+        List<Credito> creditos = (List<Credito>) resultado;
+        return creditos.stream()
+                .map(CreditoResponseDTO::new)
+                .collect(Collectors.toList());
+    }
+    
+    /**
      * 📋 LISTADO DE CRÉDITOS CON FILTROS COMPLETOS
      * GET /api/creditos
+     * 
+     * ⚠️ IMPORTANTE: Este endpoint EXCLUYE al cliente especial (ID 499)
+     * Para créditos del cliente especial, usar: GET /api/creditos/cliente-especial
      * 
      * Filtros disponibles (todos opcionales):
      * - clienteId: Filtrar por cliente (recomendado para mejorar rendimiento)
@@ -59,8 +125,6 @@ public class CreditoController {
      * Respuesta:
      * - Si se proporcionan page y size: PageResponse con paginación
      * - Si no se proporcionan: List<CreditoResponseDTO> (compatibilidad hacia atrás)
-     * 
-     * NOTA: Si no se proporciona clienteId, se retornan TODOS los créditos (puede ser lento)
      */
     @GetMapping
     public Object listar(
@@ -221,6 +285,57 @@ public class CreditoController {
         }
     }
 
+    /**
+     * ⭐ ESTADO DE CUENTA DEL CLIENTE ESPECIAL
+     * GET /api/creditos/cliente-especial/estado-cuenta
+     * 
+     * Retorna SOLO los créditos ACTIVOS con saldo pendiente > 0 del cliente especial.
+     * Cliente especial: ID 499 - JAIRO JAVIER VELANDIA (NIT: 88249472)
+     * 
+     * Filtros opcionales:
+     * - sedeId: Filtrar por sede específica
+     * 
+     * Los créditos se ordenan por fecha de inicio (más antiguos primero)
+     */
+    @GetMapping("/cliente-especial/estado-cuenta")
+    public ResponseEntity<List<CreditoResponseDTO>> obtenerEstadoCuentaClienteEspecial(
+            @RequestParam(required = false) Long sedeId) {
+        
+        List<CreditoResponseDTO> estadoCuenta = service.obtenerEstadoCuentaClienteEspecial(sedeId);
+        return ResponseEntity.ok(estadoCuenta);
+    }
+    
+    /**
+     * 📊 ESTADO DE CUENTA DE UN CLIENTE
+     * GET /api/creditos/cliente/{clienteId}/estado-cuenta
+     * 
+     * ⚠️ IMPORTANTE: Este endpoint EXCLUYE al cliente especial (ID 499)
+     * Para estado de cuenta del cliente especial, usar: GET /api/creditos/cliente-especial/estado-cuenta
+     * 
+     * Retorna SOLO los créditos ACTIVOS con saldo pendiente > 0 del cliente.
+     * Ideal para generar estados de cuenta, reportes de cartera, y seguimiento de deudas.
+     * 
+     * Incluye:
+     * - Información completa del crédito
+     * - Detalle de todos los abonos realizados
+     * - Saldo pendiente actual
+     * - Fecha de inicio y días transcurridos
+     * - Información de la orden asociada
+     * 
+     * Filtros opcionales:
+     * - sedeId: Filtrar por sede específica
+     * 
+     * Los créditos se ordenan por fecha de inicio (más antiguos primero)
+     */
+    @GetMapping("/cliente/{clienteId}/estado-cuenta")
+    public ResponseEntity<List<CreditoResponseDTO>> obtenerEstadoCuenta(
+            @PathVariable Long clienteId,
+            @RequestParam(required = false) Long sedeId) {
+        
+        List<CreditoResponseDTO> estadoCuenta = service.obtenerEstadoCuenta(clienteId, sedeId);
+        return ResponseEntity.ok(estadoCuenta);
+    }
+    
     /** 🗑️ Eliminar crédito */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {

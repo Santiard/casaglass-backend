@@ -47,6 +47,80 @@ public class CreditoService {
     public List<Credito> listarPorCliente(Long clienteId) { 
         return creditoRepo.findByClienteId(clienteId); 
     }
+    
+    /**
+     * ⭐ ESTADO DE CUENTA DEL CLIENTE ESPECIAL
+     * Retorna SOLO créditos ABIERTOS con saldo pendiente > 0 del cliente especial (ID 499)
+     * 
+     * @param sedeId (Opcional) ID de la sede para filtrar
+     * @return Lista de créditos activos con deuda pendiente
+     */
+    @Transactional(readOnly = true)
+    public List<com.casaglass.casaglass_backend.dto.CreditoResponseDTO> obtenerEstadoCuentaClienteEspecial(
+            Long sedeId) {
+        
+        // Usar método específico para cliente especial
+        List<Credito> creditos = creditoRepo.buscarClienteEspecial(
+            sedeId,
+            Credito.EstadoCredito.ABIERTO,
+            null,
+            null
+        );
+        
+        // Filtrar solo créditos con saldo pendiente > 0
+        // Ordenar por fecha de inicio (más antiguos primero)
+        return creditos.stream()
+                .filter(c -> c.getSaldoPendiente() != null && c.getSaldoPendiente() > 0)
+                .sorted((a, b) -> a.getFechaInicio().compareTo(b.getFechaInicio()))
+                .map(com.casaglass.casaglass_backend.dto.CreditoResponseDTO::new)
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    /**
+     * 📊 ESTADO DE CUENTA DE UN CLIENTE
+     * Retorna SOLO créditos ABIERTOS con saldo pendiente > 0
+     * ⚠️ EXCLUYE al cliente especial (ID 499)
+     * Ordenados por fecha de inicio (más antiguos primero)
+     * 
+     * @param clienteId ID del cliente
+     * @param sedeId (Opcional) ID de la sede para filtrar
+     * @return Lista de créditos activos con deuda pendiente
+     */
+    @Transactional(readOnly = true)
+    public List<com.casaglass.casaglass_backend.dto.CreditoResponseDTO> obtenerEstadoCuenta(
+            Long clienteId, 
+            Long sedeId) {
+        
+        List<Credito> creditos;
+        
+        if (sedeId != null) {
+            // Filtrar por cliente y sede
+            creditos = creditoRepo.buscarConFiltros(
+                clienteId, 
+                sedeId, 
+                Credito.EstadoCredito.ABIERTO, 
+                null, 
+                null
+            );
+        } else {
+            // Solo filtrar por cliente
+            creditos = creditoRepo.buscarConFiltros(
+                clienteId, 
+                null, 
+                Credito.EstadoCredito.ABIERTO, 
+                null, 
+                null
+            );
+        }
+        
+        // Filtrar solo créditos con saldo pendiente > 0
+        // Ordenar por fecha de inicio (más antiguos primero)
+        return creditos.stream()
+                .filter(c -> c.getSaldoPendiente() != null && c.getSaldoPendiente() > 0)
+                .sorted((a, b) -> a.getFechaInicio().compareTo(b.getFechaInicio()))
+                .map(com.casaglass.casaglass_backend.dto.CreditoResponseDTO::new)
+                .collect(java.util.stream.Collectors.toList());
+    }
 
     /**
      * 📅 LISTAR CRÉDITOS DE UN CLIENTE CON FILTROS DE FECHA
@@ -95,6 +169,70 @@ public class CreditoService {
      * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
      */
     @Transactional(readOnly = true)
+    /**
+     * ⭐ Listar SOLO créditos del cliente especial (ID 499 - JAIRO JAVIER VELANDIA)
+     */
+    public Object listarClienteEspecial(
+            Long sedeId,
+            Credito.EstadoCredito estado,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            Integer page,
+            Integer size,
+            String sortBy,
+            String sortOrder) {
+        
+        // Validar fechas
+        if (fechaDesde != null && fechaHasta != null && fechaDesde.isAfter(fechaHasta)) {
+            throw new IllegalArgumentException("La fecha desde no puede ser posterior a la fecha hasta");
+        }
+        
+        // Validar y normalizar ordenamiento
+        if (sortBy == null || sortBy.isEmpty()) {
+            sortBy = "fecha";
+        }
+        if (sortOrder == null || sortOrder.isEmpty()) {
+            sortOrder = "DESC";
+        }
+        sortOrder = sortOrder.toUpperCase();
+        if (!sortOrder.equals("ASC") && !sortOrder.equals("DESC")) {
+            sortOrder = "DESC";
+        }
+        
+        // Buscar créditos SOLO del cliente especial
+        List<Credito> creditos = creditoRepo.buscarClienteEspecial(
+            sedeId, estado, fechaDesde, fechaHasta
+        );
+        
+        // Aplicar ordenamiento
+        creditos = aplicarOrdenamientoCreditos(creditos, sortBy, sortOrder);
+        
+        // Si se solicita paginación
+        if (page != null && size != null) {
+            if (page < 1) page = 1;
+            if (size < 1) size = 50;
+            if (size > 200) size = 200;
+            
+            long totalElements = creditos.size();
+            int fromIndex = (page - 1) * size;
+            int toIndex = Math.min(fromIndex + size, creditos.size());
+            
+            if (fromIndex >= creditos.size()) {
+                return com.casaglass.casaglass_backend.dto.PageResponse.of(
+                    new java.util.ArrayList<>(), totalElements, page, size
+                );
+            }
+            
+            List<Credito> creditosPagina = creditos.subList(fromIndex, toIndex);
+            return com.casaglass.casaglass_backend.dto.PageResponse.of(creditosPagina, totalElements, page, size);
+        }
+        
+        return creditos;
+    }
+    
+    /**
+     * 📋 Listar créditos con filtros (EXCLUYE al cliente especial ID 499)
+     */
     public Object listarConFiltros(
             Long clienteId,
             Long sedeId,
