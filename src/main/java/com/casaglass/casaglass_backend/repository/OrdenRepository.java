@@ -67,7 +67,12 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
      * - No incluidas en otra entrega (incluidaEntrega = false)
      * - Estado ACTIVA
      */
+    /**
+     * 💰 ÓRDENES A CONTADO DISPONIBLES PARA ENTREGA
+     * ⚠️ EXCLUYE al cliente especial (ID 499 - JAIRO JAVIER VELANDIA)
+     */
     @Query("SELECT o FROM Orden o WHERE " +
+           "o.cliente.id != 499 AND " + // ⚠️ EXCLUIR CLIENTE ESPECIAL
            "o.sede.id = :sedeId AND " +
            "o.fecha BETWEEN :fechaDesde AND :fechaHasta AND " +
            "o.credito = false AND " +

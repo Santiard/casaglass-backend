@@ -1,10 +1,13 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.model.Abono;
 import com.casaglass.casaglass_backend.model.EntregaDinero;
 import com.casaglass.casaglass_backend.model.EntregaDetalle;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.ReembolsoVenta;
+import com.casaglass.casaglass_backend.repository.AbonoRepository;
 import com.casaglass.casaglass_backend.repository.EntregaDineroRepository;
+import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import com.casaglass.casaglass_backend.repository.ReembolsoVentaRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
@@ -33,6 +36,12 @@ public class EntregaDineroService {
 
     @Autowired
     private ReembolsoVentaRepository reembolsoVentaRepository;
+
+    @Autowired
+    private OrdenRepository ordenRepository;
+
+    @Autowired
+    private AbonoRepository abonoRepository;
 
     @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerTodas() {
@@ -223,6 +232,14 @@ public class EntregaDineroService {
         // Validar órdenes
         if (ordenIds != null && !ordenIds.isEmpty()) {
             for (Long ordenId : ordenIds) {
+                // ⚠️ VALIDAR: No permitir órdenes del cliente especial (ID 499)
+                Orden orden = ordenRepository.findById(ordenId)
+                    .orElseThrow(() -> new RuntimeException("Orden no encontrada con ID " + ordenId));
+                
+                if (orden.getCliente() != null && orden.getCliente().getId().equals(499L)) {
+                    throw new RuntimeException("No se pueden crear entregas de dinero para el cliente especial. Las órdenes de JAIRO JAVIER VELANDIA se manejan de forma independiente.");
+                }
+                
                 if (!entregaDetalleService.validarOrdenParaEntrega(ordenId)) {
                     throw new RuntimeException("La orden con ID " + ordenId + " no es válida para entrega");
                 }
@@ -270,6 +287,14 @@ public class EntregaDineroService {
         // Crear detalles de entrega para cada ABONO (órdenes a crédito)
         if (abonoIds != null && !abonoIds.isEmpty()) {
             for (Long abonoId : abonoIds) {
+                // ⚠️ VALIDAR: No permitir abonos del cliente especial (ID 499)
+                Abono abono = abonoRepository.findById(abonoId)
+                    .orElseThrow(() -> new RuntimeException("Abono no encontrado con ID " + abonoId));
+                
+                if (abono.getCliente() != null && abono.getCliente().getId().equals(499L)) {
+                    throw new RuntimeException("No se pueden crear entregas de dinero para el cliente especial. Los abonos de JAIRO JAVIER VELANDIA se manejan de forma independiente.");
+                }
+                
                 EntregaDetalle detalle = new EntregaDetalle();
                 detalle.setEntrega(entregaGuardada);
                 

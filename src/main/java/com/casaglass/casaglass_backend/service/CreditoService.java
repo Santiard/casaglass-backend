@@ -564,4 +564,75 @@ public class CreditoService {
 
         return resultado;
     }
+
+    /**
+     * 💰 MARCAR CRÉDITOS DEL CLIENTE ESPECIAL COMO PAGADOS (SIN REGISTRO DE ABONOS)
+     * 
+     * Este método es específico para el cliente especial (ID 499 - JAIRO JAVIER VELANDIA)
+     * que paga en persona sin necesidad de registro detallado de abonos.
+     * 
+     * Marca directamente los créditos como CERRADOS estableciendo:
+     * - saldoPendiente = 0.0
+     * - totalAbonado = totalCredito (menos retención si aplica)
+     * - estado = CERRADO
+     * - fechaCierre = fecha actual
+     * 
+     * @param creditoIds Lista de IDs de créditos a marcar como pagados
+     * @return Número de créditos marcados como pagados
+     * @throws IllegalArgumentException Si algún crédito no pertenece al cliente especial o no existe
+     * @throws IllegalStateException Si algún crédito ya está cerrado
+     */
+    @Transactional
+    public int marcarCreditosClienteEspecialComoPagados(List<Long> creditoIds) {
+        if (creditoIds == null || creditoIds.isEmpty()) {
+            throw new IllegalArgumentException("Debe proporcionar al menos un ID de crédito");
+        }
+
+        int contadorPagados = 0;
+
+        for (Long creditoId : creditoIds) {
+            // Buscar el crédito
+            Credito credito = creditoRepo.findById(creditoId)
+                .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado con ID: " + creditoId));
+
+            // ⚠️ VALIDACIÓN: Solo permitir créditos del cliente especial (ID 499)
+            if (credito.getCliente() == null || !credito.getCliente().getId().equals(499L)) {
+                throw new IllegalArgumentException(
+                    "El crédito con ID " + creditoId + " no pertenece al cliente especial. " +
+                    "Este endpoint solo puede marcar como pagados los créditos de JAIRO JAVIER VELANDIA (ID 499)."
+                );
+            }
+
+            // ⚠️ VALIDACIÓN: No permitir marcar como pagado un crédito ya cerrado
+            if (credito.getEstado() == Credito.EstadoCredito.CERRADO) {
+                throw new IllegalStateException(
+                    "El crédito con ID " + creditoId + " ya está cerrado. " +
+                    "No se puede marcar como pagado nuevamente."
+                );
+            }
+
+            // 💰 CALCULAR EL MONTO A ABONAR (considerando retención de fuente si existe)
+            Double retencionFuente = 0.0;
+            if (credito.getOrden() != null && 
+                credito.getOrden().isTieneRetencionFuente() && 
+                credito.getOrden().getRetencionFuente() != null) {
+                retencionFuente = credito.getOrden().getRetencionFuente();
+            }
+
+            // ✅ MARCAR COMO PAGADO
+            // Total a abonar = Total del crédito - Retención de fuente
+            // Esto hace que el saldo pendiente sea 0
+            Double totalAAbonar = credito.getTotalCredito() - retencionFuente;
+            
+            credito.setTotalAbonado(normalize(totalAAbonar));
+            credito.setSaldoPendiente(0.0);
+            credito.setEstado(Credito.EstadoCredito.CERRADO);
+            credito.setFechaCierre(LocalDate.now());
+
+            creditoRepo.save(credito);
+            contadorPagados++;
+        }
+
+        return contadorPagados;
+    }
 }

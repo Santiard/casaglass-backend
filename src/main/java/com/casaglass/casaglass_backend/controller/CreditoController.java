@@ -400,4 +400,65 @@ public class CreditoController {
             ));
         }
     }
+
+    /**
+     * 💰 MARCAR CRÉDITOS DEL CLIENTE ESPECIAL COMO PAGADOS
+     * 
+     * Endpoint específico para el cliente especial (ID 499 - JAIRO JAVIER VELANDIA).
+     * Permite marcar créditos como pagados sin crear registros de abonos detallados,
+     * ya que estos pagos se realizan en persona manualmente.
+     * 
+     * Los créditos marcados como pagados:
+     * - Se establecen con estado CERRADO
+     * - Su saldo pendiente pasa a 0.0
+     * - Ya NO aparecen en el estado de cuenta
+     * 
+     * @param creditoIds Lista de IDs de créditos a marcar como pagados
+     * @return Respuesta con el número de créditos marcados como pagados
+     * 
+     * POST /api/creditos/cliente-especial/marcar-pagados
+     * Body: { "creditoIds": [1, 2, 3] }
+     */
+    @PostMapping("/cliente-especial/marcar-pagados")
+    public ResponseEntity<?> marcarCreditosClienteEspecialComoPagados(
+            @RequestBody Map<String, List<Long>> request) {
+        try {
+            List<Long> creditoIds = request.get("creditoIds");
+            
+            if (creditoIds == null || creditoIds.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Debe proporcionar al menos un ID de crédito en el campo 'creditoIds'",
+                    "tipo", "VALIDACION"
+                ));
+            }
+
+            int creditosPagados = service.marcarCreditosClienteEspecialComoPagados(creditoIds);
+
+            return ResponseEntity.ok(Map.of(
+                "mensaje", "Créditos marcados como pagados exitosamente",
+                "creditosPagados", creditosPagados,
+                "detalles", creditoIds.size() + " crédito(s) del cliente especial fueron cerrados"
+            ));
+
+        } catch (IllegalArgumentException e) {
+            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "VALIDACION"
+            ));
+        } catch (IllegalStateException e) {
+            System.err.println("❌ ERROR ESTADO: " + e.getMessage());
+            return ResponseEntity.status(409).body(Map.of( // 409 Conflict
+                "error", e.getMessage(),
+                "tipo", "CONFLICTO_ESTADO"
+            ));
+        } catch (Exception e) {
+            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error interno del servidor: " + e.getMessage(),
+                "tipo", "SERVIDOR"
+            ));
+        }
+    }
 }

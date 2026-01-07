@@ -47,9 +47,14 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
      * el crédito se haya cerrado después, ya que el abono fue realizado en el período
      * y necesita ser entregado.
      */
+    /**
+     * 💰 ABONOS DISPONIBLES PARA ENTREGA
+     * ⚠️ EXCLUYE abonos del cliente especial (ID 499 - JAIRO JAVIER VELANDIA)
+     */
     @Query("SELECT DISTINCT a FROM Abono a " +
            "JOIN a.orden o " +
            "LEFT JOIN EntregaDetalle ed ON ed.abono.id = a.id WHERE " +
+           "o.cliente.id != 499 AND " + // ⚠️ EXCLUIR CLIENTE ESPECIAL
            "o.sede.id = :sedeId AND " +
            "a.fecha BETWEEN :fechaDesde AND :fechaHasta AND " +
            "o.credito = true AND " +
