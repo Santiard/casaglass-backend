@@ -244,7 +244,7 @@ public class OrdenController {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
-                "tipo": "SERVIDOR"
+                "tipo", "SERVIDOR"
             ));
         }
     }

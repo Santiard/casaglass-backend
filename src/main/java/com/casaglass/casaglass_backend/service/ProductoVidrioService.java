@@ -146,7 +146,7 @@ public class ProductoVidrioService {
                 Inventario inventario = new Inventario();
                 inventario.setProducto(producto);
                 inventario.setSede(sede);
-                inventario.setCantidad(0);
+                inventario.setCantidad(0.0);
                 
                 inventarioRepo.save(inventario);
             }

@@ -45,7 +45,7 @@ public class OrdenActualizarDTO {
         private Long id; // null = nuevo item, valor = actualizar existente
         private Long productoId;
         private String descripcion;
-        private Integer cantidad;
+        private Double cantidad;
         private Double precioUnitario;
         private Double totalLinea;
         private boolean eliminar = false; // true = marcar para eliminar

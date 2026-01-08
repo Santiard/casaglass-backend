@@ -444,7 +444,7 @@ public class IngresoService {
         // Procesar cada detalle del ingreso
         for (IngresoDetalle detalle : ingreso.getDetalles()) {
             Producto producto = detalle.getProducto();
-            Integer cantidadIngresada = detalle.getCantidad();
+            Double cantidadIngresada = detalle.getCantidad();
 
             if (producto == null || producto.getId() == null) {
                 throw new RuntimeException("Detalle de ingreso sin producto válido");

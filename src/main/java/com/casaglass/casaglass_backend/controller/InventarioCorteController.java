@@ -155,7 +155,7 @@ public class InventarioCorteController {
     @PutMapping("/stock/corte/{corteId}/sede/{sedeId}")
     public ResponseEntity<InventarioCorte> actualizarStock(@PathVariable Long corteId, 
                                                            @PathVariable Long sedeId, 
-                                                           @RequestParam Integer cantidad) {
+                                                           @RequestParam Double cantidad) {
         try {
             return ResponseEntity.ok(service.actualizarStock(corteId, sedeId, cantidad));
         } catch (IllegalArgumentException e) {
@@ -166,7 +166,7 @@ public class InventarioCorteController {
     @PostMapping("/stock/incrementar/corte/{corteId}/sede/{sedeId}")
     public ResponseEntity<InventarioCorte> incrementarStock(@PathVariable Long corteId, 
                                                             @PathVariable Long sedeId, 
-                                                            @RequestParam Integer cantidad) {
+                                                            @RequestParam Double cantidad) {
         try {
             return ResponseEntity.ok(service.incrementarStock(corteId, sedeId, cantidad));
         } catch (IllegalArgumentException e) {
@@ -177,7 +177,7 @@ public class InventarioCorteController {
     @PostMapping("/stock/decrementar/corte/{corteId}/sede/{sedeId}")
     public ResponseEntity<InventarioCorte> decrementarStock(@PathVariable Long corteId, 
                                                             @PathVariable Long sedeId, 
-                                                            @RequestParam Integer cantidad) {
+                                                            @RequestParam Double cantidad) {
         try {
             return ResponseEntity.ok(service.decrementarStock(corteId, sedeId, cantidad));
         } catch (IllegalArgumentException e) {

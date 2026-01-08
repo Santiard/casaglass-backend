@@ -83,7 +83,7 @@ public class DashboardCompletoDTO {
         private Long productoId;
         private String nombreProducto;
         private String codigo;
-        private Long cantidadVendida;
+        private Double cantidadVendida;
         private Double montoTotal;
     }
     

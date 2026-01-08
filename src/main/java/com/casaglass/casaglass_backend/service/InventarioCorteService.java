@@ -135,7 +135,7 @@ public class InventarioCorteService {
     }
 
     @Transactional
-    public InventarioCorte actualizarStock(Long corteId, Long sedeId, Integer nuevaCantidad) {
+    public InventarioCorte actualizarStock(Long corteId, Long sedeId, Double nuevaCantidad) {
         Optional<InventarioCorte> inventarioOpt = repository.findByCorteIdAndSedeId(corteId, sedeId);
         
         if (inventarioOpt.isPresent()) {
@@ -153,7 +153,7 @@ public class InventarioCorteService {
     }
 
     @Transactional
-    public InventarioCorte incrementarStock(Long corteId, Long sedeId, Integer cantidad) {
+    public InventarioCorte incrementarStock(Long corteId, Long sedeId, Double cantidad) {
         Optional<InventarioCorte> inventarioOpt = repository.findByCorteIdAndSedeId(corteId, sedeId);
         
         if (inventarioOpt.isPresent()) {
@@ -166,12 +166,12 @@ public class InventarioCorteService {
     }
 
     @Transactional
-    public InventarioCorte decrementarStock(Long corteId, Long sedeId, Integer cantidad) {
+    public InventarioCorte decrementarStock(Long corteId, Long sedeId, Double cantidad) {
         Optional<InventarioCorte> inventarioOpt = repository.findByCorteIdAndSedeId(corteId, sedeId);
         
         if (inventarioOpt.isPresent()) {
             InventarioCorte inventario = inventarioOpt.get();
-            int nuevaCantidad = inventario.getCantidad() - cantidad;
+            double nuevaCantidad = inventario.getCantidad() - cantidad;
             // ✅ Permitir valores negativos (ventas anticipadas, como en productos normales)
             // Si el inventario está en 0 y se vende, queda en negativo (se puede reponer después)
             inventario.setCantidad(nuevaCantidad);
@@ -200,7 +200,7 @@ public List<InventarioCorteDTO> listarInventarioCortesAgrupado() {
         String sede = inv.getSede().getNombre().toLowerCase();
 
         InventarioCorteDTO dto = mapa.computeIfAbsent(corteId,
-            id -> new InventarioCorteDTO(id, nombre, largoCm, precio, 0, 0, 0)
+            id -> new InventarioCorteDTO(id, nombre, largoCm, precio, 0.0, 0.0, 0.0)
         );
 
         if (sede.contains("insula")) dto.setCantidadInsula(inv.getCantidad());

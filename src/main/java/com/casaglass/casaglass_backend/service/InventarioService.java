@@ -118,7 +118,7 @@ public class InventarioService {
      * Garantiza que no habrá duplicados
      */
     @Transactional
-    public Inventario actualizarInventarioVenta(Long productoId, Long sedeId, int nuevaCantidad) {
+    public Inventario actualizarInventarioVenta(Long productoId, Long sedeId, double nuevaCantidad) {
         if (productoId == null || sedeId == null) {
             throw new IllegalArgumentException("Se requieren producto ID y sede ID");
         }
@@ -197,7 +197,7 @@ public class InventarioService {
             String sedeNombre = inv.getSede().getNombre().toLowerCase();
 
             InventarioProductoDTO dto = mapa.computeIfAbsent(productoId,
-                id -> new InventarioProductoDTO(id, productoNombre, 0, 0, 0)
+                id -> new InventarioProductoDTO(id, productoNombre, 0.0, 0.0, 0.0)
             );
 
             if (sedeNombre.contains("insula")) dto.setCantidadInsula(inv.getCantidad());
@@ -225,10 +225,10 @@ public class InventarioService {
         if (insulaId == null || centroId == null || patiosId == null) {
             throw new IllegalArgumentException("No se encontraron las 3 sedes (Insula, Centro, Patios)");
         }
-        // Permitir valores negativos (ventas anticipadas) - usar 0 como default solo si es null
-        Integer cantidadInsula = dto.getCantidadInsula() != null ? dto.getCantidadInsula() : 0;
-        Integer cantidadCentro = dto.getCantidadCentro() != null ? dto.getCantidadCentro() : 0;
-        Integer cantidadPatios = dto.getCantidadPatios() != null ? dto.getCantidadPatios() : 0;
+        // Permitir valores negativos (ventas anticipadas) - usar 0.0 como default solo si es null
+        Double cantidadInsula = dto.getCantidadInsula() != null ? dto.getCantidadInsula() : 0.0;
+        Double cantidadCentro = dto.getCantidadCentro() != null ? dto.getCantidadCentro() : 0.0;
+        Double cantidadPatios = dto.getCantidadPatios() != null ? dto.getCantidadPatios() : 0.0;
         List<Inventario> inventariosActualizados = new ArrayList<>();
         // Actualizar o crear inventario para cada sede
         inventariosActualizados.add(actualizarInventarioSede(productoId, insulaId, cantidadInsula));
@@ -240,7 +240,7 @@ public class InventarioService {
     /**
      * Actualizar o crear inventario para un producto en una sede específica
      */
-    private Inventario actualizarInventarioSede(Long productoId, Long sedeId, Integer cantidad) {
+    private Inventario actualizarInventarioSede(Long productoId, Long sedeId, Double cantidad) {
         Optional<Inventario> inventarioOpt = obtenerPorProductoYSede(productoId, sedeId);
         
         if (inventarioOpt.isPresent()) {

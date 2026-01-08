@@ -63,7 +63,7 @@ public class ProductoService {
                 Inventario inventario = new Inventario();
                 inventario.setProducto(producto);
                 inventario.setSede(sede);
-                inventario.setCantidad(0);
+                inventario.setCantidad(0.0);
                 
                 inventarioRepo.save(inventario);
             }
@@ -270,9 +270,9 @@ public class ProductoService {
                 // 📦 ACTUALIZAR INVENTARIO EN LAS 3 SEDES si se enviaron las cantidades
                 if (dto.getCantidadInsula() != null || dto.getCantidadCentro() != null || dto.getCantidadPatios() != null) {
                     actualizarInventarioConValores(saved.getId(), 
-                        dto.getCantidadInsula() != null ? dto.getCantidadInsula() : 0,
-                        dto.getCantidadCentro() != null ? dto.getCantidadCentro() : 0,
-                        dto.getCantidadPatios() != null ? dto.getCantidadPatios() : 0);
+                        dto.getCantidadInsula() != null ? dto.getCantidadInsula().doubleValue() : 0.0,
+                        dto.getCantidadCentro() != null ? dto.getCantidadCentro().doubleValue() : 0.0,
+                        dto.getCantidadPatios() != null ? dto.getCantidadPatios().doubleValue() : 0.0);
                 }
                 
                 return saved;
@@ -333,7 +333,7 @@ public class ProductoService {
      * 
      * Nota: Permite valores negativos para manejar ventas anticipadas
      */
-    private void actualizarInventarioConValores(Long productoId, Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios) {
+    private void actualizarInventarioConValores(Long productoId, Double cantidadInsula, Double cantidadCentro, Double cantidadPatios) {
         // Obtener IDs de las 3 sedes
         Long insulaId = obtenerSedeId("insula");
         Long centroId = obtenerSedeId("centro");
@@ -343,9 +343,9 @@ public class ProductoService {
             return;
         }
         // Permitir valores negativos (ventas anticipadas) - usar 0 como default solo si es null
-        cantidadInsula = cantidadInsula != null ? cantidadInsula : 0;
-        cantidadCentro = cantidadCentro != null ? cantidadCentro : 0;
-        cantidadPatios = cantidadPatios != null ? cantidadPatios : 0;
+        cantidadInsula = cantidadInsula != null ? cantidadInsula : 0.0;
+        cantidadCentro = cantidadCentro != null ? cantidadCentro : 0.0;
+        cantidadPatios = cantidadPatios != null ? cantidadPatios : 0.0;
         // Actualizar o crear inventario para cada sede
         actualizarInventarioSede(productoId, insulaId, cantidadInsula);
         actualizarInventarioSede(productoId, centroId, cantidadCentro);
@@ -355,7 +355,7 @@ public class ProductoService {
     /**
      * Actualizar o crear inventario para un producto en una sede específica
      */
-    private void actualizarInventarioSede(Long productoId, Long sedeId, Integer cantidad) {
+    private void actualizarInventarioSede(Long productoId, Long sedeId, Double cantidad) {
         Optional<Inventario> inventarioOpt = inventarioRepo.findByProductoIdAndSedeId(productoId, sedeId);
         
         if (inventarioOpt.isPresent()) {

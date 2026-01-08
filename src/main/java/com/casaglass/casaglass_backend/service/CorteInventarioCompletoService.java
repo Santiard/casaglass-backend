@@ -82,14 +82,14 @@ public class CorteInventarioCompletoService {
         // Log removido para producción
         
         // Obtener inventarios agrupados por corte y sede
-        Map<Long, Map<Long, Integer>> inventariosPorCorteYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
             todosLosInventarios.stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getCorte().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         InventarioCorte::getCantidad,
-                        Integer::sum // En caso de duplicados, sumar
+                        Double::sum // En caso de duplicados, sumar
                     )
                 ));
         
@@ -110,14 +110,14 @@ public class CorteInventarioCompletoService {
         
         // Obtener inventarios para esos cortes
         List<Long> cortesIds = cortes.stream().map(Corte::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorCorteYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
             inventarioCorteRepository.findByCorteIdIn(cortesIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getCorte().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         InventarioCorte::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -132,14 +132,14 @@ public class CorteInventarioCompletoService {
         
         // Obtener inventarios para esos cortes
         List<Long> cortesIds = cortes.stream().map(Corte::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorCorteYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
             inventarioCorteRepository.findByCorteIdIn(cortesIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getCorte().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         InventarioCorte::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -154,14 +154,14 @@ public class CorteInventarioCompletoService {
         
         // Obtener inventarios para esos cortes
         List<Long> cortesIds = cortes.stream().map(Corte::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorCorteYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
             inventarioCorteRepository.findByCorteIdIn(cortesIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getCorte().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         InventarioCorte::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -184,14 +184,14 @@ public class CorteInventarioCompletoService {
         
         // Obtener inventarios para esos cortes
         List<Long> cortesIds = cortes.stream().map(Corte::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorCorteYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
             inventarioCorteRepository.findByCorteIdIn(cortesIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getCorte().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         InventarioCorte::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -214,14 +214,14 @@ public class CorteInventarioCompletoService {
         
         // Obtener inventarios para esos cortes
         List<Long> cortesIds = cortes.stream().map(Corte::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorCorteYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
             inventarioCorteRepository.findByCorteIdIn(cortesIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getCorte().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         InventarioCorte::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -244,14 +244,14 @@ public class CorteInventarioCompletoService {
         List<Corte> cortes = corteRepository.findByIdIn(cortesIds);
         
         // Crear mapa de inventarios por corte y sede (solo para esta sede)
-        Map<Long, Map<Long, Integer>> inventariosPorCorteYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
             inventariosSede.stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getCorte().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         InventarioCorte::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -260,15 +260,15 @@ public class CorteInventarioCompletoService {
             .collect(Collectors.toList());
     }
 
-    private CorteInventarioCompletoDTO convertirADTO(Corte corte, Map<Long, Integer> inventariosPorSede) {
+    private CorteInventarioCompletoDTO convertirADTO(Corte corte, Map<Long, Double> inventariosPorSede) {
         // Obtener cantidades por sede (0 si no existe)
         Long insulaId = obtenerSedeId("insula");
         Long centroId = obtenerSedeId("centro");
         Long patiosId = obtenerSedeId("patios");
 
-        Integer cantidadInsula = inventariosPorSede != null && insulaId != null ? inventariosPorSede.getOrDefault(insulaId, 0) : 0;
-        Integer cantidadCentro = inventariosPorSede != null && centroId != null ? inventariosPorSede.getOrDefault(centroId, 0) : 0;
-        Integer cantidadPatios = inventariosPorSede != null && patiosId != null ? inventariosPorSede.getOrDefault(patiosId, 0) : 0;
+        Double cantidadInsula = inventariosPorSede != null && insulaId != null ? inventariosPorSede.getOrDefault(insulaId, 0.0) : 0;
+        Double cantidadCentro = inventariosPorSede != null && centroId != null ? inventariosPorSede.getOrDefault(centroId, 0.0) : 0;
+        Double cantidadPatios = inventariosPorSede != null && patiosId != null ? inventariosPorSede.getOrDefault(patiosId, 0.0) : 0;
         
         // Debug logging para verificar mapeo
         // Log removido para producción

@@ -39,5 +39,5 @@ public class InventarioCorte {
 
     @Column(nullable = false)
     @Min(0)
-    private Integer cantidad;
+    private Double cantidad;
 }

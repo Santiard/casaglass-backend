@@ -83,7 +83,7 @@ public class TrabajadorDashboardService {
         List<TrabajadorDashboardDTO.TopProducto> topProductos = itemsPorProducto.entrySet().stream()
                 .map(entry -> {
                     OrdenItem any = entry.getValue().get(0);
-                    long cant = entry.getValue().stream().mapToLong(i -> i.getCantidad() != null ? i.getCantidad() : 0L).sum();
+                    long cant = (long) entry.getValue().stream().mapToDouble(i -> i.getCantidad() != null ? i.getCantidad() : 0.0).sum();
                     double monto = entry.getValue().stream().mapToDouble(i -> i.getTotalLinea() != null ? i.getTotalLinea() : 0.0).sum();
                     return new TrabajadorDashboardDTO.TopProducto(
                             any.getProducto().getId(), any.getProducto().getNombre(), any.getProducto().getCodigo(), cant, monto

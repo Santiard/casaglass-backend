@@ -45,14 +45,14 @@ public class InventarioCompletoService {
             .collect(Collectors.toList());
         
         // 🔧 USAR MÉTODO CON FETCH JOINS para evitar lazy loading
-        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorProductoYSede = 
             inventarioRepository.findAllWithDetails().stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         Inventario::getCantidad,
-                        Integer::sum // En caso de duplicados, sumar
+                        Double::sum // En caso de duplicados, sumar
                     )
                 ));
 
@@ -77,7 +77,7 @@ public class InventarioCompletoService {
         // Convertir a DTOs (incluir TODOS los productos, incluso sin inventario)
         return productos.stream()
             .map(producto -> {
-                Map<Long, Integer> inventarios = inventariosPorProductoYSede.get(producto.getId());
+                Map<Long, Double> inventarios = inventariosPorProductoYSede.get(producto.getId());
                 ProductoInventarioCompletoDTO dto = convertirADTO(producto, inventarios);
                 
                 // 🐛 DEBUG: Log específico para productos vidrio
@@ -96,14 +96,14 @@ public class InventarioCompletoService {
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorProductoYSede = 
             inventarioRepository.findByProductoIdIn(productosIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         Inventario::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -118,14 +118,14 @@ public class InventarioCompletoService {
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorProductoYSede = 
             inventarioRepository.findByProductoIdIn(productosIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         Inventario::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -178,14 +178,14 @@ public class InventarioCompletoService {
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorProductoYSede = 
             inventarioRepository.findByProductoIdIn(productosIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         Inventario::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
         
@@ -199,15 +199,15 @@ public class InventarioCompletoService {
             if (conStock != null && conStock) {
                 dtos = dtos.stream()
                     .filter(dto -> {
-                        Integer cantidad = obtenerCantidadPorSede(dto, sedeId);
+                        Double cantidad = obtenerCantidadPorSede(dto, sedeId);
                         return cantidad != null && cantidad > 0;
                     })
                     .collect(Collectors.toList());
             } else if (sinStock != null && sinStock) {
                 dtos = dtos.stream()
                     .filter(dto -> {
-                        Integer cantidad = obtenerCantidadPorSede(dto, sedeId);
-                        return cantidad == null || cantidad == 0;
+                        Double cantidad = obtenerCantidadPorSede(dto, sedeId);
+                        return cantidad == null || cantidad == 0.0;
                     })
                     .collect(Collectors.toList());
             }
@@ -246,7 +246,7 @@ public class InventarioCompletoService {
     /**
      * Obtiene la cantidad de un producto en una sede específica desde el DTO
      */
-    private Integer obtenerCantidadPorSede(ProductoInventarioCompletoDTO dto, Long sedeId) {
+    private Double obtenerCantidadPorSede(ProductoInventarioCompletoDTO dto, Long sedeId) {
         // IDs de sedes: Insula=1, Centro=2, Patios=3
         if (sedeId == 1L) return dto.getCantidadInsula();
         if (sedeId == 2L) return dto.getCantidadCentro();
@@ -268,14 +268,14 @@ public class InventarioCompletoService {
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorProductoYSede = 
             inventarioRepository.findByProductoIdIn(productosIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         Inventario::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -298,14 +298,14 @@ public class InventarioCompletoService {
         
         // Obtener inventarios para esos productos
         List<Long> productosIds = productos.stream().map(Producto::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorProductoYSede = 
             inventarioRepository.findByProductoIdIn(productosIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         Inventario::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -328,14 +328,14 @@ public class InventarioCompletoService {
         List<Producto> productos = productoRepository.findByIdIn(productosIds);
         
         // Crear mapa de inventarios por producto y sede (solo para esta sede)
-        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorProductoYSede = 
             inventariosSede.stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         Inventario::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
 
@@ -344,15 +344,15 @@ public class InventarioCompletoService {
             .collect(Collectors.toList());
     }
 
-    private ProductoInventarioCompletoDTO convertirADTO(Producto producto, Map<Long, Integer> inventariosPorSede) {
+    private ProductoInventarioCompletoDTO convertirADTO(Producto producto, Map<Long, Double> inventariosPorSede) {
         // 🔧 USAR IDS ESPECÍFICOS DE LAS SEDES (según los datos reales)
         Long insulaId = 1L;  // Sede ID 1 = Insula  
         Long centroId = 2L;  // Sede ID 2 = Centro
         Long patiosId = 3L;  // Sede ID 3 = Patios
 
-        Integer cantidadInsula = inventariosPorSede != null ? inventariosPorSede.getOrDefault(insulaId, 0) : 0;
-        Integer cantidadCentro = inventariosPorSede != null ? inventariosPorSede.getOrDefault(centroId, 0) : 0;
-        Integer cantidadPatios = inventariosPorSede != null ? inventariosPorSede.getOrDefault(patiosId, 0) : 0;
+        Double cantidadInsula = inventariosPorSede != null ? inventariosPorSede.getOrDefault(insulaId, 0.0) : 0.0;
+        Double cantidadCentro = inventariosPorSede != null ? inventariosPorSede.getOrDefault(centroId, 0.0) : 0.0;
+        Double cantidadPatios = inventariosPorSede != null ? inventariosPorSede.getOrDefault(patiosId, 0.0) : 0.0;
 
         // Verificar si es vidrio y obtener datos específicos
         Boolean esVidrio = producto instanceof ProductoVidrio;
@@ -458,14 +458,14 @@ public class InventarioCompletoService {
         
         // ...existing code...
         
-        Map<Long, Map<Long, Integer>> inventariosPorProductoYSede = 
+        Map<Long, Map<Long, Double>> inventariosPorProductoYSede = 
             inventarioRepository.findByProductoIdIn(productosIds).stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getProducto().getId(),
                     Collectors.toMap(
                         inv -> inv.getSede().getId(),
                         Inventario::getCantidad,
-                        Integer::sum
+                        Double::sum
                     )
                 ));
         
@@ -474,7 +474,7 @@ public class InventarioCompletoService {
         // Convertir a DTOs
         List<ProductoInventarioCompletoDTO> dtos = productosVidrio.stream()
             .map(producto -> {
-                Map<Long, Integer> inventarios = inventariosPorProductoYSede.get(producto.getId());
+                Map<Long, Double> inventarios = inventariosPorProductoYSede.get(producto.getId());
                 ProductoInventarioCompletoDTO dto = convertirADTO(producto, inventarios);
                 return dto;
             })

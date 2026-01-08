@@ -33,7 +33,7 @@ public class OrdenItem {
 
   @Min(1)
   @Column(nullable = false)
-  private Integer cantidad;
+  private Double cantidad;
 
   @Column(nullable = false)
   private Double precioUnitario;

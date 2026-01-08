@@ -34,5 +34,5 @@ public class TrasladoDetalle {
     private Producto producto;
 
     @Column(nullable = false)
-    private Integer cantidad;
+    private Double cantidad;
 }

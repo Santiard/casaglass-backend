@@ -83,7 +83,7 @@ public class ReembolsoVentaResponseDTO {
     @AllArgsConstructor
     public static class OrdenItemSimpleDTO {
         private Long id;
-        private Integer cantidad;
+        private Double cantidad;
         private Double precioUnitario;
         
         public OrdenItemSimpleDTO(com.casaglass.casaglass_backend.model.OrdenItem item) {

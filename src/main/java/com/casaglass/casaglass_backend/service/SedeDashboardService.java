@@ -200,8 +200,8 @@ public class SedeDashboardService {
         String estado = traslado.getFechaConfirmacion() == null ? "PENDIENTE_CONFIRMACION" : "CONFIRMADO";
         
         Integer totalProductos = traslado.getDetalles() != null ? 
-                traslado.getDetalles().stream()
-                        .mapToInt(detalle -> detalle.getCantidad() != null ? detalle.getCantidad() : 0)
+                (int) traslado.getDetalles().stream()
+                        .mapToDouble(detalle -> detalle.getCantidad() != null ? detalle.getCantidad() : 0.0)
                         .sum() : 0;
         
         return new TrasladoPendienteDTO(

@@ -234,8 +234,8 @@ public class ReembolsoIngresoService {
             }
 
             // Validar que no exceda la cantidad recibida
-            Integer cantidadYaReembolsada = calcularCantidadYaReembolsada(ingresoDetalleOriginal.getId());
-            Integer cantidadDisponible = ingresoDetalleOriginal.getCantidad() - cantidadYaReembolsada;
+            Double cantidadYaReembolsada = calcularCantidadYaReembolsada(ingresoDetalleOriginal.getId());
+            Double cantidadDisponible = ingresoDetalleOriginal.getCantidad() - cantidadYaReembolsada;
             
             if (detalleDTO.getCantidad() > cantidadDisponible) {
                 throw new RuntimeException("La cantidad a devolver (" + detalleDTO.getCantidad() + 
@@ -286,7 +286,7 @@ public class ReembolsoIngresoService {
         // Procesar cada detalle
         for (ReembolsoIngresoDetalle detalle : reembolso.getDetalles()) {
             Producto producto = detalle.getProducto();
-            Integer cantidad = detalle.getCantidad();
+            Double cantidad = detalle.getCantidad();
 
             // Restar del inventario
             Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(
@@ -301,7 +301,7 @@ public class ReembolsoIngresoService {
                 Inventario nuevoInventario = new Inventario();
                 nuevoInventario.setProducto(producto);
                 nuevoInventario.setSede(sedePrincipal);
-                nuevoInventario.setCantidad(-cantidad);
+                nuevoInventario.setCantidad((double)-cantidad);
                 inventarioService.guardar(nuevoInventario);
             }
             productosActualizados++;
@@ -347,14 +347,14 @@ public class ReembolsoIngresoService {
         reembolsoIngresoRepository.delete(reembolso);
     }
 
-    private Integer calcularCantidadYaReembolsada(Long ingresoDetalleId) {
+    private Double calcularCantidadYaReembolsada(Long ingresoDetalleId) {
         List<ReembolsoIngresoDetalle> reembolsos = reembolsoIngresoDetalleRepository
                 .findByIngresoDetalleOriginalId(ingresoDetalleId);
 
         return reembolsos.stream()
                 .filter(d -> d.getReembolsoIngreso().getProcesado() && 
                             d.getReembolsoIngreso().getEstado() != ReembolsoIngreso.EstadoReembolso.ANULADO)
-                .mapToInt(ReembolsoIngresoDetalle::getCantidad)
+                .mapToDouble(ReembolsoIngresoDetalle::getCantidad)
                 .sum();
     }
 }

@@ -45,7 +45,7 @@ public class ReembolsoIngresoDetalle {
     @NotNull
     @Min(1)
     @Column(nullable = false)
-    private Integer cantidad; // Cantidad a devolver (puede ser parcial)
+    private Double cantidad; // Cantidad a devolver (puede ser parcial)
 
     @NotNull
     @Column(nullable = false)

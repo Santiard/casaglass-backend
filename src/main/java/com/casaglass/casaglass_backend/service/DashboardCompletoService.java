@@ -174,7 +174,7 @@ public class DashboardCompletoService {
                     List<OrdenItem> items = entry.getValue();
                     OrdenItem primerItem = items.get(0);
                     Producto producto = primerItem.getProducto();
-                    Long cantidad = items.stream().mapToLong(i -> i.getCantidad() != null ? i.getCantidad() : 0L).sum();
+                    Double cantidad = items.stream().mapToDouble(i -> i.getCantidad() != null ? i.getCantidad() : 0.0).sum();
                     Double monto = items.stream().mapToDouble(i -> i.getTotalLinea() != null ? i.getTotalLinea() : 0.0).sum();
                     return new DashboardCompletoDTO.TopProducto(
                             productoId,

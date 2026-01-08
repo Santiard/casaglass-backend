@@ -99,7 +99,7 @@ public class OrdenDetalleDTO {
         private Long id;
         private ProductoItemDTO producto;
         private String descripcion;
-        private Integer cantidad;
+        private Double cantidad;
         private Double precioUnitario;
         private Double totalLinea;
         

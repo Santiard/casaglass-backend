@@ -1784,7 +1784,7 @@ public class OrdenService {
         for (OrdenItem item : orden.getItems()) {
             if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
                 Long productoId = item.getProducto().getId();
-                Integer cantidadVendida = item.getCantidad();
+                Double cantidadVendida = item.getCantidad();
                 
                 // ⚠️ SKIP: Si este producto está en cortes[], procesarCortes() ya maneja su inventario
                 if (productosEnCortes.contains(productoId)) {
@@ -1828,7 +1828,7 @@ public class OrdenService {
      * anticipadas (productos vendidos antes de tenerlos en tienda)
      */
     @Transactional
-    private void actualizarInventarioConcurrente(Long productoId, Long sedeId, Integer cantidadVendida) {
+    private void actualizarInventarioConcurrente(Long productoId, Long sedeId, Double cantidadVendida) {
         try {
             // 🔍 BUSCAR INVENTARIO CON LOCK PESIMISTA
             Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSedeConLock(productoId, sedeId);
@@ -1840,12 +1840,12 @@ public class OrdenService {
             }
             
             Inventario inventario = inventarioOpt.get();
-            int cantidadActual = inventario.getCantidad();
+            double cantidadActual = inventario.getCantidad();
             
             System.out.println("📊 Stock actual: " + cantidadActual + ", cantidad a vender: " + cantidadVendida);
             
             // ➖ ACTUALIZAR CANTIDAD (permite valores negativos para ventas anticipadas)
-            int nuevaCantidad = cantidadActual - cantidadVendida;
+            double nuevaCantidad = cantidadActual - cantidadVendida;
             
             inventario.setCantidad(nuevaCantidad);
             inventarioService.actualizar(inventario.getId(), inventario);
@@ -1912,8 +1912,8 @@ public class OrdenService {
                 
                 if (inventarioOpt.isPresent()) {
                     Inventario inventario = inventarioOpt.get();
-                    int cantidadActual = inventario.getCantidad();
-                    int cantidadARestaurar = item.getCantidad();
+                    double cantidadActual = inventario.getCantidad();
+                    double cantidadARestaurar = item.getCantidad();
                     
                     // Sumar cantidad restaurada usando método seguro
                     inventarioService.actualizarInventarioVenta(productoId, sedeId, cantidadActual + cantidadARestaurar);
@@ -1995,7 +1995,7 @@ public class OrdenService {
             // Verificar si el producto original es un Corte (instanceof)
             if (productoOriginal instanceof Corte) {
                 Long sedeId = orden.getSede().getId();
-                Integer cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1;
+                Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
                 try {
                     inventarioCorteService.decrementarStock(productoOriginal.getId(), sedeId, cantidad);
                 } catch (Exception e) {
@@ -2043,7 +2043,7 @@ public class OrdenService {
             // Luego, cuando se procesa la venta, se decrementa el solicitado
             
             Long sedeId = orden.getSede().getId();
-            Integer cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1;
+            Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
             
             // NO incrementar inventario del corte solicitado (el vendido)
             // El corte solicitado debe quedar con stock 0 tras la venta
@@ -2052,9 +2052,9 @@ public class OrdenService {
             
             // Si ambos cortes son el mismo (ej: corte por la mitad), solo uno debe quedar en inventario
             if (corteSolicitado.getId().equals(corteSobrante.getId())) {
-                // Solo incrementar stock si la cantidad es 2 (caso típico de corte por la mitad)
-                if (cantidad == 2) {
-                    inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, 1);
+                // Solo incrementar stock si la cantidad es 2.0 (caso típico de corte por la mitad)
+                if (cantidad == 2.0) {
+                    inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, 1.0);
                     System.out.println("📦 Corte por la mitad: stock final: Corte ID=" + corteSobrante.getId() + 
                                      ", Sede ID=" + sedeId + ", Cantidad: 1");
                 } else {
@@ -2069,7 +2069,7 @@ public class OrdenService {
                             continue; // Saltar sedes con cantidad 0 o sin ID
                         }
                         Long sedeIdSobrante = cantidadSede.getSedeId();
-                        Integer cantidadSobrante = cantidadSede.getCantidad();
+                        Double cantidadSobrante = cantidadSede.getCantidad();
                         // Incrementar stock del corte sobrante
                         inventarioCorteService.incrementarStock(
                             corteSobrante.getId(),
@@ -2200,7 +2200,7 @@ public class OrdenService {
             // Solo procesar items que reutilizan un corte solicitado
             if (itemDTO.getReutilizarCorteSolicitadoId() != null && itemDTO.getCantidad() != null && itemDTO.getCantidad() > 0) {
                 Long corteId = itemDTO.getReutilizarCorteSolicitadoId();
-                Integer cantidad = itemDTO.getCantidad();
+                Double cantidad = itemDTO.getCantidad();
                 
                 System.out.println("🔪 Reutilizando corte solicitado ID=" + corteId + 
                                  " → Incrementando inventario en +" + cantidad + 

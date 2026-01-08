@@ -110,7 +110,7 @@ public class SedeDashboardDTO {
         private String codigo;
         private String nombre;
         private String categoria;
-        private Integer stockActual;
+        private Double stockActual;
         private Integer nivelReorden; // Calculado como cantidad mínima recomendada
         private String estado; // "AGOTADO", "CRÍTICO", "BAJO"
     }

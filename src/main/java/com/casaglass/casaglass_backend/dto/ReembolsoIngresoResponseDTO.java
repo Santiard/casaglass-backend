@@ -54,7 +54,7 @@ public class ReembolsoIngresoResponseDTO {
         private Long id;
         private IngresoDetalleSimpleDTO ingresoDetalleOriginal;
         private ProductoSimpleDTO producto;
-        private Integer cantidad;
+        private Double cantidad;
         private Double costoUnitario;
         private Double totalLinea;
         
@@ -103,7 +103,7 @@ public class ReembolsoIngresoResponseDTO {
     @AllArgsConstructor
     public static class IngresoDetalleSimpleDTO {
         private Long id;
-        private Integer cantidad;
+        private Double cantidad;
         private Double costoUnitario;
         
         public IngresoDetalleSimpleDTO(com.casaglass.casaglass_backend.model.IngresoDetalle detalle) {

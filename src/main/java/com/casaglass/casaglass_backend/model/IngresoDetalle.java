@@ -39,7 +39,7 @@ public class IngresoDetalle {
     @NotNull
     @Min(1)
     @Column(nullable = false)
-    private Integer cantidad;
+    private Double cantidad;
 
     @NotNull
     @Column(nullable = false)

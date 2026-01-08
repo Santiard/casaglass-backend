@@ -246,8 +246,8 @@ public class ReembolsoVentaService {
             }
 
             // Validar que no exceda la cantidad vendida
-            Integer cantidadYaReembolsada = calcularCantidadYaReembolsada(ordenItemOriginal.getId());
-            Integer cantidadDisponible = ordenItemOriginal.getCantidad() - cantidadYaReembolsada;
+            Double cantidadYaReembolsada = calcularCantidadYaReembolsada(ordenItemOriginal.getId());
+            Double cantidadDisponible = ordenItemOriginal.getCantidad() - cantidadYaReembolsada;
             
             if (detalleDTO.getCantidad() > cantidadDisponible) {
                 throw new RuntimeException("La cantidad a devolver (" + detalleDTO.getCantidad() + 
@@ -297,7 +297,7 @@ public class ReembolsoVentaService {
         // Procesar cada detalle (sumar al inventario)
         for (ReembolsoVentaDetalle detalle : reembolso.getDetalles()) {
             Producto producto = detalle.getProducto();
-            Integer cantidad = detalle.getCantidad();
+            Double cantidad = detalle.getCantidad();
 
             // Sumar al inventario
             Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(
@@ -397,14 +397,14 @@ public class ReembolsoVentaService {
         reembolsoVentaRepository.delete(reembolso);
     }
 
-    private Integer calcularCantidadYaReembolsada(Long ordenItemId) {
+    private Double calcularCantidadYaReembolsada(Long ordenItemId) {
         List<ReembolsoVentaDetalle> reembolsos = reembolsoVentaDetalleRepository
                 .findByOrdenItemOriginalId(ordenItemId);
 
         return reembolsos.stream()
                 .filter(d -> d.getReembolsoVenta().getProcesado() && 
                             d.getReembolsoVenta().getEstado() != ReembolsoVenta.EstadoReembolso.ANULADO)
-                .mapToInt(ReembolsoVentaDetalle::getCantidad)
+                .mapToDouble(ReembolsoVentaDetalle::getCantidad)
                 .sum();
     }
 }

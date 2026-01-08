@@ -116,13 +116,13 @@ public class TrasladoService {
         
         for (TrasladoDetalle detalle : traslado.getDetalles()) {
             Long productoId = detalle.getProducto().getId();
-            Integer cantidad = detalle.getCantidad();
+            Double cantidad = detalle.getCantidad();
             
             // 1. RESTAR de sede origen
             Optional<Inventario> inventarioOrigen = inventarioService.obtenerPorProductoYSede(productoId, sedeOrigenId);
             if (inventarioOrigen.isPresent()) {
                 Inventario invOrigen = inventarioOrigen.get();
-                int nuevaCantidadOrigen = invOrigen.getCantidad() - cantidad;
+                double nuevaCantidadOrigen = invOrigen.getCantidad() - cantidad;
                 
                 if (nuevaCantidadOrigen < 0) {
                     throw new RuntimeException("No hay suficiente stock en sede origen. Disponible: " + 
@@ -216,7 +216,7 @@ public class TrasladoService {
         Long sedeOrigenId = t.getSedeOrigen().getId();
         Long sedeDestinoId = t.getSedeDestino().getId();
         Long productoId = payload.getProducto().getId();
-        Integer cantidad = payload.getCantidad();
+        Double cantidad = payload.getCantidad();
         
         ajustarInventario(productoId, sedeOrigenId, -cantidad, "origen");
         ajustarInventario(productoId, sedeDestinoId, cantidad, "destino");
@@ -240,7 +240,7 @@ public class TrasladoService {
             && !Objects.equals(d.getProducto().getId(), payload.getProducto().getId())) {
             
             Long productoAnteriorId = d.getProducto().getId();
-            Integer cantidadAnterior = d.getCantidad();
+            Double cantidadAnterior = d.getCantidad();
             
             // Revertir movimiento del producto anterior
             ajustarInventario(productoAnteriorId, sedeOrigenId, cantidadAnterior, "origen");
@@ -248,7 +248,7 @@ public class TrasladoService {
             
             // Aplicar movimiento del nuevo producto
             Long productoNuevoId = payload.getProducto().getId();
-            Integer cantidadNueva = (payload.getCantidad() != null) ? payload.getCantidad() : cantidadAnterior;
+            Double cantidadNueva = (payload.getCantidad() != null) ? payload.getCantidad() : cantidadAnterior;
             
             ajustarInventario(productoNuevoId, sedeOrigenId, -cantidadNueva, "origen");
             ajustarInventario(productoNuevoId, sedeDestinoId, cantidadNueva, "destino");
@@ -264,9 +264,9 @@ public class TrasladoService {
             if (payload.getCantidad() < 1) throw new IllegalArgumentException("cantidad debe ser >= 1");
             
             Long productoId = d.getProducto().getId();
-            Integer cantidadAnterior = d.getCantidad();
-            Integer cantidadNueva = payload.getCantidad();
-            Integer diferencia = cantidadNueva - cantidadAnterior;
+            Double cantidadAnterior = d.getCantidad();
+            Double cantidadNueva = payload.getCantidad();
+            Double diferencia = cantidadNueva - cantidadAnterior;
             
             // Ajustar inventario por la diferencia
             ajustarInventario(productoId, sedeOrigenId, -diferencia, "origen");
@@ -290,7 +290,7 @@ public class TrasladoService {
         Long sedeOrigenId = traslado.getSedeOrigen().getId();
         Long sedeDestinoId = traslado.getSedeDestino().getId();
         Long productoId = d.getProducto().getId();
-        Integer cantidad = d.getCantidad();
+        Double cantidad = d.getCantidad();
         
         // Devolver cantidad a sede origen
         ajustarInventario(productoId, sedeOrigenId, cantidad, "origen");
@@ -307,12 +307,12 @@ public class TrasladoService {
      * @param ajuste Cantidad a ajustar (positivo = suma, negativo = resta)
      * @param tipo "origen" o "destino" para mensajes de error
      */
-    private void ajustarInventario(Long productoId, Long sedeId, Integer ajuste, String tipo) {
+    private void ajustarInventario(Long productoId, Long sedeId, Double ajuste, String tipo) {
         Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
         
         if (inventarioOpt.isPresent()) {
             Inventario inv = inventarioOpt.get();
-            int nuevaCantidad = inv.getCantidad() + ajuste;
+            double nuevaCantidad = inv.getCantidad() + ajuste;
             
             if (nuevaCantidad < 0) {
                 throw new RuntimeException("Stock insuficiente en sede " + tipo + ". " +
