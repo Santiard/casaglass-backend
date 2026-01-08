@@ -61,5 +61,6 @@ public class Inventario {
 
     @Column(nullable = false)
     // Permite valores negativos para manejar ventas anticipadas (productos vendidos antes de tenerlos en tienda)
-    private Integer cantidad;
+    // Permite valores decimales para productos medidos en fracciones (ej: vidrios en m²)
+    private Double cantidad;
 }

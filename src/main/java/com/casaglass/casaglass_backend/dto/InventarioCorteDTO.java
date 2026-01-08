@@ -12,7 +12,7 @@ public class InventarioCorteDTO {
     private String nombre;
     private Double largoCm;
     private Double precio;
-    private Integer cantidadInsula;
-    private Integer cantidadCentro;
-    private Integer cantidadPatios;
+    private Double cantidadInsula;
+    private Double cantidadCentro;
+    private Double cantidadPatios;
 }

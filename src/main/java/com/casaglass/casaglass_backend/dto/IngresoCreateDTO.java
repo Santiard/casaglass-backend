@@ -35,7 +35,7 @@ public class IngresoCreateDTO {
     @AllArgsConstructor
     public static class IngresoDetalleCreateDTO {
         private ProductoIdDTO producto;
-        private Integer cantidad;
+        private Double cantidad;
         private Double costoUnitario; // Costo original del ingreso (para calcular totalCosto y trazabilidad)
         private Double costoUnitarioPonderado; // Costo calculado con promedio ponderado (viene del frontend, se usa para actualizar producto.costo)
         private Double totalLinea; // Se calcula con costoUnitario (costo original)

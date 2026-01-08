@@ -62,7 +62,7 @@ public class ReembolsoVentaResponseDTO {
         private Long id;
         private OrdenItemSimpleDTO ordenItemOriginal;
         private ProductoSimpleDTO producto;
-        private Integer cantidad;
+        private Double cantidad;
         private Double precioUnitario;
         private Double totalLinea;
         

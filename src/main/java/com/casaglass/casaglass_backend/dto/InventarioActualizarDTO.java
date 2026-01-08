@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InventarioActualizarDTO {
-    private Integer cantidadInsula;
-    private Integer cantidadCentro;
-    private Integer cantidadPatios;
+    private Double cantidadInsula;
+    private Double cantidadCentro;
+    private Double cantidadPatios;
 }
 

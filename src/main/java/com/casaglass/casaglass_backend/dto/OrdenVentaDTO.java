@@ -51,7 +51,7 @@ public class OrdenVentaDTO {
     public static class OrdenItemVentaDTO {
         private Long productoId; // OBLIGATORIO - producto a vender
         private String descripcion; // OPCIONAL - descripción personalizada
-        private Integer cantidad; // OBLIGATORIO - cantidad a vender (min: 1)
+        private Double cantidad; // OBLIGATORIO - cantidad a vender (min: 1)
         private Double precioUnitario; // OBLIGATORIO - precio unitario
         // Opcional: si se reutiliza un corte solicitado existente para vender
         private Long reutilizarCorteSolicitadoId;
@@ -68,7 +68,7 @@ public class OrdenVentaDTO {
     public static class CorteSolicitadoDTO {
         private Long productoId;              // Producto PERFIL original
         private Integer medidaSolicitada;     // Medida en cm del corte a vender
-        private Integer cantidad;             // Cantidad de cortes
+        private Double cantidad;             // Cantidad de cortes
         
         // Datos ya calculados por el frontend:
         private Double precioUnitarioSolicitado;  // Precio del corte a vender
@@ -98,7 +98,7 @@ public class OrdenVentaDTO {
         @AllArgsConstructor
         public static class CantidadPorSedeDTO {
             private Long sedeId;           // ID de la sede
-            private Integer cantidad;      // Cantidad a agregar en esa sede
+            private Double cantidad;      // Cantidad a agregar en esa sede
         }
     }
 }

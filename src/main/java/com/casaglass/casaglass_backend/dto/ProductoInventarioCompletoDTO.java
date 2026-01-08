@@ -25,9 +25,9 @@ public class ProductoInventarioCompletoDTO {
     private Double m2;           // medida 2
     
     // === Inventario por sede ===
-    private Integer cantidadInsula;
-    private Integer cantidadCentro;
-    private Integer cantidadPatios;
+    private Double cantidadInsula;
+    private Double cantidadCentro;
+    private Double cantidadPatios;
     
     // === Precios y Costo ===
     private Double costo;
@@ -36,12 +36,12 @@ public class ProductoInventarioCompletoDTO {
     private Double precio3;
     
     // === Campos calculados ===
-    private Integer cantidadTotal; // suma de las 3 sedes
+    private Double cantidadTotal; // suma de las 3 sedes
     
     // Constructor principal con cálculo automático de total
     public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, String descripcion, CategoriaDTO categoria, String tipo, String color,
                                         Boolean esVidrio, Double mm, Double m1, Double m2,
-                                        Integer cantidadInsula, Integer cantidadCentro, Integer cantidadPatios,
+                                        Double cantidadInsula, Double cantidadCentro, Double cantidadPatios,
                                         Double costo, Double precio1, Double precio2, Double precio3) {
         this.id = id;
         this.codigo = codigo;

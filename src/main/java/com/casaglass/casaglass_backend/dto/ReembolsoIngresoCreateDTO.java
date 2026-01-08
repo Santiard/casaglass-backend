@@ -59,7 +59,7 @@ public class ReembolsoIngresoCreateDTO {
          * Cantidad de productos a devolver
          * Debe ser menor o igual a la cantidad recibida en el ingreso original
          */
-        private Integer cantidad;
+        private Double cantidad;
         
         /**
          * Costo unitario al momento del reembolso

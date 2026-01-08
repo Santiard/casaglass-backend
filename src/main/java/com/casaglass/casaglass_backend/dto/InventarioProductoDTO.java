@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 public class InventarioProductoDTO {
     private Long id;
     private String nombre;
-    private Integer cantidadInsula;
-    private Integer cantidadCentro;
-    private Integer cantidadPatios;
+    private Double cantidadInsula;
+    private Double cantidadCentro;
+    private Double cantidadPatios;
 }

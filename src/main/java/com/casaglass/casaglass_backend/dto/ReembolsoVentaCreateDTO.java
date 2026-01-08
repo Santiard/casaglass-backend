@@ -65,7 +65,7 @@ public class ReembolsoVentaCreateDTO {
          * Cantidad de productos a devolver
          * Debe ser menor o igual a la cantidad vendida en la orden original
          */
-        private Integer cantidad;
+        private Double cantidad;
         
         /**
          * Precio unitario al momento del reembolso

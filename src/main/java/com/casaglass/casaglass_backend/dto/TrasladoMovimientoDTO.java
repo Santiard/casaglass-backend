@@ -45,7 +45,7 @@ public class TrasladoMovimientoDTO {
     @AllArgsConstructor
     public static class TrasladoDetalleSimpleDTO {
         private Long id;
-        private Integer cantidad;
+        private Double cantidad;
         private ProductoSimpleDTO producto;
     }
 

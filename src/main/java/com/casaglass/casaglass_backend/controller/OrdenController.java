@@ -115,15 +115,37 @@ public class OrdenController {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION",
-                "codigo", "STOCK_INSUFICIENTE"
+                "codigo", "VALIDACION_FALLIDA"
             ));
-        } catch (RuntimeException e) {
-            System.err.println("❌ ERROR CONCURRENCIA: " + e.getMessage());
+        } catch (jakarta.persistence.OptimisticLockException | 
+                 org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            // 🔒 CONFLICTO DE CONCURRENCIA - Lock optimista detectó modificación simultánea
+            System.err.println("❌ ERROR CONCURRENCIA (Lock Optimista): " + e.getMessage());
             return ResponseEntity.status(409).body(Map.of(
-                "error", e.getMessage(),
+                "error", "⚠️ Otro usuario modificó el inventario simultáneamente. Por favor, intente nuevamente.",
                 "tipo", "CONCURRENCIA",
                 "codigo", "CONFLICTO_STOCK",
                 "mensaje", "Conflicto de concurrencia. Por favor, intente nuevamente."
+            ));
+        } catch (RuntimeException e) {
+            // RuntimeException NO es concurrencia, puede ser: entidad no encontrada, etc.
+            System.err.println("❌ ERROR RUNTIME: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Detectar si es un error de "no encontrado"
+            String mensaje = e.getMessage();
+            if (mensaje != null && (mensaje.contains("no encontrado") || mensaje.contains("no encontrada"))) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage(),
+                    "tipo", "ENTIDAD_NO_ENCONTRADA",
+                    "codigo", "NOT_FOUND"
+                ));
+            }
+            
+            // Otros errores de runtime
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error al procesar la orden: " + e.getMessage(),
+                "tipo", "ERROR_PROCESAMIENTO"
             ));
         } catch (Exception e) {
             System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
@@ -185,22 +207,44 @@ public class OrdenController {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION",
-                "codigo", "STOCK_INSUFICIENTE"
+                "codigo", "VALIDACION_FALLIDA"
             ));
-        } catch (RuntimeException e) {
-            System.err.println("❌ ERROR CONCURRENCIA: " + e.getMessage());
+        } catch (jakarta.persistence.OptimisticLockException | 
+                 org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            // 🔒 CONFLICTO DE CONCURRENCIA - Lock optimista detectó modificación simultánea
+            System.err.println("❌ ERROR CONCURRENCIA (Lock Optimista): " + e.getMessage());
             return ResponseEntity.status(409).body(Map.of(
-                "error", e.getMessage(),
+                "error", "⚠️ Otro usuario modificó el inventario simultáneamente. Por favor, intente nuevamente.",
                 "tipo", "CONCURRENCIA",
                 "codigo", "CONFLICTO_STOCK",
                 "mensaje", "Conflicto de concurrencia. Por favor, intente nuevamente."
+            ));
+        } catch (RuntimeException e) {
+            // RuntimeException NO es concurrencia, puede ser: entidad no encontrada, etc.
+            System.err.println("❌ ERROR RUNTIME: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Detectar si es un error de "no encontrado"
+            String mensaje = e.getMessage();
+            if (mensaje != null && (mensaje.contains("no encontrado") || mensaje.contains("no encontrada"))) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage(),
+                    "tipo", "ENTIDAD_NO_ENCONTRADA",
+                    "codigo", "NOT_FOUND"
+                ));
+            }
+            
+            // Otros errores de runtime
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error al procesar la orden: " + e.getMessage(),
+                "tipo", "ERROR_PROCESAMIENTO"
             ));
         } catch (Exception e) {
             System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
-                "tipo", "SERVIDOR"
+                "tipo": "SERVIDOR"
             ));
         }
     }

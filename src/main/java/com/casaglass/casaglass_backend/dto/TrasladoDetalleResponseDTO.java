@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 public class TrasladoDetalleResponseDTO {
     
     private Long id;
-    private Integer cantidad;
+    private Double cantidad;
     private ProductoSimpleDTO producto;
     
     /**
