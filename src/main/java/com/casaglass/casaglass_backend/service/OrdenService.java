@@ -240,20 +240,44 @@ public class OrdenService {
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
         // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            // ...existing code...
             procesarCortes(ordenGuardada, ventaDTO.getCortes());
         }
-        
+
         // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
         // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
         // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
         incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
-        
+
         // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
         // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
         actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
-        
+
         return ordenGuardada;
+    }
+    /**
+     * 🗓️ VENTAS DEL DÍA POR SEDE
+     * Devuelve todas las órdenes (contado y crédito) realizadas hoy en la sede indicada
+     */
+    @Transactional(readOnly = true)
+    public List<OrdenTablaDTO> ventasDelDiaPorSede(Long sedeId, LocalDate fecha) {
+        List<Orden> ordenes = repo.findBySedeIdAndFechaBetween(sedeId, fecha, fecha);
+        return ordenes.stream()
+            .filter(Orden::isVenta)
+            .map(this::convertirAOrdenTablaDTO)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * 🗓️ VENTAS DEL DÍA EN TODAS LAS SEDES
+     * Devuelve todas las órdenes (contado y crédito) realizadas hoy en todas las sedes
+     */
+    @Transactional(readOnly = true)
+    public List<OrdenTablaDTO> ventasDelDiaTodasLasSedes(LocalDate fecha) {
+        List<Orden> ordenes = repo.findByFechaBetween(fecha, fecha);
+        return ordenes.stream()
+            .filter(Orden::isVenta)
+            .map(this::convertirAOrdenTablaDTO)
+            .collect(Collectors.toList());
     }
 
     /**

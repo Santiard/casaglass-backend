@@ -21,6 +21,30 @@ import java.util.Map;
 @RequestMapping("/api/ordenes")
 // CORS configurado globalmente en CorsConfig.java
 public class OrdenController {
+    /**
+     * 🗓️ VENTAS DEL DÍA POR SEDE
+     * Devuelve todas las órdenes (contado y crédito) realizadas hoy en la sede indicada
+     * GET /api/ordenes/ventas-dia/sede/{sedeId}
+     */
+    @GetMapping("/ventas-dia/sede/{sedeId}")
+    public ResponseEntity<List<OrdenTablaDTO>> ventasDelDiaPorSede(
+            @PathVariable Long sedeId,
+            @RequestParam("fecha") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
+        List<OrdenTablaDTO> ordenes = service.ventasDelDiaPorSede(sedeId, fecha);
+        return ResponseEntity.ok(ordenes);
+    }
+
+    /**
+     * 🗓️ VENTAS DEL DÍA EN TODAS LAS SEDES
+     * Devuelve todas las órdenes (contado y crédito) realizadas hoy en todas las sedes
+     * GET /api/ordenes/ventas-dia/todas
+     */
+    @GetMapping("/ventas-dia/todas")
+    public ResponseEntity<List<OrdenTablaDTO>> ventasDelDiaTodasLasSedes(
+            @RequestParam("fecha") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
+        List<OrdenTablaDTO> ordenes = service.ventasDelDiaTodasLasSedes(fecha);
+        return ResponseEntity.ok(ordenes);
+    }
 
     private final OrdenService service;
     private final FacturaService facturaService;
