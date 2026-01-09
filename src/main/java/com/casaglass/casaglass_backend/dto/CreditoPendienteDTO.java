@@ -53,6 +53,9 @@ public class CreditoPendienteDTO {
     /** Obra/proyecto de la orden */
     private String ordenObra;
     
+    /** Número de factura asociada a la orden (null o "-" si no tiene) */
+    private String numeroFactura;
+    
     // ========== MONTOS DE LA ORDEN ==========
     
     /** Total facturado (subtotal + IVA - descuentos) */

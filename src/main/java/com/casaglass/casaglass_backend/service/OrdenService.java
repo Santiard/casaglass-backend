@@ -144,8 +144,14 @@ public class OrdenService {
         // Guardar la orden primero
         Orden ordenGuardada = repo.save(orden);
         
-        // Actualizar inventario (restar productos vendidos)
-        actualizarInventarioPorVenta(ordenGuardada);
+        // ⚠️ SOLO descontar inventario si es una VENTA confirmada
+        // Las cotizaciones (venta=false) NO afectan el stock
+        if (ordenGuardada.isVenta()) {
+            System.out.println("✅ VENTA CONFIRMADA - Descontando inventario...");
+            actualizarInventarioPorVenta(ordenGuardada);
+        } else {
+            System.out.println("📋 COTIZACIÓN - Inventario NO afectado");
+        }
         
         return ordenGuardada;
     }
@@ -1568,6 +1574,9 @@ public class OrdenService {
         Orden orden = repo.findById(ordenId)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
 
+        // 🔄 GUARDAR ESTADO ANTERIOR DE VENTA para detectar conversión cotización → venta
+        boolean eraVentaAntes = orden.isVenta();
+
         // 2️⃣ Actualizar campos básicos de la orden
         orden.setFecha(dto.getFecha());
         orden.setObra(dto.getObra());
@@ -1631,6 +1640,18 @@ public class OrdenService {
 
         // 6️⃣ Guardar orden actualizada PRIMERO
         Orden ordenActualizada = repo.save(orden);
+        
+        // 📦 MANEJO DE INVENTARIO: Descontar stock si se confirmó una cotización
+        // Si cambió de cotización (venta=false) a venta (venta=true), descontar inventario
+        if (!eraVentaAntes && ordenActualizada.isVenta()) {
+            System.out.println("✅ COTIZACIÓN CONFIRMADA → VENTA - Descontando inventario...");
+            actualizarInventarioPorVenta(ordenActualizada);
+        } else if (eraVentaAntes && !ordenActualizada.isVenta()) {
+            System.out.println("⚠️ VENTA REVERTIDA → COTIZACIÓN - Restaurando inventario...");
+            restaurarInventarioPorAnulacion(ordenActualizada);
+        } else if (!ordenActualizada.isVenta()) {
+            System.out.println("📋 Actualización de COTIZACIÓN - Inventario NO afectado");
+        }
         // ...existing code...
 
         // 7️⃣ MANEJAR CRÉDITO SI ES NECESARIO

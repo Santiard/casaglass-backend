@@ -22,6 +22,8 @@ public class OrdenDetalleDTO {
     private String obra;
     private String descripcion; // Descripción/observaciones adicionales
     private String numeroFactura; // Número de la factura asociada (null o "-" si no tiene)
+    private boolean venta; // Indica si es una venta (true) o solo una orden (false)
+    private boolean credito; // Indica si la venta es a crédito (true) o contado (false)
     private boolean tieneRetencionFuente; // Indica si la orden tiene retención de fuente
     private Double subtotal; // Subtotal de la orden (base imponible SIN IVA)
     private Double iva; // Valor del IVA calculado
@@ -31,6 +33,7 @@ public class OrdenDetalleDTO {
     private String estado; // Estado de la orden: ACTIVA, ENTREGADA, ANULADA
     private SedeSimpleDTO sede; // Sede donde se realizó la orden
     private ClienteDetalleDTO cliente;
+    private TrabajadorSimpleDTO trabajador; // Trabajador que realizó la venta
     private List<ItemDetalleDTO> items;
     
     // Clase anidada para Sede
@@ -70,6 +73,21 @@ public class OrdenDetalleDTO {
             this.nit = cliente.getNit();
             this.direccion = cliente.getDireccion();
             this.telefono = cliente.getTelefono();
+        }
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TrabajadorSimpleDTO {
+        private Long id;
+        private String nombre;
+        
+        public TrabajadorSimpleDTO(com.casaglass.casaglass_backend.model.Trabajador trabajador) {
+            if (trabajador != null) {
+                this.id = trabajador.getId();
+                this.nombre = trabajador.getNombre();
+            }
         }
     }
     
@@ -122,6 +140,8 @@ public class OrdenDetalleDTO {
         this.obra = orden.getObra();
         this.descripcion = orden.getDescripcion();
         this.numeroFactura = (orden.getFactura() != null) ? orden.getFactura().getNumeroFactura() : "-";
+        this.venta = orden.isVenta();
+        this.credito = orden.isCredito();
         this.tieneRetencionFuente = orden.isTieneRetencionFuente();
         this.subtotal = orden.getSubtotal();
         this.iva = orden.getIva();
@@ -131,6 +151,7 @@ public class OrdenDetalleDTO {
         this.estado = orden.getEstado() != null ? orden.getEstado().name() : "ACTIVA";
         this.sede = orden.getSede() != null ? new SedeSimpleDTO(orden.getSede()) : null;
         this.cliente = new ClienteDetalleDTO(orden.getCliente());
+        this.trabajador = orden.getTrabajador() != null ? new TrabajadorSimpleDTO(orden.getTrabajador()) : null;
         
         // Convertir items
         this.items = new ArrayList<>();

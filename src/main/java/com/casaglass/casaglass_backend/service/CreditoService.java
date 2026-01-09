@@ -4,6 +4,7 @@ import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.repository.CreditoRepository;
+import com.casaglass.casaglass_backend.repository.FacturaRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
@@ -18,10 +19,12 @@ public class CreditoService {
 
     private final CreditoRepository creditoRepo;
     private final EntityManager entityManager;
+    private final FacturaRepository facturaRepository;
 
-    public CreditoService(CreditoRepository creditoRepo, EntityManager entityManager) {
+    public CreditoService(CreditoRepository creditoRepo, EntityManager entityManager, FacturaRepository facturaRepository) {
         this.creditoRepo = creditoRepo;
         this.entityManager = entityManager;
+        this.facturaRepository = facturaRepository;
     }
 
     /* ---------- Helpers de dinero (redondeado a 2 decimales) ---------- */
@@ -552,7 +555,20 @@ public class CreditoService {
 
         // Convertir a DTO
         List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> resultado = creditos.stream()
-            .map(com.casaglass.casaglass_backend.dto.CreditoPendienteDTO::new)
+            .map(credito -> {
+                com.casaglass.casaglass_backend.dto.CreditoPendienteDTO dto = 
+                    new com.casaglass.casaglass_backend.dto.CreditoPendienteDTO(credito);
+                
+                // Buscar número de factura si la orden existe
+                if (credito.getOrden() != null && credito.getOrden().getId() != null) {
+                    String numeroFactura = facturaRepository.findByOrdenId(credito.getOrden().getId())
+                        .map(factura -> factura.getNumeroFactura())
+                        .orElse("-");
+                    dto.setNumeroFactura(numeroFactura);
+                }
+                
+                return dto;
+            })
             .sorted((a, b) -> {
                 // Ordenar por fecha de orden (más recientes primero)
                 if (a.getOrdenFecha() == null && b.getOrdenFecha() == null) return 0;
