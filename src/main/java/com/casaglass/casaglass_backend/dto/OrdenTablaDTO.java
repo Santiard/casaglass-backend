@@ -29,6 +29,7 @@ public class OrdenTablaDTO {
     private Double retencionFuente; // Valor monetario de la retención en la fuente
     private Orden.EstadoOrden estado;
     private boolean facturada;  // Indica si la orden tiene una factura asociada
+    private String numeroFactura; // Número de la factura asociada (null si no tiene)
     private Double subtotal; // Subtotal de la orden (base imponible SIN IVA)
     private Double iva; // Valor del IVA calculado
     private Double descuentos; // Descuentos aplicados

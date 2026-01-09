@@ -21,6 +21,7 @@ public class OrdenDetalleDTO {
     private LocalDate fecha;
     private String obra;
     private String descripcion; // Descripción/observaciones adicionales
+    private String numeroFactura; // Número de la factura asociada (null o "-" si no tiene)
     private boolean tieneRetencionFuente; // Indica si la orden tiene retención de fuente
     private Double subtotal; // Subtotal de la orden (base imponible SIN IVA)
     private Double iva; // Valor del IVA calculado
@@ -120,6 +121,7 @@ public class OrdenDetalleDTO {
         this.fecha = orden.getFecha();
         this.obra = orden.getObra();
         this.descripcion = orden.getDescripcion();
+        this.numeroFactura = (orden.getFactura() != null) ? orden.getFactura().getNumeroFactura() : "-";
         this.tieneRetencionFuente = orden.isTieneRetencionFuente();
         this.subtotal = orden.getSubtotal();
         this.iva = orden.getIva();

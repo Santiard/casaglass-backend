@@ -1423,6 +1423,18 @@ public class OrdenService {
         dto.setTotal(orden.getTotal());
         dto.setCredito(orden.isCredito());
         
+        // Número de factura (si existe)
+        String numeroFactura = "-";
+        if (orden.getFactura() != null) {
+            numeroFactura = orden.getFactura().getNumeroFactura();
+        } else if (orden.getId() != null) {
+            Optional<com.casaglass.casaglass_backend.model.Factura> facturaOpt = facturaRepository.findByOrdenId(orden.getId());
+            if (facturaOpt.isPresent()) {
+                numeroFactura = facturaOpt.get().getNumeroFactura();
+            }
+        }
+        dto.setNumeroFactura(numeroFactura);
+        
         // Información del crédito
         if (orden.getCreditoDetalle() != null) {
             OrdenCreditoDTO.CreditoDetalleDTO creditoDTO = new OrdenCreditoDTO.CreditoDetalleDTO();
@@ -1458,10 +1470,18 @@ public class OrdenService {
         dto.setTotal(orden.getTotal());
         // Facturada si existe relación en memoria o en BD
         boolean tieneFactura = (orden.getFactura() != null);
+        String numeroFactura = null;
         if (!tieneFactura && orden.getId() != null) {
-            tieneFactura = facturaRepository.findByOrdenId(orden.getId()).isPresent();
+            Optional<com.casaglass.casaglass_backend.model.Factura> facturaOpt = facturaRepository.findByOrdenId(orden.getId());
+            tieneFactura = facturaOpt.isPresent();
+            if (tieneFactura) {
+                numeroFactura = facturaOpt.get().getNumeroFactura();
+            }
+        } else if (tieneFactura) {
+            numeroFactura = orden.getFactura().getNumeroFactura();
         }
         dto.setFacturada(tieneFactura);
+        dto.setNumeroFactura(numeroFactura != null ? numeroFactura : "-");
         
         // 👤 CLIENTE COMPLETO (todos los campos para facturación)
         if (orden.getCliente() != null) {

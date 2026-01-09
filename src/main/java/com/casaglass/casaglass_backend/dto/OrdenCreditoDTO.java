@@ -20,6 +20,7 @@ public class OrdenCreditoDTO {
     private LocalDate fecha;
     private Double total;
     private boolean credito;
+    private String numeroFactura; // Número de la factura asociada ("-" si no tiene)
     
     private CreditoDetalleDTO creditoDetalle;
     
