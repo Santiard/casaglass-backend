@@ -14,6 +14,8 @@ import com.casaglass.casaglass_backend.service.EntregaDetalleService;
 import com.casaglass.casaglass_backend.service.AbonoService;
 import com.casaglass.casaglass_backend.model.Abono;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/entregas-dinero")
 // CORS configurado globalmente en CorsConfig.java
 public class EntregaDineroController {
+
+    private static final Logger log = LoggerFactory.getLogger(EntregaDineroController.class);
 
     private final EntregaDineroService service;
 

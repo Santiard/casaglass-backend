@@ -25,6 +25,8 @@ import com.casaglass.casaglass_backend.repository.CorteRepository;
 import com.casaglass.casaglass_backend.repository.BusinessSettingsRepository;
 import com.casaglass.casaglass_backend.model.BusinessSettings;
 import jakarta.persistence.EntityManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,8 @@ import java.util.HashSet;
 
 @Service
 public class OrdenService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrdenService.class);
 
     private final OrdenRepository repo;
     private final ClienteRepository clienteRepository;

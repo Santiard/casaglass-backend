@@ -2,6 +2,8 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.model.Proveedor;
 import com.casaglass.casaglass_backend.service.ProveedorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +13,8 @@ import java.util.List;
 @RequestMapping("/api/proveedores")
 // CORS configurado globalmente en CorsConfig.java
 public class ProveedorController {
+
+    private static final Logger log = LoggerFactory.getLogger(ProveedorController.class);
 
     private final ProveedorService proveedorService;
 

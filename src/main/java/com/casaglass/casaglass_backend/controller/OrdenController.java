@@ -9,6 +9,8 @@ import com.casaglass.casaglass_backend.dto.OrdenResponseDTO;
 import com.casaglass.casaglass_backend.dto.FacturaCreateDTO;
 import com.casaglass.casaglass_backend.service.OrdenService;
 import com.casaglass.casaglass_backend.service.FacturaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +23,8 @@ import java.util.Map;
 @RequestMapping("/api/ordenes")
 // CORS configurado globalmente en CorsConfig.java
 public class OrdenController {
+
+    private static final Logger log = LoggerFactory.getLogger(OrdenController.class);
     /**
      * 🗓️ VENTAS DEL DÍA POR SEDE
      * Devuelve todas las órdenes (contado y crédito) realizadas hoy en la sede indicada

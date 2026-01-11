@@ -7,6 +7,8 @@ import com.casaglass.casaglass_backend.repository.*;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -15,6 +17,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class FacturaService {
+
+    private static final Logger log = LoggerFactory.getLogger(FacturaService.class);
 
     private final FacturaRepository facturaRepo;
     private final OrdenRepository ordenRepository;

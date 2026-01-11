@@ -4,6 +4,8 @@ import com.casaglass.casaglass_backend.dto.FacturaCreateDTO;
 import com.casaglass.casaglass_backend.dto.FacturaTablaDTO;
 import com.casaglass.casaglass_backend.model.Factura;
 import com.casaglass.casaglass_backend.service.FacturaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,8 @@ import java.util.Map;
 @RequestMapping("/api/facturas")
 // CORS configurado globalmente en CorsConfig.java
 public class FacturaController {
+
+    private static final Logger log = LoggerFactory.getLogger(FacturaController.class);
 
     @Autowired
     private FacturaService facturaService;

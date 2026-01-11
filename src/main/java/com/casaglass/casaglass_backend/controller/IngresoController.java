@@ -4,6 +4,8 @@ package com.casaglass.casaglass_backend.controller;
 import com.casaglass.casaglass_backend.model.Ingreso;
 import com.casaglass.casaglass_backend.service.IngresoService;
 import com.casaglass.casaglass_backend.dto.IngresoCreateDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +16,8 @@ import java.util.List;
 @RequestMapping("/api/ingresos")
 // CORS configurado globalmente en CorsConfig.java
 public class IngresoController {
+
+    private static final Logger log = LoggerFactory.getLogger(IngresoController.class);
 
     private final IngresoService ingresoService;
 

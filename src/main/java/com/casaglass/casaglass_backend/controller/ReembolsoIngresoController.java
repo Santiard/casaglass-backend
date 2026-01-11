@@ -4,6 +4,8 @@ import com.casaglass.casaglass_backend.dto.ReembolsoIngresoCreateDTO;
 import com.casaglass.casaglass_backend.dto.ReembolsoIngresoResponseDTO;
 import com.casaglass.casaglass_backend.model.ReembolsoIngreso;
 import com.casaglass.casaglass_backend.service.ReembolsoIngresoService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +17,8 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/reembolsos-ingreso")
 public class ReembolsoIngresoController {
+
+    private static final Logger log = LoggerFactory.getLogger(ReembolsoIngresoController.class);
 
     private final ReembolsoIngresoService service;
 

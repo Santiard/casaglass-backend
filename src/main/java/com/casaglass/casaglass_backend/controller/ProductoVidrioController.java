@@ -3,6 +3,8 @@ package com.casaglass.casaglass_backend.controller;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.ProductoVidrio;
 import com.casaglass.casaglass_backend.service.ProductoVidrioService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,6 +14,8 @@ import java.util.List;
 @RequestMapping("/api/productos-vidrio")
 // CORS configurado globalmente en CorsConfig.java
 public class ProductoVidrioController {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductoVidrioController.class);
 
     private final ProductoVidrioService service;
 

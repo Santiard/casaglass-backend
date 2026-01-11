@@ -3,6 +3,8 @@ package com.casaglass.casaglass_backend.controller;
 import com.casaglass.casaglass_backend.dto.CreditoResponseDTO;
 import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.service.CreditoService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +16,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/creditos")
 // CORS configurado globalmente en CorsConfig.java
 public class CreditoController {
+
+    private static final Logger log = LoggerFactory.getLogger(CreditoController.class);
 
     private final CreditoService service;
 

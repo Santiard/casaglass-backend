@@ -2,7 +2,7 @@ package com.casaglass.casaglass_backend.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.DecimalMin;
 import lombok.*;
 
 @Entity
@@ -31,7 +31,7 @@ public class OrdenItem {
   @Column(length = 200)
   private String descripcion;
 
-  @Min(1)
+  @DecimalMin(value = "0.0", inclusive = false)
   @Column(nullable = false)
   private Double cantidad;
 
