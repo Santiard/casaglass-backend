@@ -2050,9 +2050,10 @@ public class OrdenService {
             
             // 2. Crear o reutilizar corte solicitado (para vender)
             Corte corteSolicitado = crearCorteIndividual(
-                productoOriginal, 
-                corteDTO.getMedidaSolicitada(), 
+                productoOriginal,
+                corteDTO.getMedidaSolicitada(),
                 corteDTO.getPrecioUnitarioSolicitado(),
+                orden.getSede().getId(),
                 "SOLICITADO" // Solo para logging interno, no se incluye en el nombre
             );
             System.out.println("✅ Corte solicitado: ID=" + corteSolicitado.getId() + 
@@ -2064,6 +2065,9 @@ public class OrdenService {
             if (corteDTO.getReutilizarCorteId() != null) {
                 corteSobrante = corteRepository.findById(corteDTO.getReutilizarCorteId())
                     .orElseThrow(() -> new RuntimeException("Corte sobrante no encontrado con ID: " + corteDTO.getReutilizarCorteId()));
+                if (actualizarPrecioCortePorSede(corteSobrante, corteDTO.getPrecioUnitarioSobrante(), orden.getSede().getId())) {
+                    corteService.guardar(corteSobrante);
+                }
                 System.out.println("🔁 Reutilizando corte sobrante existente: ID=" + corteSobrante.getId() + 
                                  ", Código=" + corteSobrante.getCodigo() + 
                                  ", Largo=" + corteSobrante.getLargoCm() + "cm");
@@ -2073,9 +2077,10 @@ public class OrdenService {
                     ? corteDTO.getMedidaSobrante() 
                     : (600 - corteDTO.getMedidaSolicitada());
                 corteSobrante = crearCorteIndividual(
-                    productoOriginal, 
-                    medidaSobrante, 
+                    productoOriginal,
+                    medidaSobrante,
                     corteDTO.getPrecioUnitarioSobrante(),
+                    orden.getSede().getId(),
                     "SOBRANTE" // Solo para logging interno, no se incluye en el nombre
                 );
                 System.out.println("🆕 Corte sobrante creado: ID=" + corteSobrante.getId() + 
@@ -2149,7 +2154,7 @@ public class OrdenService {
      * El código siempre es el del producto base (sin sufijo de medida).
      * El nombre incluye la medida en CMS sin indicar si es SOBRANTE o SOLICITADO.
      */
-    private Corte crearCorteIndividual(Producto productoOriginal, Integer medida, Double precio, String tipo) {
+    private Corte crearCorteIndividual(Producto productoOriginal, Integer medida, Double precio, Long sedeId, String tipo) {
         // 0) Intentar reutilizar un corte existente por código base, largo, categoría y color
         // ✅ Código siempre es el del producto base (ej: "392"), NO incluye la medida
         String codigoBase = productoOriginal.getCodigo();
@@ -2161,8 +2166,9 @@ public class OrdenService {
                 .findExistingByCodigoAndSpecs(codigoBase, medida.doubleValue(), categoriaId, color);
             if (existenteOpt.isPresent()) {
                 Corte corteExistente = existenteOpt.get();
+                boolean requiereActualizacion = false;
+
                 // Asegurarse de que el nombre esté correcto (no concatenado)
-                // Si el producto original ya es un corte, extraer el nombre base antes de 'Corte de'
                 String nombreOriginal = productoOriginal.getNombre();
                 String baseNombre;
                 int idx = nombreOriginal.indexOf(" Corte de ");
@@ -2174,8 +2180,18 @@ public class OrdenService {
                 String nombreCorrecto = baseNombre + " Corte de " + medida + " CMS";
                 if (!nombreCorrecto.equals(corteExistente.getNombre())) {
                     corteExistente.setNombre(nombreCorrecto);
-                    corteService.guardar(corteExistente); // Actualiza el nombre si estaba mal
+                    requiereActualizacion = true;
                 }
+
+                // Actualizar precio según la sede de la venta
+                if (actualizarPrecioCortePorSede(corteExistente, precio, sedeId)) {
+                    requiereActualizacion = true;
+                }
+
+                if (requiereActualizacion) {
+                    corteService.guardar(corteExistente); // sincroniza nombre/precio
+                }
+
                 System.out.println("🔁 Reutilizando corte existente: " + corteExistente.getCodigo() + 
                                  " (ID=" + corteExistente.getId() + ", Largo=" + medida + "cm)");
                 return corteExistente;
@@ -2206,7 +2222,7 @@ public class OrdenService {
         corte.setLargoCm(medida.doubleValue());
 
         // Precio calculado por el frontend
-        corte.setPrecio1(precio);
+        actualizarPrecioCortePorSede(corte, precio, sedeId);
 
         // Copiar datos del producto original
         corte.setCategoria(productoOriginal.getCategoria());
@@ -2219,6 +2235,50 @@ public class OrdenService {
         corte.setObservacion("Corte generado automáticamente");
 
         return corteService.guardar(corte);
+    }
+
+    private boolean actualizarPrecioCortePorSede(Corte corte, Double precio, Long sedeId) {
+        if (precio == null) {
+            return false;
+        }
+
+        Long sedeReferencia = sedeId != null ? sedeId : 1L;
+        boolean actualizado = false;
+        double threshold = 0.01;
+
+        if (sedeReferencia == 1L) {
+            Double actual = corte.getPrecio1();
+            if (actual == null || Math.abs(actual - precio) > threshold) {
+                corte.setPrecio1(precio);
+                actualizado = true;
+            }
+        } else if (sedeReferencia == 2L) {
+            Double actual = corte.getPrecio2();
+            if (actual == null || Math.abs(actual - precio) > threshold) {
+                corte.setPrecio2(precio);
+                actualizado = true;
+            }
+        } else if (sedeReferencia == 3L) {
+            Double actual = corte.getPrecio3();
+            if (actual == null || Math.abs(actual - precio) > threshold) {
+                corte.setPrecio3(precio);
+                actualizado = true;
+            }
+        } else {
+            Double actual = corte.getPrecio1();
+            if (actual == null || Math.abs(actual - precio) > threshold) {
+                corte.setPrecio1(precio);
+                actualizado = true;
+            }
+        }
+
+        // Garantizar que precio1 tenga al menos un valor base para listados generales
+        if (corte.getPrecio1() == null) {
+            corte.setPrecio1(precio);
+            actualizado = true;
+        }
+
+        return actualizado;
     }
     
     /**
