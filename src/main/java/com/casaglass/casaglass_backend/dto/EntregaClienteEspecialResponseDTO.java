@@ -47,6 +47,7 @@ public class EntregaClienteEspecialResponseDTO {
         private Long creditoId;
         private Long ordenId;
         private Long numeroOrden;
+        private String obra;
         private LocalDate fechaCredito;
         private Double totalCredito;
         private Double saldoAnterior;
@@ -56,6 +57,7 @@ public class EntregaClienteEspecialResponseDTO {
             this.creditoId = entity.getCredito() != null ? entity.getCredito().getId() : null;
             this.ordenId = entity.getOrden() != null ? entity.getOrden().getId() : null;
             this.numeroOrden = entity.getNumeroOrden();
+            this.obra = entity.getOrden() != null ? entity.getOrden().getObra() : null;
             this.fechaCredito = entity.getFechaCredito();
             this.totalCredito = entity.getTotalCredito();
             this.saldoAnterior = entity.getSaldoAnterior();

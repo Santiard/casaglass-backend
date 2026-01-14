@@ -2,6 +2,7 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.dto.CreditoResponseDTO;
 import com.casaglass.casaglass_backend.dto.EntregaClienteEspecialResponseDTO;
+import com.casaglass.casaglass_backend.dto.EntregaClienteEspecialResumenDTO;
 import com.casaglass.casaglass_backend.dto.MarcarCreditosClienteEspecialRequest;
 import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.EntregaClienteEspecial;
@@ -481,8 +482,8 @@ public class CreditoController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         List<EntregaClienteEspecial> entregas = entregaClienteEspecialService.listar(desde, hasta);
-        List<EntregaClienteEspecialResponseDTO> respuesta = entregas.stream()
-                .map(EntregaClienteEspecialResponseDTO::new)
+        List<EntregaClienteEspecialResumenDTO> respuesta = entregas.stream()
+            .map(EntregaClienteEspecialResumenDTO::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(respuesta);
     }

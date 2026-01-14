@@ -118,6 +118,7 @@ Permite cerrar varios créditos del cliente especial en un solo paso cuando se c
         "creditoId": 321,
         "ordenId": 812,
         "numeroOrden": 12045,
+        "obra": "Centro",
         "fechaCredito": "2025-12-01",
         "totalCredito": 450000.0,
         "saldoAnterior": 218457.14,
