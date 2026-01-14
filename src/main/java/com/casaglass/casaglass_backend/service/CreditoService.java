@@ -3,6 +3,7 @@ package com.casaglass.casaglass_backend.service;
 import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.Cliente;
+import com.casaglass.casaglass_backend.model.EntregaClienteEspecial;
 import com.casaglass.casaglass_backend.repository.CreditoRepository;
 import com.casaglass.casaglass_backend.repository.FacturaRepository;
 import jakarta.persistence.EntityManager;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,11 +22,16 @@ public class CreditoService {
     private final CreditoRepository creditoRepo;
     private final EntityManager entityManager;
     private final FacturaRepository facturaRepository;
+    private final EntregaClienteEspecialService entregaClienteEspecialService;
 
-    public CreditoService(CreditoRepository creditoRepo, EntityManager entityManager, FacturaRepository facturaRepository) {
+    public CreditoService(CreditoRepository creditoRepo,
+                          EntityManager entityManager,
+                          FacturaRepository facturaRepository,
+                          EntregaClienteEspecialService entregaClienteEspecialService) {
         this.creditoRepo = creditoRepo;
         this.entityManager = entityManager;
         this.facturaRepository = facturaRepository;
+        this.entregaClienteEspecialService = entregaClienteEspecialService;
     }
 
     /* ---------- Helpers de dinero (redondeado a 2 decimales) ---------- */
@@ -599,19 +606,19 @@ public class CreditoService {
      * @throws IllegalStateException Si algún crédito ya está cerrado
      */
     @Transactional
-    public int marcarCreditosClienteEspecialComoPagados(List<Long> creditoIds) {
+    public EntregaClienteEspecial marcarCreditosClienteEspecialComoPagados(List<Long> creditoIds,
+                                                                            String ejecutadoPor,
+                                                                            String observaciones) {
         if (creditoIds == null || creditoIds.isEmpty()) {
             throw new IllegalArgumentException("Debe proporcionar al menos un ID de crédito");
         }
 
-        int contadorPagados = 0;
+        List<EntregaClienteEspecialService.DetalleRegistro> registros = new ArrayList<>();
 
         for (Long creditoId : creditoIds) {
-            // Buscar el crédito
             Credito credito = creditoRepo.findById(creditoId)
                 .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado con ID: " + creditoId));
 
-            // ⚠️ VALIDACIÓN: Solo permitir créditos del cliente especial (ID 499)
             if (credito.getCliente() == null || !credito.getCliente().getId().equals(499L)) {
                 throw new IllegalArgumentException(
                     "El crédito con ID " + creditoId + " no pertenece al cliente especial. " +
@@ -619,7 +626,6 @@ public class CreditoService {
                 );
             }
 
-            // ⚠️ VALIDACIÓN: No permitir marcar como pagado un crédito ya cerrado
             if (credito.getEstado() == Credito.EstadoCredito.CERRADO) {
                 throw new IllegalStateException(
                     "El crédito con ID " + creditoId + " ya está cerrado. " +
@@ -627,7 +633,8 @@ public class CreditoService {
                 );
             }
 
-            // 💰 CALCULAR EL MONTO A ABONAR (considerando retención de fuente si existe)
+            Double saldoAnterior = credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0;
+
             Double retencionFuente = 0.0;
             if (credito.getOrden() != null && 
                 credito.getOrden().isTieneRetencionFuente() && 
@@ -635,9 +642,6 @@ public class CreditoService {
                 retencionFuente = credito.getOrden().getRetencionFuente();
             }
 
-            // ✅ MARCAR COMO PAGADO
-            // Total a abonar = Total del crédito - Retención de fuente
-            // Esto hace que el saldo pendiente sea 0
             Double totalAAbonar = credito.getTotalCredito() - retencionFuente;
             
             credito.setTotalAbonado(normalize(totalAAbonar));
@@ -646,9 +650,10 @@ public class CreditoService {
             credito.setFechaCierre(LocalDate.now());
 
             creditoRepo.save(credito);
-            contadorPagados++;
+
+            registros.add(new EntregaClienteEspecialService.DetalleRegistro(credito, saldoAnterior));
         }
 
-        return contadorPagados;
+        return entregaClienteEspecialService.registrarEntrega(registros, ejecutadoPor, observaciones);
     }
 }

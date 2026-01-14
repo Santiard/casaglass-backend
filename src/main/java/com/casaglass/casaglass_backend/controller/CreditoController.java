@@ -1,13 +1,20 @@
 package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.dto.CreditoResponseDTO;
+import com.casaglass.casaglass_backend.dto.EntregaClienteEspecialResponseDTO;
+import com.casaglass.casaglass_backend.dto.MarcarCreditosClienteEspecialRequest;
 import com.casaglass.casaglass_backend.model.Credito;
+import com.casaglass.casaglass_backend.model.EntregaClienteEspecial;
 import com.casaglass.casaglass_backend.service.CreditoService;
+import com.casaglass.casaglass_backend.service.EntregaClienteEspecialService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,9 +27,12 @@ public class CreditoController {
     private static final Logger log = LoggerFactory.getLogger(CreditoController.class);
 
     private final CreditoService service;
+    private final EntregaClienteEspecialService entregaClienteEspecialService;
 
-    public CreditoController(CreditoService service) {
+    public CreditoController(CreditoService service,
+                             EntregaClienteEspecialService entregaClienteEspecialService) {
         this.service = service;
+        this.entregaClienteEspecialService = entregaClienteEspecialService;
     }
 
     /** 💳 Crear crédito para una orden específica */
@@ -425,23 +435,19 @@ public class CreditoController {
      */
     @PostMapping("/cliente-especial/marcar-pagados")
     public ResponseEntity<?> marcarCreditosClienteEspecialComoPagados(
-            @RequestBody Map<String, List<Long>> request) {
+            @Valid @RequestBody MarcarCreditosClienteEspecialRequest request) {
         try {
-            List<Long> creditoIds = request.get("creditoIds");
-            
-            if (creditoIds == null || creditoIds.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "error", "Debe proporcionar al menos un ID de crédito en el campo 'creditoIds'",
-                    "tipo", "VALIDACION"
-                ));
-            }
-
-            int creditosPagados = service.marcarCreditosClienteEspecialComoPagados(creditoIds);
+            EntregaClienteEspecial entregaEspecial = service.marcarCreditosClienteEspecialComoPagados(
+                request.getCreditoIds(),
+                request.getEjecutadoPor(),
+                request.getObservaciones()
+            );
 
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Créditos marcados como pagados exitosamente",
-                "creditosPagados", creditosPagados,
-                "detalles", creditoIds.size() + " crédito(s) del cliente especial fueron cerrados"
+                "creditosPagados", entregaEspecial.getTotalCreditos(),
+                "entregaEspecialId", entregaEspecial.getId(),
+                "registro", new EntregaClienteEspecialResponseDTO(entregaEspecial)
             ));
 
         } catch (IllegalArgumentException e) {
@@ -462,6 +468,38 @@ public class CreditoController {
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"
+            ));
+        }
+    }
+
+    /**
+     * 📜 HISTÓRICO DE ENTREGAS DEL CLIENTE ESPECIAL
+     * GET /api/creditos/cliente-especial/entregas
+     */
+    @GetMapping("/cliente-especial/entregas")
+    public ResponseEntity<?> listarEntregasClienteEspecial(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        List<EntregaClienteEspecial> entregas = entregaClienteEspecialService.listar(desde, hasta);
+        List<EntregaClienteEspecialResponseDTO> respuesta = entregas.stream()
+                .map(EntregaClienteEspecialResponseDTO::new)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(respuesta);
+    }
+
+    /**
+     * 🔍 DETALLE DE UNA ENTREGA DEL CLIENTE ESPECIAL
+     * GET /api/creditos/cliente-especial/entregas/{id}
+     */
+    @GetMapping("/cliente-especial/entregas/{id}")
+    public ResponseEntity<?> obtenerEntregaClienteEspecial(@PathVariable Long id) {
+        try {
+            EntregaClienteEspecial entrega = entregaClienteEspecialService.obtener(id);
+            return ResponseEntity.ok(new EntregaClienteEspecialResponseDTO(entrega));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "NO_ENCONTRADO"
             ));
         }
     }
