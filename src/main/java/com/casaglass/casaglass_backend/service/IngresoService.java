@@ -348,20 +348,33 @@ public class IngresoService {
     }
 
     public Ingreso actualizarIngreso(Long id, Ingreso ingresoActualizado) {
-        // ...existing code...
-        
-        // 🔧 ARREGLO: Usar consulta con FETCH para evitar proxies lazy
+        // Usar consulta con FETCH para evitar proxies lazy
         Ingreso ingresoExistente = ingresoRepository.findByIdWithDetalles(id);
         if (ingresoExistente == null) {
             throw new RuntimeException("Ingreso no encontrado");
         }
 
         System.out.println("📋 Ingreso encontrado - Procesado: " + ingresoExistente.getProcesado());
-    // ...existing code...
 
-        // Si ya fue procesado, no permitir cambios que afecten el inventario
+        // Si el ingreso ya fue procesado, revertir el inventario antes de aplicar los nuevos detalles
         if (ingresoExistente.getProcesado()) {
-            throw new RuntimeException("No se puede modificar un ingreso ya procesado");
+            System.out.println("♻️ Revirtiendo inventario por edición de ingreso procesado");
+            Sede sedePrincipal = sedeRepository.findById(SEDE_PRINCIPAL_ID)
+                .orElseThrow(() -> new RuntimeException("Sede principal no encontrada (ID: " + SEDE_PRINCIPAL_ID + ")"));
+            for (IngresoDetalle detalleOriginal : ingresoExistente.getDetalles()) {
+                Producto producto = detalleOriginal.getProducto();
+                Double cantidadOriginal = detalleOriginal.getCantidad();
+                if (producto != null && producto.getId() != null) {
+                    Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(producto.getId(), sedePrincipal.getId());
+                    if (inventarioOpt.isPresent()) {
+                        Inventario inventario = inventarioOpt.get();
+                        double nuevaCantidad = inventario.getCantidad() - cantidadOriginal;
+                        if (nuevaCantidad < 0) nuevaCantidad = 0.0;
+                        inventario.setCantidad(nuevaCantidad);
+                        inventarioService.actualizar(inventario.getId(), inventario);
+                    }
+                }
+            }
         }
 
         // Actualizar campos básicos
@@ -369,7 +382,7 @@ public class IngresoService {
         ingresoExistente.setNumeroFactura(ingresoActualizado.getNumeroFactura());
         ingresoExistente.setObservaciones(ingresoActualizado.getObservaciones());
 
-        // ARREGLO: Buscar entidad gestionada para proveedor
+        // Buscar entidad gestionada para proveedor
         if (ingresoActualizado.getProveedor() != null && ingresoActualizado.getProveedor().getId() != null) {
             Proveedor proveedor = proveedorRepository.findById(ingresoActualizado.getProveedor().getId())
                 .orElseThrow(() -> new RuntimeException("Proveedor no encontrado con ID: " + ingresoActualizado.getProveedor().getId()));
@@ -378,13 +391,10 @@ public class IngresoService {
             throw new RuntimeException("El proveedor es obligatorio");
         }
 
-        // Actualizar detalles - MANEJO CORRECTO DE ENTIDADES
+        // Actualizar detalles - limpiar y agregar nuevos
         ingresoExistente.getDetalles().clear();
         for (IngresoDetalle detalleActualizado : ingresoActualizado.getDetalles()) {
-            // Crear nuevo detalle para evitar problemas de estado de entidad
             IngresoDetalle nuevoDetalle = new IngresoDetalle();
-            
-            // ARREGLO: Buscar entidad gestionada para producto
             if (detalleActualizado.getProducto() != null && detalleActualizado.getProducto().getId() != null) {
                 Producto producto = productoRepository.findById(detalleActualizado.getProducto().getId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + detalleActualizado.getProducto().getId()));
@@ -392,33 +402,48 @@ public class IngresoService {
             } else {
                 throw new RuntimeException("Todos los detalles deben tener un producto válido");
             }
-            
-            // Copiar valores básicos
             nuevoDetalle.setCantidad(detalleActualizado.getCantidad());
-            nuevoDetalle.setCostoUnitario(detalleActualizado.getCostoUnitario()); // Costo original (para totalCosto y trazabilidad)
-            nuevoDetalle.setCostoUnitarioPonderado(detalleActualizado.getCostoUnitarioPonderado()); // Costo ponderado calculado por el frontend
+            nuevoDetalle.setCostoUnitario(detalleActualizado.getCostoUnitario());
+            nuevoDetalle.setCostoUnitarioPonderado(detalleActualizado.getCostoUnitarioPonderado());
             nuevoDetalle.setIngreso(ingresoExistente);
-            
-            // Calcular total de línea manualmente usando costoUnitario (costo original)
             nuevoDetalle.setTotalLinea(detalleActualizado.getCantidad() * detalleActualizado.getCostoUnitario());
-            
             ingresoExistente.getDetalles().add(nuevoDetalle);
         }
 
-        System.out.println("📊 Calculando total...");
-            // ...existing code...
         ingresoExistente.calcularTotal();
-
-        System.out.println("💾 Guardando ingreso actualizado...");
-            // ...existing code...
         Ingreso resultado = ingresoRepository.save(ingresoExistente);
-        // ...existing code...
-        
-        // 🔧 ARREGLO: Forzar inicialización del proveedor para evitar proxy lazy en serialización
-        if (resultado.getProveedor() != null) {
-            resultado.getProveedor().getNombre(); // Acceder a una propiedad para inicializar el proxy
+
+        // Si el ingreso estaba procesado, volver a procesar el inventario con los nuevos detalles
+        if (ingresoExistente.getProcesado()) {
+            System.out.println("🔁 Reaplicando inventario por edición de ingreso procesado");
+            Sede sedePrincipal = sedeRepository.findById(SEDE_PRINCIPAL_ID)
+                .orElseThrow(() -> new RuntimeException("Sede principal no encontrada (ID: " + SEDE_PRINCIPAL_ID + ")"));
+            for (IngresoDetalle detalleNuevo : ingresoExistente.getDetalles()) {
+                Producto producto = detalleNuevo.getProducto();
+                Double cantidadNueva = detalleNuevo.getCantidad();
+                if (producto != null && producto.getId() != null) {
+                    Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(producto.getId(), sedePrincipal.getId());
+                    if (inventarioOpt.isPresent()) {
+                        Inventario inventario = inventarioOpt.get();
+                        double nuevaCantidad = inventario.getCantidad() + cantidadNueva;
+                        inventario.setCantidad(nuevaCantidad);
+                        inventarioService.actualizar(inventario.getId(), inventario);
+                    } else {
+                        // Si no existe inventario, crearlo
+                        Inventario nuevoInventario = new Inventario();
+                        nuevoInventario.setProducto(producto);
+                        nuevoInventario.setSede(sedePrincipal);
+                        nuevoInventario.setCantidad(cantidadNueva);
+                        inventarioService.guardar(nuevoInventario);
+                    }
+                }
+            }
         }
-        
+
+        // Forzar inicialización del proveedor para evitar proxy lazy en serialización
+        if (resultado.getProveedor() != null) {
+            resultado.getProveedor().getNombre();
+        }
         return resultado;
     }
 

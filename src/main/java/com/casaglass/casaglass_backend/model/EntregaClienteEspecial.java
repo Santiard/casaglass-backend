@@ -39,8 +39,6 @@ public class EntregaClienteEspecial {
     @Column(name = "total_monto_credito", nullable = false)
     private Double totalMontoCredito = 0.0;
 
-    @Column(name = "total_retencion", nullable = false)
-    private Double totalRetencion = 0.0;
 
     @Column(name = "observaciones", length = 500)
     private String observaciones;

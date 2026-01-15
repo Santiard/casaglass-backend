@@ -21,7 +21,6 @@ public class EntregaClienteEspecialResponseDTO {
     private String ejecutadoPor;
     private Integer totalCreditos;
     private Double totalMontoCredito;
-    private Double totalRetencion;
     private String observaciones;
     private List<Detalle> detalles;
 
@@ -31,7 +30,6 @@ public class EntregaClienteEspecialResponseDTO {
         this.ejecutadoPor = entrega.getEjecutadoPor();
         this.totalCreditos = entrega.getTotalCreditos();
         this.totalMontoCredito = entrega.getTotalMontoCredito();
-        this.totalRetencion = entrega.getTotalRetencion();
         this.observaciones = entrega.getObservaciones();
         if (entrega.getDetalles() != null) {
             this.detalles = entrega.getDetalles().stream()
@@ -51,7 +49,6 @@ public class EntregaClienteEspecialResponseDTO {
         private LocalDate fechaCredito;
         private Double totalCredito;
         private Double saldoAnterior;
-        private Double retencionFuente;
 
         public Detalle(EntregaClienteEspecialDetalle entity) {
             this.creditoId = entity.getCredito() != null ? entity.getCredito().getId() : null;
@@ -61,7 +58,6 @@ public class EntregaClienteEspecialResponseDTO {
             this.fechaCredito = entity.getFechaCredito();
             this.totalCredito = entity.getTotalCredito();
             this.saldoAnterior = entity.getSaldoAnterior();
-            this.retencionFuente = entity.getRetencionFuente();
         }
     }
 }

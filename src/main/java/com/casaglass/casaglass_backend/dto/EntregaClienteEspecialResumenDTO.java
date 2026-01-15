@@ -17,7 +17,6 @@ public class EntregaClienteEspecialResumenDTO {
     private String ejecutadoPor;
     private Integer totalCreditos;
     private Double totalMontoCredito;
-    private Double totalRetencion;
     private String observaciones;
 
     public EntregaClienteEspecialResumenDTO(EntregaClienteEspecial entrega) {
@@ -26,7 +25,6 @@ public class EntregaClienteEspecialResumenDTO {
         this.ejecutadoPor = entrega.getEjecutadoPor();
         this.totalCreditos = entrega.getTotalCreditos();
         this.totalMontoCredito = entrega.getTotalMontoCredito();
-        this.totalRetencion = entrega.getTotalRetencion();
         this.observaciones = entrega.getObservaciones();
     }
 }

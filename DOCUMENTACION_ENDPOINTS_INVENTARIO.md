@@ -828,6 +828,12 @@ Los traslados entre sedes actualizan automáticamente el inventario:
 **Ingresos:**
 Los ingresos procesados actualizan automáticamente el inventario del producto.
 
+**Edición de ingresos procesados:**
+Ahora es posible editar un ingreso de productos aunque ya haya sido procesado. Al editar:
+- El sistema primero revierte el inventario restando las cantidades originales de cada producto.
+- Luego aplica los nuevos detalles sumando las nuevas cantidades y actualizando los costos si corresponde.
+- Así se garantiza la integridad y consistencia del inventario, incluso si el ingreso ya fue procesado previamente.
+
 
 ═══════════════════════════════════════════════════════════════════════════════
 📞 SOPORTE Y CONTACTO

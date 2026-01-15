@@ -45,6 +45,4 @@ public class EntregaClienteEspecialDetalle {
     @Column(name = "saldo_anterior", nullable = false)
     private Double saldoAnterior = 0.0;
 
-    @Column(name = "retencion_fuente", nullable = false)
-    private Double retencionFuente = 0.0;
 }

@@ -96,8 +96,7 @@ Permite cerrar varios créditos del cliente especial en un solo paso cuando se c
 1. `creditoIds` es obligatorio y debe contener al menos un ID.
 2. Cada crédito debe existir y pertenecer al cliente especial (ID 499). Si uno falla, el proceso completo se aborta con `400`.
 3. No se puede marcar un crédito que ya esté en estado `CERRADO`. En ese caso se responde `409 Conflict`.
-4. Si la orden asociada tenía retención en la fuente, el servicio respeta ese valor al calcular el total abonado final.
-5. Después del cierre exitoso, el backend crea automáticamente un registro histórico (`entregaEspecial`) con los créditos involucrados.
+4. Después del cierre exitoso, el backend crea automáticamente un registro histórico (`entregaEspecial`) con los créditos involucrados.
 
 ### Respuesta de éxito
 
@@ -112,7 +111,6 @@ Permite cerrar varios créditos del cliente especial en un solo paso cuando se c
     "ejecutadoPor": "Laura - Cartera",
     "totalCreditos": 3,
     "totalMontoCredito": 1250000.0,
-    "totalRetencion": 45693.28,
     "detalles": [
       {
         "creditoId": 321,
@@ -121,8 +119,7 @@ Permite cerrar varios créditos del cliente especial en un solo paso cuando se c
         "obra": "Centro",
         "fechaCredito": "2025-12-01",
         "totalCredito": 450000.0,
-        "saldoAnterior": 218457.14,
-        "retencionFuente": 31542.86
+        "saldoAnterior": 218457.14
       }
     ]
   }
@@ -166,7 +163,6 @@ Listado histórico de lotes cerrados para el cliente especial. Útil para audito
     "ejecutadoPor": "Laura - Cartera",
     "totalCreditos": 3,
     "totalMontoCredito": 1250000.0,
-    "totalRetencion": 45693.28,
     "observaciones": "Pagos confirmados presencialmente"
   }
 ]

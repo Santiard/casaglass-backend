@@ -75,10 +75,10 @@ public class IngresoController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Ingreso> obtenerIngreso(@PathVariable Long id) {
-        // IMPORTANTE: no mezclar tipos en las ramas (no pongas body("...") aquí)
+        // Devuelve el ingreso con detalles y color en producto
         return ingresoService.obtenerIngresoPorId(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/proveedor/{proveedorId}")

@@ -36,18 +36,13 @@ public class EntregaClienteEspecialService {
         entrega.setTotalCreditos(registros.size());
 
         double totalCredito = 0.0;
-        double totalRetencion = 0.0;
-
         List<EntregaClienteEspecialDetalle> detalles = new ArrayList<>();
         for (DetalleRegistro registro : registros) {
             Credito credito = registro.getCredito();
             Orden orden = credito.getOrden();
 
             double creditoTotal = credito.getTotalCredito() != null ? credito.getTotalCredito() : 0.0;
-            double retencion = (orden != null && orden.getRetencionFuente() != null) ? orden.getRetencionFuente() : 0.0;
-
             totalCredito += creditoTotal;
-            totalRetencion += retencion;
 
             EntregaClienteEspecialDetalle detalle = new EntregaClienteEspecialDetalle();
             detalle.setEntrega(entrega);
@@ -57,13 +52,11 @@ public class EntregaClienteEspecialService {
             detalle.setFechaCredito(credito.getFechaInicio());
             detalle.setTotalCredito(creditoTotal);
             detalle.setSaldoAnterior(registro.getSaldoAnterior());
-            detalle.setRetencionFuente(retencion);
 
             detalles.add(detalle);
         }
 
         entrega.setTotalMontoCredito(totalCredito);
-        entrega.setTotalRetencion(totalRetencion);
         entrega.setDetalles(detalles);
 
         return repository.save(entrega);
