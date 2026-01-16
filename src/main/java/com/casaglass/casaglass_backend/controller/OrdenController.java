@@ -859,7 +859,6 @@ public class OrdenController {
                             facturaDTO.setOrdenId(orden.getId());
                             facturaDTO.setFecha(LocalDate.now());
                             facturaDTO.setSubtotal(orden.getSubtotal());
-                            facturaDTO.setDescuentos(orden.getDescuentos() != null ? orden.getDescuentos() : 0.0);
                             // Calcular IVA correctamente desde el subtotal (que ya incluye IVA)
                             // Fórmula: IVA = Subtotal * (tasa_iva / (100 + tasa_iva))
                             Double ivaCalculado = service.calcularIvaDesdeSubtotal(orden.getSubtotal());

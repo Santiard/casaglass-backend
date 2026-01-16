@@ -32,8 +32,7 @@ public class OrdenTablaDTO {
     private String numeroFactura; // Número de la factura asociada (null si no tiene)
     private Double subtotal; // Subtotal de la orden (base imponible SIN IVA)
     private Double iva; // Valor del IVA calculado
-    private Double descuentos; // Descuentos aplicados
-    private Double total; // Total facturado (subtotal facturado - descuentos, sin restar retención)
+    private Double total; // Total facturado (subtotal facturado, sin restar retención)
     
     // INFORMACION SIMPLIFICADA DE ENTIDADES RELACIONADAS
     private ClienteTablaDTO cliente;
@@ -101,7 +100,7 @@ public class OrdenTablaDTO {
     
     /**
      * DTO simplificado para Producto en tabla de órdenes
-     * Solo nombre y código como solicitado
+     * Incluye código, nombre y color
      */
     @Data
     @NoArgsConstructor
@@ -109,5 +108,6 @@ public class OrdenTablaDTO {
     public static class ProductoTablaDTO {
         private String codigo;
         private String nombre;
+        private String color;  // Color del producto (enum serializado como String)
     }
 }

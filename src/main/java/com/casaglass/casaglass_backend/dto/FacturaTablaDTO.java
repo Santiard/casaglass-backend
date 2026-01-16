@@ -1,6 +1,5 @@
 package com.casaglass.casaglass_backend.dto;
 
-import com.casaglass.casaglass_backend.model.Factura;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,7 +19,6 @@ public class FacturaTablaDTO {
     private LocalDate fecha;
     private String obra; // De la orden
     private Double subtotal;
-    private Double descuentos;
     private Double iva;
     private Double retencionFuente;
     private Double total;

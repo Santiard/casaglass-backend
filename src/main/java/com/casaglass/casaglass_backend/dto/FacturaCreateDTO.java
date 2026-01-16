@@ -41,11 +41,6 @@ public class FacturaCreateDTO {
     private Double subtotal;
 
     /**
-     * Descuentos aplicados
-     */
-    private Double descuentos = 0.0;
-
-    /**
      * IVA aplicado
      */
     private Double iva = 0.0;

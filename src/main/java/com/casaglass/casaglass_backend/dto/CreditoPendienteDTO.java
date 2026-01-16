@@ -58,7 +58,7 @@ public class CreditoPendienteDTO {
     
     // ========== MONTOS DE LA ORDEN ==========
     
-    /** Total facturado (subtotal + IVA - descuentos) */
+    /** Total facturado (subtotal + IVA) */
     private Double total;
     
     /** Subtotal sin IVA - IMPORTANTE para calcular retención de fuente */
@@ -66,9 +66,6 @@ public class CreditoPendienteDTO {
     
     /** IVA calculado */
     private Double iva;
-    
-    /** Descuentos aplicados */
-    private Double descuentos;
     
     // ========== RETENCIÓN DE FUENTE ==========
     
@@ -138,7 +135,6 @@ public class CreditoPendienteDTO {
             this.total = credito.getOrden().getTotal();
             this.subtotal = credito.getOrden().getSubtotal();
             this.iva = credito.getOrden().getIva();
-            this.descuentos = credito.getOrden().getDescuentos();
             
             // Retención de fuente
             this.tieneRetencionFuente = credito.getOrden().isTieneRetencionFuente();

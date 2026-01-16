@@ -28,8 +28,7 @@ public class OrdenDetalleDTO {
     private Double subtotal; // Subtotal de la orden (base imponible SIN IVA)
     private Double iva; // Valor del IVA calculado
     private Double retencionFuente; // Valor monetario de la retención en la fuente
-    private Double descuentos; // Descuentos aplicados
-    private Double total; // Total facturado (subtotal facturado - descuentos, sin restar retención)
+    private Double total; // Total facturado (subtotal facturado, sin restar retención)
     private String estado; // Estado de la orden: ACTIVA, ENTREGADA, ANULADA
     private SedeSimpleDTO sede; // Sede donde se realizó la orden
     private ClienteDetalleDTO cliente;
@@ -146,7 +145,6 @@ public class OrdenDetalleDTO {
         this.subtotal = orden.getSubtotal();
         this.iva = orden.getIva();
         this.retencionFuente = orden.getRetencionFuente();
-        this.descuentos = orden.getDescuentos();
         this.total = orden.getTotal();
         this.estado = orden.getEstado() != null ? orden.getEstado().name() : "ACTIVA";
         this.sede = orden.getSede() != null ? new SedeSimpleDTO(orden.getSede()) : null;

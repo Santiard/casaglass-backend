@@ -67,12 +67,6 @@ public class Factura {
   private Double subtotal;
 
   /**
-   * Descuentos aplicados
-   */
-  @Column(nullable = false)
-  private Double descuentos = 0.0;
-
-  /**
    * IVA (Impuesto sobre el Valor Agregado)
    * Valor monetario del IVA incluido en el subtotal
    * NOTA: El subtotal ya incluye IVA, este campo solo se usa para registro/contabilidad

@@ -93,27 +93,21 @@ public class Orden {
 
   /**
    * Subtotal de la orden (base imponible SIN IVA)
-   * Se calcula como: (suma de items - descuentos) / 1.19
+   * Se calcula como: suma de items / 1.19
    */
   @Column(nullable = false)
   private Double subtotal = 0.0;
 
   /**
    * Valor del IVA calculado
-   * Se calcula como: (suma de items - descuentos) - subtotal
+   * Se calcula como: suma de items - subtotal
    */
   @Column(nullable = false)
   private Double iva = 0.0;
 
   /**
-   * Descuentos aplicados a la orden
-   */
-  @Column(nullable = false)
-  private Double descuentos = 0.0;
-
-  /**
    * Total de la orden (total facturado CON IVA, sin restar retención)
-   * Se calcula como: suma de items - descuentos
+   * Se calcula como: suma de items
    */
   @Column(nullable = false)
   private Double total = 0.0;
@@ -130,7 +124,7 @@ public class Orden {
   /**
    * Valor monetario de la retención en la fuente
    * Se calcula automáticamente cuando tieneRetencionFuente = true
-   * y la base imponible (subtotal - descuentos) supera el umbral configurado
+   * y la base imponible (subtotal) supera el umbral configurado
    */
   @Column(name = "retencion_fuente", nullable = false)
   private Double retencionFuente = 0.0;

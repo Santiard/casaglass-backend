@@ -108,8 +108,7 @@ public class FacturaService {
             totalCalculado = totalOrden;
             
             // Recalcular subtotal e IVA para que coincidan con el total de la orden
-            Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
-            Double baseConIva = Math.max(0, totalOrden - descuentos);
+            Double baseConIva = Math.max(0, totalOrden);
             
             if (baseConIva > 0) {
                 Double ivaRate = obtenerIvaRate();
@@ -121,7 +120,6 @@ public class FacturaService {
         
         // Asignar valores a la factura (todos redondeados a 2 decimales)
         factura.setSubtotal(redondearMoneda(subtotalSinIva));
-        factura.setDescuentos(redondearMoneda(orden.getDescuentos() != null ? orden.getDescuentos() : 0.0));
         factura.setIva(redondearMoneda(ivaFactura));
         factura.setRetencionFuente(redondearMoneda(retencionFactura != null ? retencionFactura : 0.0));
         
@@ -389,7 +387,6 @@ public class FacturaService {
         // Actualizar campos
         factura.setFecha(facturaDTO.getFecha() != null ? facturaDTO.getFecha() : factura.getFecha());
         factura.setSubtotal(facturaDTO.getSubtotal());
-        factura.setDescuentos(facturaDTO.getDescuentos() != null ? facturaDTO.getDescuentos() : 0.0);
         // Calcular IVA: si viene en el DTO se usa, si no se calcula desde el subtotal
         if (facturaDTO.getIva() != null && facturaDTO.getIva() > 0) {
             factura.setIva(facturaDTO.getIva());
@@ -449,7 +446,6 @@ public class FacturaService {
         dto.setNumeroFactura(factura.getNumeroFactura());
         dto.setFecha(factura.getFecha());
         dto.setSubtotal(factura.getSubtotal());
-        dto.setDescuentos(factura.getDescuentos());
         dto.setIva(factura.getIva());
         dto.setRetencionFuente(factura.getRetencionFuente());
         dto.setTotal(factura.getTotal());
@@ -703,8 +699,7 @@ public class FacturaService {
             return 0.0;
         }
         
-        Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
-        Double baseConIva = Math.max(0, totalOrden - descuentos);
+        Double baseConIva = Math.max(0, totalOrden);
         
         if (baseConIva <= 0) {
             return 0.0;
@@ -800,8 +795,7 @@ public class FacturaService {
             return 0.0;
         }
         
-        Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
-        Double baseConIva = Math.max(0, totalOrden - descuentos);
+        Double baseConIva = Math.max(0, totalOrden);
         
         if (baseConIva <= 0) {
             return 0.0;

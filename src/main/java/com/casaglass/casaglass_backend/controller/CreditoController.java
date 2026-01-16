@@ -372,7 +372,7 @@ public class CreditoController {
      * Incluye:
      * - Datos del crédito (id, totalCredito, totalAbonado, saldoPendiente, estado)
      * - Datos de la orden (id, numero, fecha, obra)
-     * - Montos (total, subtotal, iva, descuentos)
+     * - Montos (total, subtotal, iva)
      * - Retención de fuente (tieneRetencionFuente, retencionFuente)
      * - Sede y cliente
      * - Información de abonos (fechaUltimoAbono, cantidadAbonos)

@@ -22,7 +22,6 @@ public class OrdenResponseDTO {
     private boolean venta;
     private boolean credito;
     private Double subtotal;
-    private Double descuentos;
     private Double total;
     private boolean incluidaEntrega;
     private String estado;
@@ -42,7 +41,6 @@ public class OrdenResponseDTO {
         this.venta = orden.isVenta();
         this.credito = orden.isCredito();
         this.subtotal = orden.getSubtotal();
-        this.descuentos = orden.getDescuentos();
         this.total = orden.getTotal();
         this.incluidaEntrega = orden.isIncluidaEntrega();
         this.estado = orden.getEstado().name();

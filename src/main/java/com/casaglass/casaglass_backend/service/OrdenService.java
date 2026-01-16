@@ -125,12 +125,8 @@ public class OrdenService {
         }
         subtotalFacturado = Math.round(subtotalFacturado * 100.0) / 100.0;
         
-        // Calcular descuentos (si no viene, usar 0.0)
-        Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
-        orden.setDescuentos(descuentos);
-        
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalFacturado, descuentos, orden.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalFacturado, orden.isTieneRetencionFuente());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
@@ -224,12 +220,8 @@ public class OrdenService {
         orden.setItems(items);
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular descuentos (si no viene, usar 0.0)
-        Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
-        orden.setDescuentos(descuentos);
-        
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
@@ -369,12 +361,8 @@ public class OrdenService {
         orden.setItems(items);
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular descuentos (si no viene, usar 0.0)
-        Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : 0.0;
-        orden.setDescuentos(descuentos);
-        
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
@@ -503,13 +491,10 @@ public class OrdenService {
         
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular descuentos (si no viene, usar el valor actual o 0.0)
-        Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
-        ordenExistente.setDescuentos(descuentos);
         ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
@@ -612,13 +597,10 @@ public class OrdenService {
         
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Calcular descuentos (si no viene, usar el valor actual o 0.0)
-        Double descuentos = ventaDTO.getDescuentos() != null ? ventaDTO.getDescuentos() : (ordenExistente.getDescuentos() != null ? ordenExistente.getDescuentos() : 0.0);
-        ordenExistente.setDescuentos(descuentos);
         ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, descuentos, ventaDTO.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
@@ -725,22 +707,16 @@ public class OrdenService {
      * según la especificación del frontend
      * 
      * @param subtotalFacturado Suma de (precioUnitario × cantidad) de todos los items (CON IVA incluido)
-     * @param descuentos Monto de descuentos aplicados
      * @param tieneRetencionFuente Boolean que indica si aplica retención de fuente
      * @return Array con [subtotalSinIva, iva, retencionFuente, total]
      */
-    private Double[] calcularValoresMonetariosOrden(Double subtotalFacturado, Double descuentos, boolean tieneRetencionFuente) {
+    private Double[] calcularValoresMonetariosOrden(Double subtotalFacturado, boolean tieneRetencionFuente) {
         if (subtotalFacturado == null || subtotalFacturado <= 0) {
             return new Double[]{0.0, 0.0, 0.0, 0.0};
         }
         
-        // Asegurar que descuentos no sea null
-        if (descuentos == null) {
-            descuentos = 0.0;
-        }
-        
-        // Paso 1: Calcular base imponible (total facturado - descuentos)
-        Double baseConIva = subtotalFacturado - descuentos;
+        // Paso 1: Calcular base imponible (total facturado)
+        Double baseConIva = subtotalFacturado;
         if (baseConIva <= 0) {
             return new Double[]{0.0, 0.0, 0.0, 0.0};
         }
@@ -768,8 +744,8 @@ public class OrdenService {
             }
         }
         
-        // Paso 5: Calcular total (total facturado - descuentos, sin restar retención)
-        Double total = subtotalFacturado - descuentos;
+        // Paso 5: Calcular total (total facturado, sin restar retención)
+        Double total = subtotalFacturado;
         total = Math.round(total * 100.0) / 100.0;
         
         return new Double[]{subtotalSinIva, iva, retencionFuente, total};
@@ -799,18 +775,17 @@ public class OrdenService {
      * 💰 CALCULAR RETENCIÓN EN LA FUENTE
      * Calcula la retención en la fuente si aplica según la configuración
      * 
-     * @param subtotal Subtotal de la orden (con IVA incluido)
-     * @param descuentos Descuentos aplicados
+     * @param subtotal Subtotal de la orden (sin IVA)
      * @param tieneRetencionFuente Si la orden tiene retención de fuente habilitada
      * @return Valor de la retención (0.0 si no aplica)
      */
-    private Double calcularRetencionFuente(Double subtotal, Double descuentos, boolean tieneRetencionFuente) {
+    private Double calcularRetencionFuente(Double subtotal, boolean tieneRetencionFuente) {
         if (!tieneRetencionFuente || subtotal == null || subtotal <= 0) {
             return 0.0;
         }
         
-        // Calcular base imponible (subtotal - descuentos)
-        Double baseImponible = subtotal - (descuentos != null ? descuentos : 0.0);
+        // Calcular base imponible (subtotal sin IVA)
+        Double baseImponible = subtotal;
         
         if (baseImponible <= 0) {
             return 0.0;
@@ -1476,7 +1451,6 @@ public class OrdenService {
         dto.setEstado(orden.getEstado());
         dto.setSubtotal(orden.getSubtotal());
         dto.setIva(orden.getIva() != null ? orden.getIva() : 0.0);
-        dto.setDescuentos(orden.getDescuentos());
         dto.setTotal(orden.getTotal());
         // Facturada si existe relación en memoria o en BD
         boolean tieneFactura = (orden.getFactura() != null);
@@ -1552,11 +1526,12 @@ public class OrdenService {
         itemDTO.setPrecioUnitario(item.getPrecioUnitario());
         itemDTO.setTotalLinea(item.getTotalLinea());
         
-        // 🎯 PRODUCTO SIMPLIFICADO (solo código y nombre)
+        // 🎯 PRODUCTO SIMPLIFICADO (código, nombre y color)
         if (item.getProducto() != null) {
             OrdenTablaDTO.ProductoTablaDTO productoDTO = new OrdenTablaDTO.ProductoTablaDTO(
                 item.getProducto().getCodigo(),
-                item.getProducto().getNombre()
+                item.getProducto().getNombre(),
+                item.getProducto().getColor() != null ? item.getProducto().getColor().name() : null
             );
             itemDTO.setProducto(productoDTO);
         }
@@ -1588,9 +1563,6 @@ public class OrdenService {
         orden.setVenta(dto.isVenta());
         orden.setCredito(dto.isCredito());
         orden.setTieneRetencionFuente(dto.isTieneRetencionFuente());
-        // Actualizar descuentos
-        Double descuentos = dto.getDescuentos() != null ? dto.getDescuentos() : (orden.getDescuentos() != null ? orden.getDescuentos() : 0.0);
-        orden.setDescuentos(descuentos);
         
         // Recalcular retención de fuente con el nuevo valor de tieneRetencionFuente
         // (se calculará después cuando se actualice el subtotal)
@@ -1623,14 +1595,8 @@ public class OrdenService {
         }
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        // Asegurar que descuentos no sea null (ya se calculó arriba)
-        if (descuentos == null) {
-            descuentos = 0.0;
-            orden.setDescuentos(descuentos);
-        }
-        
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, descuentos, orden.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, orden.isTieneRetencionFuente());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
@@ -2388,7 +2354,7 @@ public class OrdenService {
             System.out.println("💰 DEBUG: IVA actualizado a: " + dto.getIva());
         }
         
-        // 6️⃣ RECALCULAR TOTAL (suma de items - descuentos, SIN restar retención)
+        // 6️⃣ RECALCULAR TOTAL (suma de items, SIN restar retención)
         // El total facturado NO incluye la retención restada
         // La retención se resta solo para el saldo del crédito
         double subtotalBruto = 0.0;
@@ -2399,8 +2365,7 @@ public class OrdenService {
         }
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
-        Double descuentos = orden.getDescuentos() != null ? orden.getDescuentos() : 0.0;
-        Double totalFacturado = subtotalBruto - descuentos;
+        Double totalFacturado = subtotalBruto;
         totalFacturado = Math.round(totalFacturado * 100.0) / 100.0;
         
         orden.setTotal(totalFacturado);

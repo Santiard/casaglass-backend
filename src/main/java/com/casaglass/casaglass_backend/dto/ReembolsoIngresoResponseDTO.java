@@ -120,11 +120,14 @@ public class ReembolsoIngresoResponseDTO {
         private Long id;
         private String codigo;
         private String nombre;
+        private String color;  // Color del producto (enum serializado como String)
         
         public ProductoSimpleDTO(com.casaglass.casaglass_backend.model.Producto producto) {
             this.id = producto.getId();
             this.codigo = producto.getCodigo();
             this.nombre = producto.getNombre();
+            // Convertir enum a String (puede ser null)
+            this.color = producto.getColor() != null ? producto.getColor().name() : null;
         }
     }
 }
