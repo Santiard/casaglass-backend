@@ -364,9 +364,14 @@ public class CreditoService {
     @Transactional(propagation = Propagation.REQUIRED)
     public Credito crearCreditoParaOrden(Long ordenId, Long clienteId, Double totalOrden, Double retencionFuente) {
         try {
+            // 🔍 DEBUG: Log de entrada
+            System.out.println("💰 DEBUG crearCreditoParaOrden: ordenId=" + ordenId + ", clienteId=" + clienteId + 
+                             ", totalOrden=" + totalOrden + ", retencionFuente=" + retencionFuente);
+            
             // Verificar que no exista ya un crédito para esta orden
             Optional<Credito> existente = creditoRepo.findByOrdenId(ordenId);
             if (existente.isPresent()) {
+                System.out.println("⚠️ WARNING: Ya existe crédito para orden " + ordenId + ", retornando existente");
                 return existente.get(); // Devolver el existente en lugar de fallar
             }
 
@@ -376,9 +381,27 @@ public class CreditoService {
                 throw new IllegalArgumentException("Orden no encontrada con ID: " + ordenId);
             }
 
+            // ✅ VALIDAR QUE totalOrden NO SEA NULL O CERO
+            if (totalOrden == null || totalOrden <= 0) {
+                System.err.println("❌ ERROR: totalOrden es NULL o <= 0: " + totalOrden);
+                throw new IllegalArgumentException("El total de la orden debe ser mayor a 0. Total recibido: " + totalOrden);
+            }
+
             // ✅ CALCULAR SALDO PENDIENTE INICIAL: Total orden - Retención de fuente
             Double retencion = (retencionFuente != null && retencionFuente > 0) ? retencionFuente : 0.0;
             Double saldoPendienteInicial = totalOrden - retencion;
+            
+            // 🔍 DEBUG: Log de cálculos
+            System.out.println("💰 DEBUG: retencion=" + retencion + ", saldoPendienteInicial=" + saldoPendienteInicial);
+            
+            // ✅ VALIDAR QUE saldoPendienteInicial SEA POSITIVO
+            if (saldoPendienteInicial <= 0) {
+                System.err.println("❌ ERROR: saldoPendienteInicial es <= 0: " + saldoPendienteInicial);
+                System.err.println("   totalOrden=" + totalOrden + ", retencion=" + retencion);
+                // Aún así crear el crédito, pero con saldo mínimo de 0.01 para que aparezca en la consulta
+                saldoPendienteInicial = 0.01;
+                System.out.println("⚠️ WARNING: Ajustando saldoPendienteInicial a 0.01 para evitar saldo 0");
+            }
 
             Credito credito = new Credito();
             credito.setCliente(entityManager.getReference(Cliente.class, clienteId));
@@ -389,13 +412,26 @@ public class CreditoService {
             credito.setSaldoPendiente(normalize(saldoPendienteInicial)); // ✅ Ahora resta la retención
             credito.setEstado(Credito.EstadoCredito.ABIERTO);
 
+            // 🔍 DEBUG: Log antes de guardar
+            System.out.println("💰 DEBUG: Crédito a guardar - totalCredito=" + credito.getTotalCredito() + 
+                             ", saldoPendiente=" + credito.getSaldoPendiente() + 
+                             ", estado=" + credito.getEstado());
+
             // ⚡ ESTABLECER RELACIÓN BIDIRECCIONAL CORRECTAMENTE
             orden.setCreditoDetalle(credito);
 
             Credito creditoGuardado = creditoRepo.save(credito);
+            
+            // 🔍 DEBUG: Log después de guardar
+            System.out.println("✅ DEBUG: Crédito guardado con ID=" + creditoGuardado.getId() + 
+                             ", saldoPendiente=" + creditoGuardado.getSaldoPendiente() + 
+                             ", estado=" + creditoGuardado.getEstado());
+            
             return creditoGuardado;
 
         } catch (Exception e) {
+            System.err.println("❌ ERROR al crear crédito: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("Error al crear crédito: " + e.getMessage(), e);
         }
     }
@@ -553,15 +589,45 @@ public class CreditoService {
      */
     @Transactional(readOnly = true)
     public List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> listarCreditosPendientes(Long clienteId) {
-        // Buscar créditos del cliente con estado ABIERTO y saldo > 0
-        List<Credito> creditos = creditoRepo.findByClienteIdAndEstadoAndSaldoPendienteGreaterThan(
-            clienteId, 
-            Credito.EstadoCredito.ABIERTO, 
-            0.0
-        );
+        // 🔍 DEBUG: Log para diagnosticar
+        System.out.println("💰 DEBUG listarCreditosPendientes: clienteId=" + clienteId);
+        
+        // ✅ USAR MÉTODO ALTERNATIVO DIRECTAMENTE: Buscar todos y filtrar manualmente
+        // Esto evita problemas con la comparación de Double en el repositorio
+        List<Credito> todosCreditos = creditoRepo.findByClienteId(clienteId);
+        System.out.println("💰 DEBUG: Total créditos del cliente: " + todosCreditos.size());
+        
+        // 🔍 DEBUG: Log de cada crédito encontrado
+        todosCreditos.forEach(c -> {
+            System.out.println("   - Crédito ID=" + c.getId() + 
+                             ", estado=" + c.getEstado() + 
+                             ", saldoPendiente=" + c.getSaldoPendiente() + 
+                             ", totalCredito=" + c.getTotalCredito() + 
+                             ", totalAbonado=" + c.getTotalAbonado());
+        });
+        
+        // Filtrar por estado ABIERTO y saldo > 0.001 (umbral mínimo para evitar problemas de precisión)
+        List<Credito> creditosFiltrados = todosCreditos.stream()
+            .filter(c -> {
+                boolean estadoOk = c.getEstado() == Credito.EstadoCredito.ABIERTO;
+                boolean saldoOk = c.getSaldoPendiente() != null && c.getSaldoPendiente() > 0.001;
+                
+                if (!estadoOk || !saldoOk) {
+                    System.out.println("   ❌ Filtrado: ID=" + c.getId() + 
+                                     ", estadoOk=" + estadoOk + 
+                                     ", saldoOk=" + saldoOk + 
+                                     ", saldo=" + c.getSaldoPendiente());
+                }
+                
+                return estadoOk && saldoOk;
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
+        // 🔍 DEBUG: Log después de filtro
+        System.out.println("💰 DEBUG: Créditos después de filtro (ABIERTO y saldo > 0.001): " + creditosFiltrados.size());
 
         // Convertir a DTO
-        List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> resultado = creditos.stream()
+        List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> resultado = creditosFiltrados.stream()
             .map(credito -> {
                 com.casaglass.casaglass_backend.dto.CreditoPendienteDTO dto = 
                     new com.casaglass.casaglass_backend.dto.CreditoPendienteDTO(credito);
@@ -585,6 +651,7 @@ public class CreditoService {
             })
             .collect(java.util.stream.Collectors.toList());
 
+        System.out.println("💰 DEBUG: DTOs finales retornados: " + resultado.size());
         return resultado;
     }
 
