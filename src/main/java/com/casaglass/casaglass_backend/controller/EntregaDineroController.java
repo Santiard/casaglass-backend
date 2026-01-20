@@ -478,7 +478,8 @@ public class EntregaDineroController {
             dto.setFechaOrden(abono.getOrden().getFecha());
             dto.setMontoOrden(abono.getOrden().getTotal());
             dto.setObra(abono.getOrden().getObra());
-            dto.setSedeNombre(abono.getOrden().getSede() != null ? abono.getOrden().getSede().getNombre() : null);
+            // ✅ Usar la sede del abono (donde se registró el pago), no la sede de la orden
+            dto.setSedeNombre(abono.getSede() != null ? abono.getSede().getNombre() : null);
             dto.setTrabajadorNombre(abono.getOrden().getTrabajador() != null ? abono.getOrden().getTrabajador().getNombre() : null);
             dto.setYaEntregado(abono.getOrden().isIncluidaEntrega());
             dto.setEstadoOrden(abono.getOrden().getEstado() != null ? abono.getOrden().getEstado().name() : null);

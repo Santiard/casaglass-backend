@@ -50,12 +50,13 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
     /**
      * 💰 ABONOS DISPONIBLES PARA ENTREGA
      * ⚠️ EXCLUYE abonos del cliente especial (ID 499 - JAIRO JAVIER VELANDIA)
+     * ✅ Usa la sede del ABONO (donde se registró el pago), no la sede de la orden
      */
     @Query("SELECT DISTINCT a FROM Abono a " +
            "JOIN a.orden o " +
            "LEFT JOIN EntregaDetalle ed ON ed.abono.id = a.id WHERE " +
-           "o.cliente.id != 499 AND " + // ⚠️ EXCLUIR CLIENTE ESPECIAL
-           "o.sede.id = :sedeId AND " +
+           "a.cliente.id != 499 AND " + // ⚠️ EXCLUIR CLIENTE ESPECIAL
+           "a.sede.id = :sedeId AND " + // ✅ Sede donde se registró el abono (donde se recibió el pago)
            "a.fecha BETWEEN :fechaDesde AND :fechaHasta AND " +
            "o.credito = true AND " +
            "o.venta = true AND " +
@@ -70,17 +71,17 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
     /**
      * 🔍 BÚSQUEDA AVANZADA DE ABONOS CON MÚLTIPLES FILTROS
      * Todos los parámetros son opcionales (nullable)
+     * ✅ Usa la sede del ABONO (donde se registró el pago), no la sede de la orden
      */
     @Query("SELECT DISTINCT a FROM Abono a " +
            "LEFT JOIN a.credito c " +
            "LEFT JOIN a.orden o " +
-           "LEFT JOIN o.sede s " +
            "WHERE (:clienteId IS NULL OR a.cliente.id = :clienteId) AND " +
            "(:creditoId IS NULL OR a.credito.id = :creditoId) AND " +
            "(:fechaDesde IS NULL OR a.fecha >= :fechaDesde) AND " +
            "(:fechaHasta IS NULL OR a.fecha <= :fechaHasta) AND " +
            "(:metodoPago IS NULL OR LOWER(a.metodoPago) LIKE LOWER(CONCAT('%', :metodoPago, '%'))) AND " +
-           "(:sedeId IS NULL OR o.sede.id = :sedeId) " +
+           "(:sedeId IS NULL OR a.sede.id = :sedeId) " + // ✅ Sede donde se registró el abono
            "ORDER BY a.fecha DESC, a.id DESC")
     List<Abono> buscarConFiltros(
         @Param("clienteId") Long clienteId,

@@ -5,6 +5,7 @@ import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.AbonoRepository;
 import com.casaglass.casaglass_backend.repository.CreditoRepository;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
+import com.casaglass.casaglass_backend.repository.SedeRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -19,15 +20,18 @@ public class AbonoService {
     private final AbonoRepository abonoRepo;
     private final CreditoRepository creditoRepo;
     private final OrdenRepository ordenRepo;
+    private final SedeRepository sedeRepo;
     private final CreditoService creditoService;
 
     public AbonoService(AbonoRepository abonoRepo,
                         CreditoRepository creditoRepo,
                         OrdenRepository ordenRepo,
+                        SedeRepository sedeRepo,
                         CreditoService creditoService) {
         this.abonoRepo = abonoRepo;
         this.creditoRepo = creditoRepo;
         this.ordenRepo = ordenRepo;
+        this.sedeRepo = sedeRepo;
         this.creditoService = creditoService;
     }
 
@@ -99,12 +103,26 @@ public class AbonoService {
             );
         }
 
+        // ✅ VALIDAR Y OBTENER LA SEDE DONDE SE REGISTRA EL ABONO
+        if (abonoDTO.getSedeId() == null) {
+            throw new IllegalArgumentException("El ID de la sede es obligatorio");
+        }
+        
+        Sede sedeAbono = sedeRepo.findById(abonoDTO.getSedeId())
+            .orElseThrow(() -> new IllegalArgumentException("Sede no encontrada con ID: " + abonoDTO.getSedeId()));
+
+        // Obtener la orden del crédito (para mantener referencia, pero la sede del abono puede ser diferente)
+        Orden ordenCredito = credito.getOrden();
+
         // Crear el abono con los datos del DTO
         Abono abono = new Abono();
         abono.setCredito(credito);
         abono.setCliente(credito.getCliente());
-        abono.setOrden(credito.getOrden());
-        abono.setNumeroOrden(credito.getOrden().getNumero());
+        abono.setSede(sedeAbono); // ✅ Sede donde se registra el pago (puede ser diferente a la sede de la orden)
+        abono.setOrden(ordenCredito); // Mantener referencia a la orden original
+        if (ordenCredito != null) {
+            abono.setNumeroOrden(ordenCredito.getNumero());
+        }
         abono.setFecha(abonoDTO.getFecha());
         abono.setMetodoPago(abonoDTO.getMetodoPago());
         abono.setFactura(abonoDTO.getFactura());
@@ -196,12 +214,27 @@ public class AbonoService {
             }
         }
 
+        // ✅ Sede: usar la del payload si existe, sino usar la de la orden como fallback
+        Sede sedeAbono;
+        if (payload.getSede() != null && payload.getSede().getId() != null) {
+            sedeAbono = sedeRepo.findById(payload.getSede().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Sede no encontrada con ID: " + payload.getSede().getId()));
+        } else if (orden != null && orden.getSede() != null) {
+            // Fallback: usar la sede de la orden si no se especifica
+            sedeAbono = orden.getSede();
+        } else {
+            throw new IllegalArgumentException("La sede es obligatoria para crear un abono");
+        }
+
         // Crear el abono
         Abono abono = new Abono();
         abono.setCredito(credito);
         abono.setCliente(clienteCredito);
+        abono.setSede(sedeAbono); // ✅ Sede donde se registra el pago
         abono.setOrden(orden);
-        abono.setNumeroOrden(orden.getNumero());
+        if (orden != null) {
+            abono.setNumeroOrden(orden.getNumero());
+        }
         abono.setFecha(payload.getFecha() != null ? payload.getFecha() : LocalDate.now());
         abono.setMetodoPago(payload.getMetodoPago() != null ? payload.getMetodoPago() : "TRANSFERENCIA");
         abono.setFactura(payload.getFactura());
@@ -292,6 +325,13 @@ public class AbonoService {
         if (abonoDTO.getFecha() != null) abono.setFecha(abonoDTO.getFecha());
         if (abonoDTO.getMetodoPago() != null) abono.setMetodoPago(abonoDTO.getMetodoPago());
         if (abonoDTO.getFactura() != null) abono.setFactura(abonoDTO.getFactura());
+        
+        // ✅ ACTUALIZAR SEDE (si se proporciona)
+        if (abonoDTO.getSedeId() != null) {
+            Sede nuevaSede = sedeRepo.findById(abonoDTO.getSedeId())
+                .orElseThrow(() -> new IllegalArgumentException("Sede no encontrada con ID: " + abonoDTO.getSedeId()));
+            abono.setSede(nuevaSede);
+        }
 
         // ✅ ACTUALIZAR CAMPOS NUMÉRICOS
         abono.setMontoEfectivo(abonoDTO.getMontoEfectivo() != null ? abonoDTO.getMontoEfectivo() : 0.0);

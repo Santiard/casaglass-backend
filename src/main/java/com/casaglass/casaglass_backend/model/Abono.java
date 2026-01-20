@@ -12,7 +12,8 @@ import java.time.LocalDate;
        indexes = {
          @Index(name = "idx_abono_credito", columnList = "credito_id"),
          @Index(name = "idx_abono_orden", columnList = "orden_id"),
-         @Index(name = "idx_abono_cliente", columnList = "cliente_id")
+         @Index(name = "idx_abono_cliente", columnList = "cliente_id"),
+         @Index(name = "idx_abono_sede", columnList = "sede_id")
        })
 @Data
 @NoArgsConstructor
@@ -46,6 +47,12 @@ public class Abono {
     @JoinColumn(name = "cliente_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Cliente cliente;
+
+    /** Sede donde se registra el abono (donde se recibe el pago) - Puede ser diferente a la sede de la orden */
+    @ManyToOne(optional = false, fetch = FetchType.EAGER)
+    @JoinColumn(name = "sede_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Sede sede;
 
     @NotNull
     private LocalDate fecha;

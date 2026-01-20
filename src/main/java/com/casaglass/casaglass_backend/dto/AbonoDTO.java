@@ -42,4 +42,8 @@ public class AbonoDTO {
     
     /** Monto de retención en la fuente aplicado en este abono específico */
     private Double montoRetencion = 0.0;
+    
+    /** ID de la sede donde se registra el abono (OBLIGATORIO para reportes por sede) */
+    @NotNull(message = "El ID de la sede es obligatorio")
+    private Long sedeId;
 }
