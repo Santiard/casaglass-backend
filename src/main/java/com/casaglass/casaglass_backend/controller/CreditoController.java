@@ -394,21 +394,16 @@ public class CreditoController {
     @GetMapping("/cliente/{clienteId}/pendientes")
     public ResponseEntity<?> listarCreditosPendientes(@PathVariable Long clienteId) {
         try {
-            System.out.println("💰 DEBUG: Endpoint /creditos/cliente/" + clienteId + "/pendientes");
-            
             List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> creditos = 
                 service.listarCreditosPendientes(clienteId);
             
             return ResponseEntity.ok(creditos);
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION"
             ));
         } catch (Exception e) {
-            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"
