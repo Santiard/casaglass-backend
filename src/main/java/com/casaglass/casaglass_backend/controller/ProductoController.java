@@ -118,8 +118,6 @@ public class ProductoController {
             
             return ResponseEntity.ok(resultado);
         } catch (Exception e) {
-            System.err.println("ERROR en ProductoController.listar: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
@@ -141,14 +139,8 @@ public class ProductoController {
     @PostMapping
     public ResponseEntity<?> crear(@RequestBody Producto producto) {
         try {
-            System.out.println("🔍 DEBUG CONTROLADOR Producto: Recibiendo producto");
-            System.out.println("   - Tipo de objeto recibido: " + producto.getClass().getName());
-            System.out.println("   - Es instancia de ProductoVidrio: " + (producto instanceof com.casaglass.casaglass_backend.model.ProductoVidrio));
-            
             // ✅ Si es ProductoVidrio, NO debe crearse aquí, debe usar el endpoint /api/productos-vidrio
             if (producto instanceof com.casaglass.casaglass_backend.model.ProductoVidrio) {
-                System.err.println("⚠️ ADVERTENCIA: ProductoVidrio recibido en endpoint /api/productos");
-                System.err.println("   Debería usar el endpoint /api/productos-vidrio");
                 return ResponseEntity.badRequest().body("Los productos vidrio deben crearse en /api/productos-vidrio");
             }
             

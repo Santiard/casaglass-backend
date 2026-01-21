@@ -101,27 +101,13 @@ public class IngresoController {
     @PostMapping
     public ResponseEntity<?> crearIngreso(@RequestBody IngresoCreateDTO ingresoDTO) {
         try {
-            System.out.println("🔄 POST /api/ingresos - Creando ingreso desde DTO");
-            System.out.println("📥 Datos recibidos - Proveedor ID: " + 
-                (ingresoDTO.getProveedor() != null ? ingresoDTO.getProveedor().getId() : "null"));
-            System.out.println("📥 Detalles: " + 
-                (ingresoDTO.getDetalles() != null ? ingresoDTO.getDetalles().size() : 0) + " items");
-            
             Ingreso resultado = ingresoService.crearIngresoDesdeDTO(ingresoDTO);
-            
-            System.out.println("✅ Ingreso creado exitosamente - ID: " + resultado.getId());
-            
             return ResponseEntity.ok(resultado);
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ Error de validación: " + e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            System.err.println("❌ Error de ejecución: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
         } catch (Exception e) {
-            System.err.println("❌ Error inesperado: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body("Error inesperado: " + e.getMessage());
         }
     }
@@ -129,12 +115,7 @@ public class IngresoController {
     @PutMapping("/{id}")
     public ResponseEntity<?> actualizarIngreso(@PathVariable Long id, @RequestBody Ingreso ingreso) {
         try {
-            System.out.println("🔄 PUT /api/ingresos/" + id + " - Iniciando actualización");
-            System.out.println("📥 Datos recibidos: " + ingreso.getNumeroFactura());
-            
             Ingreso resultado = ingresoService.actualizarIngreso(id, ingreso);
-            
-            System.out.println("✅ Actualización exitosa - ID: " + resultado.getId());
             
             // 🔧 ARREGLO: Recargar la entidad para evitar problemas de serialización
             Ingreso ingresoLimpio = ingresoService.obtenerIngresoPorId(id)
@@ -142,15 +123,10 @@ public class IngresoController {
             
             return ResponseEntity.ok(ingresoLimpio);
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ Error de validación: " + e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            System.err.println("❌ Error de ejecución: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
         } catch (Exception e) {
-            System.err.println("❌ Error inesperado: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(500).body("Error inesperado: " + e.getMessage());
         }
     }

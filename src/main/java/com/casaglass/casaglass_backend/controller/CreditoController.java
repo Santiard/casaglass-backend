@@ -447,20 +447,16 @@ public class CreditoController {
             ));
 
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION"
             ));
         } catch (IllegalStateException e) {
-            System.err.println("❌ ERROR ESTADO: " + e.getMessage());
             return ResponseEntity.status(409).body(Map.of( // 409 Conflict
                 "error", e.getMessage(),
                 "tipo", "CONFLICTO_ESTADO"
             ));
         } catch (Exception e) {
-            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"

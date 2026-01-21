@@ -29,7 +29,6 @@ public class FacturaController {
     @PostMapping
     public ResponseEntity<?> crearFactura(@RequestBody FacturaCreateDTO facturaDTO) {
         try {
-            System.out.println("🧾 Creando factura para orden: " + facturaDTO.getOrdenId());
             Factura factura = facturaService.crearFactura(facturaDTO);
             return ResponseEntity.ok(Map.of(
                     "mensaje", "Factura creada exitosamente",
@@ -37,14 +36,11 @@ public class FacturaController {
                     "numeroFactura", factura.getNumeroFactura()
             ));
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ Error de validación: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                     "error", e.getMessage(),
                     "tipo", "VALIDACION"
             ));
         } catch (Exception e) {
-            System.err.println("❌ Error interno: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "error", "Error interno del servidor: " + e.getMessage(),
                     "tipo", "SERVIDOR"

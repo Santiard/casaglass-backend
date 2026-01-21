@@ -174,9 +174,6 @@ public class FacturaService {
             // Si el mapeo no es propietario, ignoramos el fallo; el cálculo de 'facturada' usa repo
         }
 
-        System.out.println("✅ Factura creada exitosamente - Número: " + facturaGuardada.getNumeroFactura());
-    // ...existing code...
-
         return facturaGuardada;
     }
 

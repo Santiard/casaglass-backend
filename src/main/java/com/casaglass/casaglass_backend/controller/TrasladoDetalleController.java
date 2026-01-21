@@ -99,22 +99,11 @@ public ResponseEntity<?> obtener(@PathVariable Long trasladoId,
     public ResponseEntity<?> actualizarBatch(@PathVariable Long trasladoId,
                                              @Valid @RequestBody TrasladoDetalleBatchDTO batchDTO) {
         try {
-            System.out.println("📥 DEBUG Controller: Recibido batchDTO para trasladoId=" + trasladoId);
-            System.out.println("📥 DEBUG Controller: batchDTO.getEliminar() = " + batchDTO.getEliminar());
-            System.out.println("📥 DEBUG Controller: batchDTO.getCrear() = " + batchDTO.getCrear());
-            System.out.println("📥 DEBUG Controller: batchDTO.getActualizar() = " + batchDTO.getActualizar());
-            
             List<TrasladoDetalle> detallesActualizados = trasladoService.actualizarDetallesBatch(trasladoId, batchDTO);
-            
-            System.out.println("✅ DEBUG Controller: Proceso batch completado. Detalles retornados: " + detallesActualizados.size());
             return ResponseEntity.ok(detallesActualizados);
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ ERROR Controller (IllegalArgumentException): " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {
-            System.err.println("❌ ERROR Controller (RuntimeException): " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }

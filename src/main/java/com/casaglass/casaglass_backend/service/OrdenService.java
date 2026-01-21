@@ -147,10 +147,7 @@ public class OrdenService {
         // ⚠️ SOLO descontar inventario si es una VENTA confirmada
         // Las cotizaciones (venta=false) NO afectan el stock
         if (ordenGuardada.isVenta()) {
-            System.out.println("✅ VENTA CONFIRMADA - Descontando inventario...");
             actualizarInventarioPorVenta(ordenGuardada);
-        } else {
-            System.out.println("📋 COTIZACIÓN - Inventario NO afectado");
         }
         
         return ordenGuardada;
@@ -379,8 +376,6 @@ public class OrdenService {
         
         // 💾 GUARDAR ORDEN PRIMERO
         Orden ordenGuardada = repo.save(orden);
-        System.out.println("✅ DEBUG: Orden guardada con ID: " + ordenGuardada.getId());
-            // ...existing code...
         
         // 💳 CREAR CRÉDITO SI ES NECESARIO (en la misma transacción)
         if (ventaDTO.isCredito()) {
@@ -432,8 +427,6 @@ public class OrdenService {
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
         
         // 🔄 RESTAURAR INVENTARIO DE LA ORDEN ANTERIOR
-        System.out.println("🔄 Restaurando inventario de la orden anterior...");
-            // ...existing code...
         restaurarInventarioPorAnulacion(ordenExistente);
         
         // 📝 ACTUALIZAR CAMPOS BÁSICOS
@@ -518,8 +511,6 @@ public class OrdenService {
             procesarCortes(ordenActualizada, ventaDTO.getCortes());
         }
         
-        System.out.println("✅ Orden actualizada exitosamente: " + ordenActualizada.getId());
-            // ...existing code...
         return ordenActualizada;
     }
 
@@ -539,7 +530,6 @@ public class OrdenService {
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
         
         // 🔄 RESTAURAR INVENTARIO DE LA ORDEN ANTERIOR
-        System.out.println("🔄 Restaurando inventario de la orden anterior...");
         restaurarInventarioPorAnulacion(ordenExistente);
         
         // 📝 ACTUALIZAR CAMPOS BÁSICOS
@@ -614,8 +604,6 @@ public class OrdenService {
         
         // 💾 GUARDAR ORDEN ACTUALIZADA PRIMERO
         Orden ordenActualizada = repo.save(ordenExistente);
-        System.out.println("✅ DEBUG: Orden actualizada con ID: " + ordenActualizada.getId());
-            // ...existing code...
         
         // 💳 ACTUALIZAR CRÉDITO SI ES NECESARIO
         if (ventaDTO.isCredito()) {
@@ -641,8 +629,6 @@ public class OrdenService {
         } else {
             // Si se cambió de crédito a contado, anular el crédito existente
             if (ordenActualizada.getCreditoDetalle() != null) {
-                System.out.println("🔄 DEBUG: Anulando crédito existente...");
-                            // ...existing code...
                 creditoService.anularCredito(ordenActualizada.getCreditoDetalle().getId());
             }
         }
@@ -656,8 +642,6 @@ public class OrdenService {
             procesarCortes(ordenActualizada, ventaDTO.getCortes());
         }
         
-        System.out.println("✅ Orden con crédito actualizada exitosamente: " + ordenActualizada.getId());
-            // ...existing code...
         return ordenActualizada;
     }
 
@@ -1630,13 +1614,9 @@ public class OrdenService {
         // 📦 MANEJO DE INVENTARIO: Descontar stock si se confirmó una cotización
         // Si cambió de cotización (venta=false) a venta (venta=true), descontar inventario
         if (!eraVentaAntes && ordenActualizada.isVenta()) {
-            System.out.println("✅ COTIZACIÓN CONFIRMADA → VENTA - Descontando inventario...");
             actualizarInventarioPorVenta(ordenActualizada);
         } else if (eraVentaAntes && !ordenActualizada.isVenta()) {
-            System.out.println("⚠️ VENTA REVERTIDA → COTIZACIÓN - Restaurando inventario...");
             restaurarInventarioPorAnulacion(ordenActualizada);
-        } else if (!ordenActualizada.isVenta()) {
-            System.out.println("📋 Actualización de COTIZACIÓN - Inventario NO afectado");
         }
         // ...existing code...
 
@@ -1793,8 +1773,6 @@ public class OrdenService {
             return;
         }
 
-        System.out.println("🔄 Actualizando inventario para orden ID: " + orden.getId());
-        
         // 🔪 Obtener IDs de productos que están siendo cortados (en cortes[])
         Set<Long> productosEnCortes = new HashSet<>();
         if (ventaDTO != null && ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
@@ -1831,8 +1809,6 @@ public class OrdenService {
                 }
             }
         }
-        
-        System.out.println("✅ Inventario actualizado correctamente para orden ID: " + orden.getId());
     }
     
     /**
@@ -1857,8 +1833,8 @@ public class OrdenService {
     @Transactional
     private void actualizarInventarioConcurrente(Long productoId, Long sedeId, Double cantidadVendida) {
         try {
-            // 🔍 BUSCAR INVENTARIO CON LOCK PESIMISTA
-            Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSedeConLock(productoId, sedeId);
+            // 🔍 BUSCAR INVENTARIO (usa lock optimista vía @Version en la entidad)
+            Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
             
             if (!inventarioOpt.isPresent()) {
                 throw new IllegalArgumentException(
@@ -1867,51 +1843,33 @@ public class OrdenService {
             }
             
             Inventario inventario = inventarioOpt.get();
-            double cantidadActual = inventario.getCantidad();
-            
-            System.out.println("📊 Stock actual: " + cantidadActual + ", cantidad a vender: " + cantidadVendida);
             
             // ➖ ACTUALIZAR CANTIDAD (permite valores negativos para ventas anticipadas)
-            double nuevaCantidad = cantidadActual - cantidadVendida;
+            double nuevaCantidad = inventario.getCantidad() - cantidadVendida;
             
             inventario.setCantidad(nuevaCantidad);
             inventarioService.actualizar(inventario.getId(), inventario);
-            
-            System.out.println("✅ Stock actualizado: " + cantidadActual + " → " + nuevaCantidad + 
-                             (nuevaCantidad < 0 ? " (⚠️ Stock negativo - venta anticipada)" : ""));
             
         } catch (IllegalArgumentException e) {
             // Re-lanzar errores de validación
             throw e;
         } catch (jakarta.persistence.OptimisticLockException e) {
             // 🔒 Lock optimista: Otro proceso modificó el inventario (muy raro)
-            System.err.println("⚠️ Conflicto de versión (lock optimista): " + e.getMessage());
-            e.printStackTrace(); // Log completo para debugging
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
             // 🔒 Variante de Spring para OptimisticLockException
-            System.err.println("⚠️ Conflicto de versión (Spring): " + e.getMessage());
-            e.printStackTrace(); // Log completo para debugging
             throw new RuntimeException(
                 String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
             );
         } catch (org.springframework.dao.DataAccessException e) {
             // Otros errores de base de datos
-            System.err.println("❌ Error de base de datos al actualizar inventario producto ID " + productoId);
-            System.err.println("❌ Tipo de excepción: " + e.getClass().getName());
-            System.err.println("❌ Mensaje: " + e.getMessage());
-            e.printStackTrace(); // Log completo para debugging
             throw new RuntimeException(
                 String.format("❌ Error de base de datos al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
             );
         } catch (Exception e) {
             // Manejar otros errores inesperados
-            System.err.println("❌ Error inesperado en inventario producto ID " + productoId);
-            System.err.println("❌ Tipo de excepción: " + e.getClass().getName());
-            System.err.println("❌ Mensaje: " + e.getMessage());
-            e.printStackTrace(); // Log completo para debugging
             throw new RuntimeException(
                 String.format("❌ Error inesperado al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
             );
@@ -1977,8 +1935,7 @@ public class OrdenService {
             try {
                 creditoService.anularCredito(orden.getCreditoDetalle().getId());
             } catch (Exception e) {
-                // Si falla la anulación del crédito, registrar el error pero continuar con la anulación de la orden
-                System.err.println("Error al anular crédito para orden " + orden.getId() + ": " + e.getMessage());
+                // Si falla la anulación del crédito, continuar con la anulación de la orden
             }
         }
 
@@ -2001,16 +1958,9 @@ public class OrdenService {
      */
     @Transactional
     private void procesarCortes(Orden orden, List<OrdenVentaDTO.CorteSolicitadoDTO> cortes) {
-        System.out.println("🔪 Iniciando procesamiento de " + cortes.size() + " cortes...");
-        
         for (OrdenVentaDTO.CorteSolicitadoDTO corteDTO : cortes) {
-            System.out.println("🔪 Procesando corte: ProductoId=" + corteDTO.getProductoId() + 
-                             ", Medida solicitada=" + corteDTO.getMedidaSolicitada() + "cm" +
-                             ", Cantidad=" + corteDTO.getCantidad());
-            
             // Validar que tenga cantidades por sede
             if (corteDTO.getCantidadesPorSede() == null || corteDTO.getCantidadesPorSede().isEmpty()) {
-                System.err.println("⚠️ Corte sin cantidades por sede, omitiendo...");
                 continue;
             }
             
@@ -2038,9 +1988,6 @@ public class OrdenService {
                 orden.getSede().getId(),
                 "SOLICITADO" // Solo para logging interno, no se incluye en el nombre
             );
-            System.out.println("✅ Corte solicitado: ID=" + corteSolicitado.getId() + 
-                             ", Código=" + corteSolicitado.getCodigo() + 
-                             ", Largo=" + corteSolicitado.getLargoCm() + "cm");
             
             // 3. Determinar corte sobrante (reutilizar si llega ID, de lo contrario crear)
             Corte corteSobrante;
@@ -2050,9 +1997,6 @@ public class OrdenService {
                 if (actualizarPrecioCortePorSede(corteSobrante, corteDTO.getPrecioUnitarioSobrante(), orden.getSede().getId())) {
                     corteService.guardar(corteSobrante);
                 }
-                System.out.println("🔁 Reutilizando corte sobrante existente: ID=" + corteSobrante.getId() + 
-                                 ", Código=" + corteSobrante.getCodigo() + 
-                                 ", Largo=" + corteSobrante.getLargoCm() + "cm");
             } else {
                 // Usar medidaSobrante del DTO, o calcular si no viene (600cm por defecto)
                 Integer medidaSobrante = corteDTO.getMedidaSobrante() != null 
@@ -2065,9 +2009,6 @@ public class OrdenService {
                     orden.getSede().getId(),
                     "SOBRANTE" // Solo para logging interno, no se incluye en el nombre
                 );
-                System.out.println("🆕 Corte sobrante creado: ID=" + corteSobrante.getId() + 
-                                 ", Código=" + corteSobrante.getCodigo() + 
-                                 ", Largo=" + corteSobrante.getLargoCm() + "cm");
             }
             
             // 4. INCREMENTAR INVENTARIO DE AMBOS CORTES (simula el corte)
@@ -2079,20 +2020,12 @@ public class OrdenService {
             
             // NO incrementar inventario del corte solicitado (el vendido)
             // El corte solicitado debe quedar con stock 0 tras la venta
-            System.out.println("📦 Stock del corte solicitado NO incrementado (venta): Corte ID=" + corteSolicitado.getId() + 
-                             ", Sede ID=" + sedeId + ", Cantidad: 0 (se vende inmediatamente)");
             
             // Si ambos cortes son el mismo (ej: corte por la mitad), solo uno debe quedar en inventario
             if (corteSolicitado.getId().equals(corteSobrante.getId())) {
                 // Solo incrementar stock si la cantidad es 2.0 (caso típico de corte por la mitad)
                 if (cantidad == 2.0) {
                     inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, 1.0);
-                    System.out.println("📦 Corte por la mitad: stock final: Corte ID=" + corteSobrante.getId() + 
-                                     ", Sede ID=" + sedeId + ", Cantidad: 1");
-                } else {
-                    // Si la cantidad no es 2, no incrementar stock (ambos se venden)
-                    System.out.println("📦 Ambos cortes vendidos, stock final: Corte ID=" + corteSobrante.getId() + 
-                                     ", Sede ID=" + sedeId + ", Cantidad: 0");
                 }
             } else {
                 if (corteDTO.getCantidadesPorSede() != null && !corteDTO.getCantidadesPorSede().isEmpty()) {
@@ -2108,25 +2041,13 @@ public class OrdenService {
                             sedeIdSobrante,
                             cantidadSobrante
                         );
-                        System.out.println("📦 Stock del corte sobrante incrementado: Corte ID=" + corteSobrante.getId() + 
-                                         ", Sede ID=" + sedeIdSobrante + ", Cantidad: +" + cantidadSobrante);
                     }
                 } else {
                     // Si no hay cantidadesPorSede específicas, incrementar en la sede de la orden
                     inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, cantidad);
-                    System.out.println("📦 Stock del corte sobrante incrementado (sede de orden): Corte ID=" + corteSobrante.getId() + 
-                                     ", Sede ID=" + sedeId + ", Cantidad: +" + cantidad);
                 }
             }
-            
-            System.out.println("✅ Cortes procesados: Solicitado ID=" + corteSolicitado.getId() + 
-                             " (" + corteSolicitado.getLargoCm() + "cm), " +
-                             "Sobrante ID=" + corteSobrante.getId() + 
-                             " (" + corteSobrante.getLargoCm() + "cm)");
         }
-        
-        System.out.println("✅ Procesamiento de cortes completado");
-        System.out.println("ℹ️ NOTA: El inventario del corte solicitado se decrementará cuando se procese la venta");
     }
     
     /**
@@ -2174,8 +2095,6 @@ public class OrdenService {
                     corteService.guardar(corteExistente); // sincroniza nombre/precio
                 }
 
-                System.out.println("🔁 Reutilizando corte existente: " + corteExistente.getCodigo() + 
-                                 " (ID=" + corteExistente.getId() + ", Largo=" + medida + "cm)");
                 return corteExistente;
             }
         }
@@ -2289,16 +2208,9 @@ public class OrdenService {
                 Long corteId = itemDTO.getReutilizarCorteSolicitadoId();
                 Double cantidad = itemDTO.getCantidad();
                 
-                System.out.println("🔪 Reutilizando corte solicitado ID=" + corteId + 
-                                 " → Incrementando inventario en +" + cantidad + 
-                                 " (se está cortando de nuevo)");
-                
                 // Incrementar inventario del corte reutilizado
                 // Esto simula que se está haciendo el corte (inventario pasa a 1 o más)
                 inventarioCorteService.incrementarStock(corteId, sedeId, cantidad);
-                
-                System.out.println("✅ Inventario del corte reutilizado incrementado: Corte ID=" + corteId + 
-                                 ", Sede ID=" + sedeId + ", Cantidad agregada=" + cantidad);
             }
         }
     }
@@ -2335,9 +2247,6 @@ public class OrdenService {
      */
     @Transactional
     public Orden actualizarRetencionFuente(Long ordenId, com.casaglass.casaglass_backend.dto.RetencionFuenteDTO dto) {
-        System.out.println("💰 DEBUG: Actualizando retención de fuente para orden ID: " + ordenId);
-        System.out.println("💰 DEBUG: Datos recibidos: " + dto);
-        
         // 1️⃣ BUSCAR ORDEN EXISTENTE
         Orden orden = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
@@ -2367,7 +2276,6 @@ public class OrdenService {
         // 5️⃣ ACTUALIZAR IVA SI SE PROPORCIONÓ (OPCIONAL)
         if (dto.getIva() != null) {
             orden.setIva(dto.getIva());
-            System.out.println("💰 DEBUG: IVA actualizado a: " + dto.getIva());
         }
         
         // 6️⃣ RECALCULAR TOTAL (suma de items, SIN restar retención)
@@ -2385,17 +2293,13 @@ public class OrdenService {
         totalFacturado = Math.round(totalFacturado * 100.0) / 100.0;
         
         orden.setTotal(totalFacturado);
-        System.out.println("💰 DEBUG: Total facturado recalculado: " + totalFacturado);
         
         // 7️⃣ GUARDAR ORDEN
         Orden ordenActualizada = repo.save(orden);
-        System.out.println("✅ DEBUG: Orden actualizada exitosamente");
         
         // 8️⃣ ACTUALIZAR CRÉDITO SI EXISTE
         if (orden.isCredito() && orden.getCreditoDetalle() != null) {
-            System.out.println("💳 DEBUG: Actualizando crédito asociado...");
             creditoService.recalcularTotales(orden.getCreditoDetalle().getId());
-            System.out.println("✅ DEBUG: Crédito recalculado exitosamente");
         }
         
         return ordenActualizada;

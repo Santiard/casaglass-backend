@@ -332,11 +332,6 @@ public class TrasladoService {
      */
     @Transactional
     public List<TrasladoDetalle> actualizarDetallesBatch(Long trasladoId, TrasladoDetalleBatchDTO batchDTO) {
-        System.out.println("🔄 DEBUG: Iniciando actualizarDetallesBatch para trasladoId=" + trasladoId);
-        System.out.println("🔄 DEBUG: batchDTO.getEliminar() = " + batchDTO.getEliminar());
-        System.out.println("🔄 DEBUG: batchDTO.getEliminar() es null? " + (batchDTO.getEliminar() == null));
-        System.out.println("🔄 DEBUG: batchDTO.getEliminar() está vacío? " + (batchDTO.getEliminar() != null && batchDTO.getEliminar().isEmpty()));
-        
         // 1️⃣ Validar que el traslado existe
         Traslado traslado = repo.findById(trasladoId)
                 .orElseThrow(() -> new RuntimeException("Traslado no encontrado con id " + trasladoId));
@@ -346,10 +341,7 @@ public class TrasladoService {
         
         // 2️⃣ ELIMINAR detalles (revertir inventario primero)
         if (batchDTO.getEliminar() != null && !batchDTO.getEliminar().isEmpty()) {
-            System.out.println("🗑️ DEBUG: Entrando al bloque de eliminación. IDs a eliminar: " + batchDTO.getEliminar());
-            
             for (Long detalleId : batchDTO.getEliminar()) {
-                System.out.println("🗑️ DEBUG: Procesando eliminación de detalleId=" + detalleId);
                 TrasladoDetalle detalle = detalleRepo.findById(detalleId)
                         .orElseThrow(() -> new RuntimeException("Detalle no encontrado con id " + detalleId));
                 
@@ -361,31 +353,19 @@ public class TrasladoService {
                 Long productoId = detalle.getProducto().getId();
                 Double cantidad = detalle.getCantidad();
                 
-                System.out.println("🔄 DEBUG: Revertiendo inventario para detalleId=" + detalleId + 
-                                   ", productoId=" + productoId + ", cantidad=" + cantidad);
-                System.out.println("🔄 DEBUG: Sede origen ID=" + sedeOrigenId + " (sumar " + cantidad + ")");
-                System.out.println("🔄 DEBUG: Sede destino ID=" + sedeDestinoId + " (restar " + cantidad + ")");
-                
                 // Devolver cantidad a sede origen (sumar)
                 ajustarInventario(productoId, sedeOrigenId, cantidad, "origen");
                 // Restar cantidad de sede destino
                 ajustarInventario(productoId, sedeDestinoId, -cantidad, "destino");
                 
-                System.out.println("✅ DEBUG: Inventario revertido correctamente para detalleId=" + detalleId);
-                
-                System.out.println("🗑️ DEBUG: Eliminando detalleId=" + detalleId);
                 // ✅ Eliminar el detalle después de revertir el inventario
                 // Usar consulta nativa DELETE para asegurar ejecución inmediata
                 detalleRepo.deleteByIdNative(detalleId);
-                System.out.println("✅ DEBUG: DetalleId=" + detalleId + " eliminado con DELETE nativo");
             }
             // Forzar flush de todas las eliminaciones juntas
             detalleRepo.flush();
             // Forzar flush a nivel de EntityManager para asegurar persistencia
             em.flush();
-            System.out.println("✅ DEBUG: Todas las eliminaciones persistidas");
-        } else {
-            System.out.println("⚠️ DEBUG: NO se procesaron eliminaciones. getEliminar() es null o está vacío");
         }
         
         // 3️⃣ ACTUALIZAR detalles existentes
@@ -470,10 +450,7 @@ public class TrasladoService {
         em.clear(); // Limpiar caché para forzar consulta fresca desde BD
         
         // Consultar detalles directamente desde BD (sin caché, después de limpiar)
-        List<TrasladoDetalle> detallesActualizados = detalleRepo.findByTrasladoId(trasladoId);
-        System.out.println("📋 DEBUG: Detalles finales retornados: " + detallesActualizados.size() + 
-                         " (IDs: " + detallesActualizados.stream().map(d -> d.getId()).toList() + ")");
-        return detallesActualizados;
+        return detalleRepo.findByTrasladoId(trasladoId);
     }
     
     /**

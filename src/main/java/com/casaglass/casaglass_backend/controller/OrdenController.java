@@ -72,33 +72,6 @@ public class OrdenController {
     @PutMapping("/venta/{id}")
     public ResponseEntity<?> actualizarOrdenVenta(@PathVariable Long id, @RequestBody OrdenVentaDTO ventaDTO) {
         try {
-            System.out.println("🔄 DEBUG: Actualizando orden de venta ID: " + id);
-            System.out.println("🔄 DEBUG: Datos recibidos: " + ventaDTO);
-            
-            // 🔪 LOGGING DETALLADO PARA CORTES
-            System.out.println("🔪 ===== ANÁLISIS DE CORTES EN ACTUALIZACIÓN =====");
-            System.out.println("🔪 ventaDTO.getCortes() es null? " + (ventaDTO.getCortes() == null));
-            if (ventaDTO.getCortes() != null) {
-                System.out.println("🔪 Cantidad de cortes: " + ventaDTO.getCortes().size());
-                System.out.println("🔪 Lista vacía? " + ventaDTO.getCortes().isEmpty());
-            }
-            
-            if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-                System.out.println("🔪 ✅ CORTES ENCONTRADOS EN ACTUALIZACIÓN - Procesando...");
-                for (int i = 0; i < ventaDTO.getCortes().size(); i++) {
-                    OrdenVentaDTO.CorteSolicitadoDTO corte = ventaDTO.getCortes().get(i);
-                    System.out.println("🔪 Corte " + i + ": " + corte.toString());
-                    System.out.println("🔪   - ProductoId: " + corte.getProductoId());
-                    System.out.println("🔪   - Medida solicitada: " + corte.getMedidaSolicitada());
-                    System.out.println("🔪   - Cantidad: " + corte.getCantidad());
-                    System.out.println("🔪   - Precio solicitado: " + corte.getPrecioUnitarioSolicitado());
-                    System.out.println("🔪   - Precio sobrante: " + corte.getPrecioUnitarioSobrante());
-                }
-            } else {
-                System.out.println("⚠️ ❌ NO SE RECIBIERON CORTES EN LA ACTUALIZACIÓN");
-            }
-            System.out.println("🔪 ================================================");
-            
             // Actualizar orden (con o sin crédito según el flag)
             Orden ordenActualizada;
             if (ventaDTO.isCredito()) {
@@ -107,15 +80,12 @@ public class OrdenController {
                 ordenActualizada = service.actualizarOrdenVenta(id, ventaDTO);
             }
             
-            System.out.println("🔄 DEBUG: Orden actualizada exitosamente: " + ordenActualizada.getId());
-            
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Orden de venta actualizada exitosamente",
                 "orden", ordenActualizada,
                 "numero", ordenActualizada.getNumero()
             ));
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION",
@@ -124,7 +94,6 @@ public class OrdenController {
         } catch (jakarta.persistence.OptimisticLockException | 
                  org.springframework.orm.ObjectOptimisticLockingFailureException e) {
             // 🔒 CONFLICTO DE CONCURRENCIA - Lock optimista detectó modificación simultánea
-            System.err.println("❌ ERROR CONCURRENCIA (Lock Optimista): " + e.getMessage());
             return ResponseEntity.status(409).body(Map.of(
                 "error", "⚠️ Otro usuario modificó el inventario simultáneamente. Por favor, intente nuevamente.",
                 "tipo", "CONCURRENCIA",
@@ -133,9 +102,6 @@ public class OrdenController {
             ));
         } catch (RuntimeException e) {
             // RuntimeException NO es concurrencia, puede ser: entidad no encontrada, etc.
-            System.err.println("❌ ERROR RUNTIME: " + e.getMessage());
-            e.printStackTrace();
-            
             // Detectar si es un error de "no encontrado"
             String mensaje = e.getMessage();
             if (mensaje != null && (mensaje.contains("no encontrado") || mensaje.contains("no encontrada"))) {
@@ -152,8 +118,6 @@ public class OrdenController {
                 "tipo", "ERROR_PROCESAMIENTO"
             ));
         } catch (Exception e) {
-            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"
@@ -163,34 +127,6 @@ public class OrdenController {
     @PostMapping("/venta")
     public ResponseEntity<?> crearOrdenVenta(@RequestBody OrdenVentaDTO ventaDTO) {
         try {
-            System.out.println("🔍 DEBUG: Iniciando creación de orden venta");
-            System.out.println("🔍 DEBUG: Datos recibidos: " + ventaDTO);
-            
-            // 🔪 LOGGING DETALLADO PARA CORTES
-            System.out.println("🔪 ===== ANÁLISIS DE CORTES =====");
-            System.out.println("🔪 ventaDTO.getCortes() es null? " + (ventaDTO.getCortes() == null));
-            if (ventaDTO.getCortes() != null) {
-                System.out.println("🔪 Cantidad de cortes: " + ventaDTO.getCortes().size());
-                System.out.println("🔪 Lista vacía? " + ventaDTO.getCortes().isEmpty());
-            }
-            
-            if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-                System.out.println("🔪 ✅ CORTES ENCONTRADOS - Procesando...");
-                for (int i = 0; i < ventaDTO.getCortes().size(); i++) {
-                    OrdenVentaDTO.CorteSolicitadoDTO corte = ventaDTO.getCortes().get(i);
-                    System.out.println("🔪 Corte " + i + ": " + corte.toString());
-                    System.out.println("🔪   - ProductoId: " + corte.getProductoId());
-                    System.out.println("🔪   - Medida solicitada: " + corte.getMedidaSolicitada());
-                    System.out.println("🔪   - Cantidad: " + corte.getCantidad());
-                    System.out.println("🔪   - Precio solicitado: " + corte.getPrecioUnitarioSolicitado());
-                    System.out.println("🔪   - Precio sobrante: " + corte.getPrecioUnitarioSobrante());
-                }
-            } else {
-                System.out.println("⚠️ ❌ NO SE RECIBIERON CORTES EN EL PAYLOAD");
-                System.out.println("⚠️ Esto puede indicar que el frontend no está enviando los cortes correctamente");
-            }
-            System.out.println("🔪 ================================");
-            
             // Crear orden (con o sin crédito según el flag)
             Orden ordenCreada;
             if (ventaDTO.isCredito()) {
@@ -199,15 +135,12 @@ public class OrdenController {
                 ordenCreada = service.crearOrdenVenta(ventaDTO);
             }
             
-            System.out.println("🔍 DEBUG: Orden creada exitosamente: " + ordenCreada.getId());
-            
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Orden de venta creada exitosamente",
                 "orden", ordenCreada,
                 "numero", ordenCreada.getNumero()
             ));
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION",
@@ -216,7 +149,6 @@ public class OrdenController {
         } catch (jakarta.persistence.OptimisticLockException | 
                  org.springframework.orm.ObjectOptimisticLockingFailureException e) {
             // 🔒 CONFLICTO DE CONCURRENCIA - Lock optimista detectó modificación simultánea
-            System.err.println("❌ ERROR CONCURRENCIA (Lock Optimista): " + e.getMessage());
             return ResponseEntity.status(409).body(Map.of(
                 "error", "⚠️ Otro usuario modificó el inventario simultáneamente. Por favor, intente nuevamente.",
                 "tipo", "CONCURRENCIA",
@@ -225,9 +157,6 @@ public class OrdenController {
             ));
         } catch (RuntimeException e) {
             // RuntimeException NO es concurrencia, puede ser: entidad no encontrada, etc.
-            System.err.println("❌ ERROR RUNTIME: " + e.getMessage());
-            e.printStackTrace();
-            
             // Detectar si es un error de "no encontrado"
             String mensaje = e.getMessage();
             if (mensaje != null && (mensaje.contains("no encontrado") || mensaje.contains("no encontrada"))) {
@@ -244,8 +173,6 @@ public class OrdenController {
                 "tipo", "ERROR_PROCESAMIENTO"
             ));
         } catch (Exception e) {
-            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"
@@ -558,26 +485,18 @@ public class OrdenController {
             @PathVariable Long id,
             @RequestBody com.casaglass.casaglass_backend.dto.RetencionFuenteDTO retencionDTO) {
         try {
-            System.out.println("💰 DEBUG: Actualizando retención de fuente para orden ID: " + id);
-            System.out.println("💰 DEBUG: Datos recibidos: " + retencionDTO);
-            
             Orden ordenActualizada = service.actualizarRetencionFuente(id, retencionDTO);
-            
-            System.out.println("✅ DEBUG: Retención actualizada exitosamente");
             
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Retención de fuente actualizada exitosamente",
                 "orden", ordenActualizada
             ));
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION"
             ));
         } catch (Exception e) {
-            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"

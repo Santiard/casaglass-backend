@@ -214,9 +214,6 @@ public class EntregaDineroController {
     @PostMapping
     public ResponseEntity<?> crear(@Valid @RequestBody EntregaDineroCreateDTO entregaDTO) {
         try {
-            System.out.println("🔍 DEBUG: Creando entrega de dinero");
-            System.out.println("🔍 DEBUG: Datos recibidos: " + entregaDTO);
-            
             // Convertir DTO a entidad
             EntregaDinero entrega = new EntregaDinero();
             
@@ -243,9 +240,6 @@ public class EntregaDineroController {
             entrega.setMontoCheque(entregaDTO.getMontoCheque() != null ? entregaDTO.getMontoCheque() : 0.0);
             entrega.setMontoDeposito(entregaDTO.getMontoDeposito() != null ? entregaDTO.getMontoDeposito() : 0.0);
             
-            System.out.println("🔍 DEBUG: Entrega configurada: " + entrega);
-            System.out.println("🔍 DEBUG: Órdenes a incluir: " + entregaDTO.getOrdenesIds());
-            
             // Obtener IDs de abonos del DTO (para órdenes a crédito)
             List<Long> abonosIds = entregaDTO.getAbonosIds() != null && !entregaDTO.getAbonosIds().isEmpty() 
                 ? entregaDTO.getAbonosIds() 
@@ -264,21 +258,16 @@ public class EntregaDineroController {
                 reembolsosIds
             );
             
-            System.out.println("✅ DEBUG: Entrega creada con ID: " + entregaCreada.getId());
-            
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Entrega creada exitosamente",
                 "entrega", new EntregaDineroResponseDTO(entregaCreada)
             ));
         } catch (IllegalArgumentException e) {
-            System.err.println("❌ ERROR VALIDACION: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
                 "tipo", "VALIDACION"
             ));
         } catch (Exception e) {
-            System.err.println("❌ ERROR SERVIDOR: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),
                 "tipo", "SERVIDOR"
@@ -393,17 +382,11 @@ public class EntregaDineroController {
                                                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
                                                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         try {
-            System.out.println("🔍 DEBUG: Buscando órdenes y abonos disponibles para entrega");
-            System.out.println("🔍 DEBUG: Sede " + sedeId + ", período " + desde + " a " + hasta);
-            
             // Obtener órdenes A CONTADO disponibles
             List<Orden> ordenesContado = entregaDetalleService.obtenerOrdenesContadoDisponibles(sedeId, desde, hasta);
             
             // Obtener ABONOS disponibles (no órdenes) de créditos en el período
             List<Abono> abonosDisponibles = abonoService.obtenerAbonosDisponiblesParaEntrega(sedeId, desde, hasta);
-            
-            System.out.println("🔍 DEBUG: Encontradas " + ordenesContado.size() + " órdenes a contado");
-            System.out.println("🔍 DEBUG: Encontrados " + abonosDisponibles.size() + " abonos disponibles");
             
             return ResponseEntity.ok(Map.of(
                 "ordenesContado", ordenesContado.stream()
@@ -419,8 +402,6 @@ public class EntregaDineroController {
                 )
             ));
         } catch (Exception e) {
-            System.err.println("❌ ERROR: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of("error", "Error interno: " + e.getMessage()));
         }
     }
