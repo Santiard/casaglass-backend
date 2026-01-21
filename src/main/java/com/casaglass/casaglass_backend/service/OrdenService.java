@@ -827,9 +827,25 @@ public class OrdenService {
             throw new IllegalArgumentException("Debe incluir al menos un producto en la venta");
         }
         
-        // Validar cada item
-        for (int i = 0; i < ventaDTO.getItems().size(); i++) {
-            OrdenVentaDTO.OrdenItemVentaDTO item = ventaDTO.getItems().get(i);
+        // ✅ FILTRAR ITEMS INVÁLIDOS (precio 0 o cantidad 0) antes de validar
+        // Esto evita errores cuando el frontend envía items vacíos o mal formados
+        List<OrdenVentaDTO.OrdenItemVentaDTO> itemsValidos = ventaDTO.getItems().stream()
+            .filter(item -> item.getProductoId() != null 
+                         && item.getCantidad() != null && item.getCantidad() > 0
+                         && item.getPrecioUnitario() != null && item.getPrecioUnitario() > 0)
+            .collect(java.util.stream.Collectors.toList());
+        
+        // Si después de filtrar no quedan items válidos, lanzar error
+        if (itemsValidos.isEmpty()) {
+            throw new IllegalArgumentException("Debe incluir al menos un producto válido en la venta (con precio y cantidad mayor a 0)");
+        }
+        
+        // Actualizar la lista de items con solo los válidos
+        ventaDTO.setItems(itemsValidos);
+        
+        // Validar cada item válido (por si acaso)
+        for (int i = 0; i < itemsValidos.size(); i++) {
+            OrdenVentaDTO.OrdenItemVentaDTO item = itemsValidos.get(i);
             String posicion = "Item " + (i + 1);
             
             if (item.getProductoId() == null) {

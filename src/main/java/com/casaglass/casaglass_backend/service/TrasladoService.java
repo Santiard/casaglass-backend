@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.dto.TrasladoDetalleBatchDTO;
 import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.TrasladoDetalleRepository;
 import com.casaglass.casaglass_backend.repository.TrasladoRepository;
@@ -189,6 +190,26 @@ public class TrasladoService {
 
     @Transactional
     public void eliminar(Long id) {
+        // 1️⃣ Buscar el traslado antes de eliminarlo
+        Traslado traslado = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Traslado no encontrado con id " + id));
+        
+        // 2️⃣ Revertir el inventario de todos los detalles antes de eliminar
+        if (traslado.getDetalles() != null && !traslado.getDetalles().isEmpty()) {
+            Long sedeOrigenId = traslado.getSedeOrigen().getId();
+            Long sedeDestinoId = traslado.getSedeDestino().getId();
+            
+            for (TrasladoDetalle detalle : traslado.getDetalles()) {
+                Long productoId = detalle.getProducto().getId();
+                Double cantidad = detalle.getCantidad();
+                
+                // Revertir inventario: devolver a origen y restar de destino
+                ajustarInventario(productoId, sedeOrigenId, cantidad, "origen");
+                ajustarInventario(productoId, sedeDestinoId, -cantidad, "destino");
+            }
+        }
+        
+        // 3️⃣ Eliminar el traslado (los detalles se eliminan en cascada)
         repo.deleteById(id);
     }
 
@@ -298,6 +319,161 @@ public class TrasladoService {
         ajustarInventario(productoId, sedeDestinoId, -cantidad, "destino");
         
         detalleRepo.delete(d);
+    }
+    
+    /**
+     * 🔄 ACTUALIZAR MÚLTIPLES DETALLES EN BATCH (ATÓMICO)
+     * Permite crear, actualizar y eliminar detalles en una sola transacción.
+     * Esto evita problemas de concurrencia cuando se hacen múltiples cambios simultáneos.
+     * 
+     * @param trasladoId ID del traslado
+     * @param batchDTO DTO con los cambios a aplicar
+     * @return Lista de todos los detalles del traslado después de los cambios
+     */
+    @Transactional
+    public List<TrasladoDetalle> actualizarDetallesBatch(Long trasladoId, TrasladoDetalleBatchDTO batchDTO) {
+        System.out.println("🔄 DEBUG: Iniciando actualizarDetallesBatch para trasladoId=" + trasladoId);
+        System.out.println("🔄 DEBUG: batchDTO.getEliminar() = " + batchDTO.getEliminar());
+        System.out.println("🔄 DEBUG: batchDTO.getEliminar() es null? " + (batchDTO.getEliminar() == null));
+        System.out.println("🔄 DEBUG: batchDTO.getEliminar() está vacío? " + (batchDTO.getEliminar() != null && batchDTO.getEliminar().isEmpty()));
+        
+        // 1️⃣ Validar que el traslado existe
+        Traslado traslado = repo.findById(trasladoId)
+                .orElseThrow(() -> new RuntimeException("Traslado no encontrado con id " + trasladoId));
+        
+        Long sedeOrigenId = traslado.getSedeOrigen().getId();
+        Long sedeDestinoId = traslado.getSedeDestino().getId();
+        
+        // 2️⃣ ELIMINAR detalles (revertir inventario primero)
+        if (batchDTO.getEliminar() != null && !batchDTO.getEliminar().isEmpty()) {
+            System.out.println("🗑️ DEBUG: Entrando al bloque de eliminación. IDs a eliminar: " + batchDTO.getEliminar());
+            
+            for (Long detalleId : batchDTO.getEliminar()) {
+                System.out.println("🗑️ DEBUG: Procesando eliminación de detalleId=" + detalleId);
+                TrasladoDetalle detalle = detalleRepo.findById(detalleId)
+                        .orElseThrow(() -> new RuntimeException("Detalle no encontrado con id " + detalleId));
+                
+                if (!Objects.equals(detalle.getTraslado().getId(), trasladoId)) {
+                    throw new IllegalArgumentException("El detalle " + detalleId + " no pertenece al traslado " + trasladoId);
+                }
+                
+                // 🔄 REVERTIR INVENTARIO: Devolver a origen y restar de destino (igual que eliminarDetalle)
+                Long productoId = detalle.getProducto().getId();
+                Double cantidad = detalle.getCantidad();
+                
+                System.out.println("🔄 DEBUG: Revertiendo inventario para detalleId=" + detalleId + 
+                                   ", productoId=" + productoId + ", cantidad=" + cantidad);
+                System.out.println("🔄 DEBUG: Sede origen ID=" + sedeOrigenId + " (sumar " + cantidad + ")");
+                System.out.println("🔄 DEBUG: Sede destino ID=" + sedeDestinoId + " (restar " + cantidad + ")");
+                
+                // Devolver cantidad a sede origen (sumar)
+                ajustarInventario(productoId, sedeOrigenId, cantidad, "origen");
+                // Restar cantidad de sede destino
+                ajustarInventario(productoId, sedeDestinoId, -cantidad, "destino");
+                
+                System.out.println("✅ DEBUG: Inventario revertido correctamente para detalleId=" + detalleId);
+                
+                System.out.println("🗑️ DEBUG: Eliminando detalleId=" + detalleId);
+                // ✅ Eliminar el detalle después de revertir el inventario
+                // Usar consulta nativa DELETE para asegurar ejecución inmediata
+                detalleRepo.deleteByIdNative(detalleId);
+                System.out.println("✅ DEBUG: DetalleId=" + detalleId + " eliminado con DELETE nativo");
+            }
+            // Forzar flush de todas las eliminaciones juntas
+            detalleRepo.flush();
+            // Forzar flush a nivel de EntityManager para asegurar persistencia
+            em.flush();
+            System.out.println("✅ DEBUG: Todas las eliminaciones persistidas");
+        } else {
+            System.out.println("⚠️ DEBUG: NO se procesaron eliminaciones. getEliminar() es null o está vacío");
+        }
+        
+        // 3️⃣ ACTUALIZAR detalles existentes
+        if (batchDTO.getActualizar() != null && !batchDTO.getActualizar().isEmpty()) {
+            for (TrasladoDetalleBatchDTO.DetalleActualizarDTO dto : batchDTO.getActualizar()) {
+                TrasladoDetalle detalle = detalleRepo.findById(dto.getDetalleId())
+                        .orElseThrow(() -> new RuntimeException("Detalle no encontrado con id " + dto.getDetalleId()));
+                
+                if (!Objects.equals(detalle.getTraslado().getId(), trasladoId)) {
+                    throw new IllegalArgumentException("El detalle " + dto.getDetalleId() + " no pertenece al traslado " + trasladoId);
+                }
+                
+                // Cambiar producto si se especifica
+                if (dto.getProductoId() != null && !Objects.equals(detalle.getProducto().getId(), dto.getProductoId())) {
+                    Long productoAnteriorId = detalle.getProducto().getId();
+                    Double cantidadAnterior = detalle.getCantidad();
+                    
+                    // Revertir inventario del producto anterior
+                    ajustarInventario(productoAnteriorId, sedeOrigenId, cantidadAnterior, "origen");
+                    ajustarInventario(productoAnteriorId, sedeDestinoId, -cantidadAnterior, "destino");
+                    
+                    // Aplicar inventario del nuevo producto
+                    Double cantidadNueva = (dto.getCantidad() != null) ? dto.getCantidad() : cantidadAnterior;
+                    ajustarInventario(dto.getProductoId(), sedeOrigenId, -cantidadNueva, "origen");
+                    ajustarInventario(dto.getProductoId(), sedeDestinoId, cantidadNueva, "destino");
+                    
+                    detalle.setProducto(productoRepository.findById(dto.getProductoId())
+                            .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + dto.getProductoId())));
+                    detalle.setCantidad(cantidadNueva);
+                }
+                // Cambiar cantidad si se especifica (y no cambió el producto)
+                else if (dto.getCantidad() != null && !Objects.equals(detalle.getCantidad(), dto.getCantidad())) {
+                    if (dto.getCantidad() < 1) {
+                        throw new IllegalArgumentException("La cantidad debe ser >= 1");
+                    }
+                    
+                    Long productoId = detalle.getProducto().getId();
+                    Double cantidadAnterior = detalle.getCantidad();
+                    Double cantidadNueva = dto.getCantidad();
+                    Double diferencia = cantidadNueva - cantidadAnterior;
+                    
+                    // Ajustar inventario por la diferencia
+                    ajustarInventario(productoId, sedeOrigenId, -diferencia, "origen");
+                    ajustarInventario(productoId, sedeDestinoId, diferencia, "destino");
+                    
+                    detalle.setCantidad(cantidadNueva);
+                }
+                
+                detalleRepo.save(detalle);
+            }
+        }
+        
+        // 4️⃣ CREAR nuevos detalles
+        if (batchDTO.getCrear() != null && !batchDTO.getCrear().isEmpty()) {
+            for (TrasladoDetalleBatchDTO.DetalleCrearDTO dto : batchDTO.getCrear()) {
+                if (dto.getProductoId() == null) {
+                    throw new IllegalArgumentException("El producto es obligatorio para crear un detalle");
+                }
+                if (dto.getCantidad() == null || dto.getCantidad() < 1) {
+                    throw new IllegalArgumentException("La cantidad debe ser >= 1");
+                }
+                
+                Producto producto = productoRepository.findById(dto.getProductoId())
+                        .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + dto.getProductoId()));
+                
+                TrasladoDetalle nuevoDetalle = new TrasladoDetalle();
+                nuevoDetalle.setTraslado(traslado);
+                nuevoDetalle.setProducto(producto);
+                nuevoDetalle.setCantidad(dto.getCantidad());
+                
+                detalleRepo.save(nuevoDetalle);
+                
+                // Aplicar inventario
+                ajustarInventario(dto.getProductoId(), sedeOrigenId, -dto.getCantidad(), "origen");
+                ajustarInventario(dto.getProductoId(), sedeDestinoId, dto.getCantidad(), "destino");
+            }
+        }
+        
+        // 5️⃣ Retornar todos los detalles actualizados del traslado
+        // Forzar flush final y limpiar caché antes de consultar para evitar problemas de caché
+        em.flush();
+        em.clear(); // Limpiar caché para forzar consulta fresca desde BD
+        
+        // Consultar detalles directamente desde BD (sin caché, después de limpiar)
+        List<TrasladoDetalle> detallesActualizados = detalleRepo.findByTrasladoId(trasladoId);
+        System.out.println("📋 DEBUG: Detalles finales retornados: " + detallesActualizados.size() + 
+                         " (IDs: " + detallesActualizados.stream().map(d -> d.getId()).toList() + ")");
+        return detallesActualizados;
     }
     
     /**
