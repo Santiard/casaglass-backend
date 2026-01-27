@@ -354,8 +354,11 @@ public class IngresoService {
             throw new RuntimeException("Ingreso no encontrado");
         }
 
+        System.out.println("📋 Ingreso encontrado - Procesado: " + ingresoExistente.getProcesado());
+
         // Si el ingreso ya fue procesado, revertir el inventario antes de aplicar los nuevos detalles
         if (ingresoExistente.getProcesado()) {
+            System.out.println("♻️ Revirtiendo inventario por edición de ingreso procesado");
             Sede sedePrincipal = sedeRepository.findById(SEDE_PRINCIPAL_ID)
                 .orElseThrow(() -> new RuntimeException("Sede principal no encontrada (ID: " + SEDE_PRINCIPAL_ID + ")"));
             for (IngresoDetalle detalleOriginal : ingresoExistente.getDetalles()) {
@@ -412,6 +415,7 @@ public class IngresoService {
 
         // Si el ingreso estaba procesado, volver a procesar el inventario con los nuevos detalles
         if (ingresoExistente.getProcesado()) {
+            System.out.println("🔁 Reaplicando inventario por edición de ingreso procesado");
             Sede sedePrincipal = sedeRepository.findById(SEDE_PRINCIPAL_ID)
                 .orElseThrow(() -> new RuntimeException("Sede principal no encontrada (ID: " + SEDE_PRINCIPAL_ID + ")"));
             for (IngresoDetalle detalleNuevo : ingresoExistente.getDetalles()) {

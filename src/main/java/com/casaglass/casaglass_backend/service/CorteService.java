@@ -14,13 +14,20 @@ import java.util.Optional;
 @Transactional
 public class CorteService {
 
-    private final CorteRepository repository;
-    private final CategoriaRepository categoriaRepository;
+    private final com.casaglass.casaglass_backend.service.InventarioCorteService inventarioCorteService;
+    private final com.casaglass.casaglass_backend.service.SedeService sedeService;
 
-    public CorteService(CorteRepository repository, CategoriaRepository categoriaRepository) {
+    public CorteService(CorteRepository repository, CategoriaRepository categoriaRepository,
+                        com.casaglass.casaglass_backend.service.InventarioCorteService inventarioCorteService,
+                        com.casaglass.casaglass_backend.service.SedeService sedeService) {
         this.repository = repository;
         this.categoriaRepository = categoriaRepository;
+        this.inventarioCorteService = inventarioCorteService;
+        this.sedeService = sedeService;
     }
+
+    private final CorteRepository repository;
+    private final CategoriaRepository categoriaRepository;
 
     // Operaciones básicas CRUD
     public List<Corte> listar() {
@@ -245,5 +252,59 @@ public class CorteService {
             return List.of();
         }
         return repository.findByIdIn(ids);
+    }
+
+    /**
+     * Une dos cortes en inventario si cumplen las condiciones de suma 600cm, mismo producto, color y categoría.
+     * Resta 1 unidad de cada corte y suma 1 unidad a la barra completa (600cm).
+     */
+    @Transactional
+    public void unirCortes(Long corteId1, Long corteId2, Long sedeId) {
+        if (corteId1 == null || corteId2 == null || sedeId == null) {
+            throw new IllegalArgumentException("Debe enviar los dos cortes y la sede.");
+        }
+        if (corteId1.equals(corteId2)) {
+            throw new IllegalArgumentException("No puede unir el mismo corte consigo mismo.");
+        }
+        Corte corte1 = repository.findById(corteId1).orElseThrow(() -> new IllegalArgumentException("Corte 1 no encontrado."));
+        Corte corte2 = repository.findById(corteId2).orElseThrow(() -> new IllegalArgumentException("Corte 2 no encontrado."));
+        if (!corte1.getCodigo().equals(corte2.getCodigo()) ||
+            !corte1.getColor().equals(corte2.getColor()) ||
+            (corte1.getCategoria() != null && corte2.getCategoria() != null && !corte1.getCategoria().getId().equals(corte2.getCategoria().getId()))) {
+            throw new IllegalArgumentException("Ambos cortes deben ser del mismo producto, color y categoría.");
+        }
+        double suma = corte1.getLargoCm() + corte2.getLargoCm();
+        if (Math.abs(suma - 600.0) > 0.1) {
+            throw new IllegalArgumentException("La suma de los largos de los cortes debe ser exactamente 600cm.");
+        }
+        // Validar stock suficiente
+        var inv1 = inventarioCorteService.obtenerPorCorteYSede(corteId1, sedeId).orElseThrow(() -> new IllegalArgumentException("No hay inventario del corte 1 en la sede."));
+        var inv2 = inventarioCorteService.obtenerPorCorteYSede(corteId2, sedeId).orElseThrow(() -> new IllegalArgumentException("No hay inventario del corte 2 en la sede."));
+        if (inv1.getCantidad() < 1 || inv2.getCantidad() < 1) {
+            throw new IllegalArgumentException("Debe haber al menos 1 unidad de cada corte en inventario.");
+        }
+        // Buscar barra completa (600cm) existente o crearla
+        Corte barraCompleta = repository.findExistingByCodigoAndSpecs(
+            corte1.getCodigo(), 600.0, corte1.getCategoria() != null ? corte1.getCategoria().getId() : null, corte1.getColor()
+        ).orElseGet(() -> {
+            Corte nueva = new Corte();
+            nueva.setCodigo(corte1.getCodigo());
+            nueva.setNombre(corte1.getNombre().replaceAll(" Corte de \\d+cm", ""));
+            nueva.setLargoCm(600.0);
+            nueva.setCategoria(corte1.getCategoria());
+            nueva.setColor(corte1.getColor());
+            nueva.setTipo(corte1.getTipo());
+            nueva.setPrecio1(corte1.getPrecio1());
+            nueva.setPrecio2(corte1.getPrecio2());
+            nueva.setPrecio3(corte1.getPrecio3());
+            nueva.setCosto(corte1.getCosto());
+            nueva.setCantidad(0);
+            return repository.save(nueva);
+        });
+        // Restar 1 unidad de cada corte
+        inventarioCorteService.decrementarStock(corteId1, sedeId, 1.0);
+        inventarioCorteService.decrementarStock(corteId2, sedeId, 1.0);
+        // Sumar 1 unidad a la barra completa
+        inventarioCorteService.incrementarStock(barraCompleta.getId(), sedeId, 1.0);
     }
 }

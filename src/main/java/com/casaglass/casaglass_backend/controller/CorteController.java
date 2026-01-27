@@ -5,6 +5,8 @@ import com.casaglass.casaglass_backend.service.CorteService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.casaglass.casaglass_backend.dto.UnirCortesRequestDTO;
+
 import java.util.List;
 
 @RestController
@@ -14,8 +16,12 @@ public class CorteController {
 
     private final CorteService service;
 
-    public CorteController(CorteService service) {
+    // Servicio de inventario de cortes para operaciones de stock
+    private final com.casaglass.casaglass_backend.service.InventarioCorteService inventarioCorteService;
+
+    public CorteController(CorteService service, com.casaglass.casaglass_backend.service.InventarioCorteService inventarioCorteService) {
         this.service = service;
+        this.inventarioCorteService = inventarioCorteService;
     }
 
     // Listado general con filtros opcionales
@@ -206,5 +212,22 @@ public class CorteController {
     @PostMapping("/buscar-por-ids")
     public ResponseEntity<List<Corte>> listarPorIds(@RequestBody List<Long> ids) {
         return ResponseEntity.ok(service.listarPorIds(ids));
+    }
+
+    /**
+     * Une dos cortes en inventario si cumplen las condiciones de suma 600cm, mismo producto, color y categoría.
+     * Espera: { "corteId1": 1, "corteId2": 2, "sedeId": 1 }
+     * Devuelve: 200 OK si éxito, 400 si error de validación
+     */
+    @PostMapping("/unir")
+    public ResponseEntity<?> unirCortes(@RequestBody UnirCortesRequestDTO dto) {
+        try {
+            service.unirCortes(dto.getCorteId1(), dto.getCorteId2(), dto.getSedeId());
+            return ResponseEntity.ok("Cortes unidos correctamente. Se sumó una barra de 600cm al inventario y se restó 1 unidad de cada corte.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error interno: " + e.getMessage());
+        }
     }
 }
