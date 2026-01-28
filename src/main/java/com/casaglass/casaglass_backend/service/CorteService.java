@@ -16,14 +16,20 @@ public class CorteService {
 
     private final com.casaglass.casaglass_backend.service.InventarioCorteService inventarioCorteService;
     private final com.casaglass.casaglass_backend.service.SedeService sedeService;
+    private final com.casaglass.casaglass_backend.repository.ProductoRepository productoRepository;
+    private final com.casaglass.casaglass_backend.service.InventarioService inventarioService;
 
     public CorteService(CorteRepository repository, CategoriaRepository categoriaRepository,
                         com.casaglass.casaglass_backend.service.InventarioCorteService inventarioCorteService,
-                        com.casaglass.casaglass_backend.service.SedeService sedeService) {
+                        com.casaglass.casaglass_backend.service.SedeService sedeService,
+                        com.casaglass.casaglass_backend.repository.ProductoRepository productoRepository,
+                        com.casaglass.casaglass_backend.service.InventarioService inventarioService) {
         this.repository = repository;
         this.categoriaRepository = categoriaRepository;
         this.inventarioCorteService = inventarioCorteService;
         this.sedeService = sedeService;
+        this.productoRepository = productoRepository;
+        this.inventarioService = inventarioService;
     }
 
     private final CorteRepository repository;
@@ -274,37 +280,88 @@ public class CorteService {
             throw new IllegalArgumentException("Ambos cortes deben ser del mismo producto, color y categoría.");
         }
         double suma = corte1.getLargoCm() + corte2.getLargoCm();
-        if (Math.abs(suma - 600.0) > 0.1) {
-            throw new IllegalArgumentException("La suma de los largos de los cortes debe ser exactamente 600cm.");
-        }
         // Validar stock suficiente
         var inv1 = inventarioCorteService.obtenerPorCorteYSede(corteId1, sedeId).orElseThrow(() -> new IllegalArgumentException("No hay inventario del corte 1 en la sede."));
         var inv2 = inventarioCorteService.obtenerPorCorteYSede(corteId2, sedeId).orElseThrow(() -> new IllegalArgumentException("No hay inventario del corte 2 en la sede."));
         if (inv1.getCantidad() < 1 || inv2.getCantidad() < 1) {
             throw new IllegalArgumentException("Debe haber al menos 1 unidad de cada corte en inventario.");
         }
-        // Buscar barra completa (600cm) existente o crearla
-        Corte barraCompleta = repository.findExistingByCodigoAndSpecs(
-            corte1.getCodigo(), 600.0, corte1.getCategoria() != null ? corte1.getCategoria().getId() : null, corte1.getColor()
-        ).orElseGet(() -> {
-            Corte nueva = new Corte();
-            nueva.setCodigo(corte1.getCodigo());
-            nueva.setNombre(corte1.getNombre().replaceAll(" Corte de \\d+cm", ""));
-            nueva.setLargoCm(600.0);
-            nueva.setCategoria(corte1.getCategoria());
-            nueva.setColor(corte1.getColor());
-            nueva.setTipo(corte1.getTipo());
-            nueva.setPrecio1(corte1.getPrecio1());
-            nueva.setPrecio2(corte1.getPrecio2());
-            nueva.setPrecio3(corte1.getPrecio3());
-            nueva.setCosto(corte1.getCosto());
-            nueva.setCantidad(0);
-            return repository.save(nueva);
-        });
         // Restar 1 unidad de cada corte
         inventarioCorteService.decrementarStock(corteId1, sedeId, 1.0);
         inventarioCorteService.decrementarStock(corteId2, sedeId, 1.0);
-        // Sumar 1 unidad a la barra completa
-        inventarioCorteService.incrementarStock(barraCompleta.getId(), sedeId, 1.0);
+
+        if (Math.abs(suma - 600.0) <= 0.1) {
+            // Caso: suman 600cm → sumar al producto base
+            var productosBase = productoRepository.buscarConFiltros(
+                corte1.getCategoria() != null ? corte1.getCategoria().getId() : null,
+                null,
+                corte1.getTipo(),
+                corte1.getColor(),
+                corte1.getCodigo(),
+                null
+            );
+            var productoBase = productosBase.stream()
+                .filter(p -> !(p instanceof com.casaglass.casaglass_backend.model.Corte))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el producto base equivalente para sumar inventario."));
+
+            var inventarioOpt = inventarioService.obtenerPorProductoYSede(productoBase.getId(), sedeId);
+            if (inventarioOpt.isPresent()) {
+                var inventario = inventarioOpt.get();
+                inventario.setCantidad(inventario.getCantidad() + 1.0);
+                inventarioService.actualizar(inventario.getId(), inventario);
+            } else {
+                var nuevoInventario = new com.casaglass.casaglass_backend.model.Inventario();
+                nuevoInventario.setProducto(productoBase);
+                nuevoInventario.setSede(inv1.getSede());
+                nuevoInventario.setCantidad(1.0);
+                inventarioService.guardar(nuevoInventario);
+            }
+        } else {
+            // Caso: NO suman 600cm → buscar o crear corte resultante y sumar inventario
+            // Buscar si ya existe un corte con mismo código, color, categoría y largo = suma
+            var cortesCoincidentes = repository.findByCodigoAndColorAndCategoria_IdAndLargoCm(
+                corte1.getCodigo(),
+                corte1.getColor(),
+                corte1.getCategoria() != null ? corte1.getCategoria().getId() : null,
+                suma
+            );
+            Corte corteResultante;
+            if (cortesCoincidentes != null && !cortesCoincidentes.isEmpty()) {
+                corteResultante = cortesCoincidentes.get(0);
+            } else {
+                // Crear nuevo corte resultante
+                corteResultante = new Corte();
+                corteResultante.setCodigo(corte1.getCodigo());
+                corteResultante.setColor(corte1.getColor());
+                corteResultante.setCategoria(corte1.getCategoria());
+                corteResultante.setTipo(corte1.getTipo());
+                corteResultante.setCosto(corte1.getCosto());
+                corteResultante.setPrecio1(corte1.getPrecio1());
+                corteResultante.setPrecio2(corte1.getPrecio2());
+                corteResultante.setPrecio3(corte1.getPrecio3());
+                corteResultante.setLargoCm(suma);
+                // Extraer nombre base eliminando 'Corte de X CMS' (insensible a mayúsculas/minúsculas)
+                String nombreBase = corte1.getNombre().replaceAll("(?i)\\s*Corte de\\s*\\d+(?:\\.\\d+)?\\s*CMS?", "").trim();
+                // Formatear la medida como entero si es posible
+                String medidaStr = (suma % 1 == 0) ? String.valueOf((int)suma) : String.valueOf(suma);
+                corteResultante.setNombre(nombreBase + " Corte de " + medidaStr + " CMS");
+                corteResultante.setCantidad(0.0);
+                corteResultante = repository.save(corteResultante);
+            }
+            // Sumar 1 al inventario del corte resultante en la sede
+            var invResultOpt = inventarioCorteService.obtenerPorCorteYSede(corteResultante.getId(), sedeId);
+            if (invResultOpt.isPresent()) {
+                var invResult = invResultOpt.get();
+                invResult.setCantidad(invResult.getCantidad() + 1.0);
+                inventarioCorteService.actualizar(invResult.getId(), invResult);
+            } else {
+                var nuevoInvCorte = new com.casaglass.casaglass_backend.model.InventarioCorte();
+                nuevoInvCorte.setCorte(corteResultante);
+                nuevoInvCorte.setSede(inv1.getSede());
+                nuevoInvCorte.setCantidad(1.0);
+                inventarioCorteService.guardar(nuevoInvCorte);
+            }
+        }
     }
 }

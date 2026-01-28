@@ -54,7 +54,7 @@ public class Producto {
     @Column(name = "color")
     private ColorProducto color;
     
-    private Integer cantidad;
+    private Double cantidad;
     private Double costo;
     private Double precio1;
     private Double precio2;

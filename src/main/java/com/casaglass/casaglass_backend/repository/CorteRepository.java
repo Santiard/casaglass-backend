@@ -10,6 +10,9 @@ import java.util.Optional;
 
 public interface CorteRepository extends JpaRepository<Corte, Long> {
 
+        // Buscar corte por código, color, categoría y largo
+        List<Corte> findByCodigoAndColorAndCategoria_IdAndLargoCm(String codigo, com.casaglass.casaglass_backend.model.ColorProducto color, Long categoriaId, Double largoCm);
+
     Optional<Corte> findByCodigo(String codigo);
 
     // 🔁 Actualizado para usar Categoria como entidad

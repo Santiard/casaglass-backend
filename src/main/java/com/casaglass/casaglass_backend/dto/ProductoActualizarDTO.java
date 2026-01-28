@@ -20,7 +20,7 @@ public class ProductoActualizarDTO {
     private String nombre;
     private String tipo;
     private String color;
-    private Integer cantidad; // Cantidad total (información)
+    private Double cantidad; // Cantidad total (información)
     private Double costo;
     private Double precio1;
     private Double precio2;
