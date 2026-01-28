@@ -68,7 +68,7 @@ public class CorteService {
 
             // 🔧 Configurar valores por defecto si no vienen
             if (corte.getCantidad() == null) {
-                corte.setCantidad(0);
+                corte.setCantidad(0.0);
             }
             if (corte.getCosto() == null) {
                 corte.setCosto(0.0);

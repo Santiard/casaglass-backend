@@ -2129,7 +2129,7 @@ public class OrdenService {
         corte.setCategoria(productoOriginal.getCategoria());
         corte.setTipo(productoOriginal.getTipo());
         corte.setColor(productoOriginal.getColor());
-        corte.setCantidad(0); // Se maneja por inventario
+        corte.setCantidad(0.0); // Se maneja por inventario
         corte.setCosto(0.0); // Por ahora sin costo específico
 
         // Observación descriptiva

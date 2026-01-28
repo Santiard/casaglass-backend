@@ -72,7 +72,7 @@ public class ProductoDeserializer extends JsonDeserializer<Producto> {
             producto.setTipo(TipoProducto.valueOf(node.get("tipo").asText()));
         }
         if (node.has("cantidad") && !node.get("cantidad").isNull()) {
-            producto.setCantidad(node.get("cantidad").asInt());
+            producto.setCantidad(node.get("cantidad").asDouble());
         }
         if (node.has("costo") && !node.get("costo").isNull()) {
             producto.setCosto(node.get("costo").asDouble());
