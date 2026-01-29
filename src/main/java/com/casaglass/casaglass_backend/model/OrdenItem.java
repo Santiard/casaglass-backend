@@ -28,9 +28,6 @@ public class OrdenItem {
   @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
   private Producto producto;
 
-  @Column(length = 200)
-  private String descripcion;
-
   @DecimalMin(value = "0.0", inclusive = false)
   @Column(nullable = false)
   private Double cantidad;

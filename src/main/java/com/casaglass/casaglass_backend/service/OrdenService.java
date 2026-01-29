@@ -116,11 +116,7 @@ public class OrdenService {
                 Double linea = it.getPrecioUnitario() * it.getCantidad();
                 it.setTotalLinea(linea);
                 subtotalFacturado += linea;
-
-                if ((it.getDescripcion() == null || it.getDescripcion().isBlank())
-                        && it.getProducto() != null) {
-                    it.setDescripcion(it.getProducto().getNombre());
-                }
+                // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
             }
         }
         subtotalFacturado = Math.round(subtotalFacturado * 100.0) / 100.0;
@@ -196,12 +192,9 @@ public class OrdenService {
                 Corte corteReutilizado = corteRepository.findById(itemDTO.getReutilizarCorteSolicitadoId())
                     .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + itemDTO.getReutilizarCorteSolicitadoId()));
                 item.setProducto(corteReutilizado);
-                // ✅ Usar el nombre del corte de la BD (corregido) en lugar de la descripción del frontend
-                item.setDescripcion(corteReutilizado.getNombre());
             } else {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                item.setDescripcion(itemDTO.getDescripcion());
             }
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
@@ -337,12 +330,9 @@ public class OrdenService {
                 Corte corteReutilizado = corteRepository.findById(itemDTO.getReutilizarCorteSolicitadoId())
                     .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + itemDTO.getReutilizarCorteSolicitadoId()));
                 item.setProducto(corteReutilizado);
-                // ✅ Usar el nombre del corte de la BD (corregido) en lugar de la descripción del frontend
-                item.setDescripcion(corteReutilizado.getNombre());
             } else {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                item.setDescripcion(itemDTO.getDescripcion());
             }
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
@@ -469,7 +459,6 @@ public class OrdenService {
             item.setOrden(ordenExistente);
             item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-            item.setDescripcion(itemDTO.getDescripcion());
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -572,7 +561,6 @@ public class OrdenService {
             item.setOrden(ordenExistente);
             item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-            item.setDescripcion(itemDTO.getDescripcion());
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -1521,7 +1509,6 @@ public class OrdenService {
         OrdenTablaDTO.OrdenItemTablaDTO itemDTO = new OrdenTablaDTO.OrdenItemTablaDTO();
         
         itemDTO.setId(item.getId());
-        itemDTO.setDescripcion(item.getDescripcion());
         itemDTO.setCantidad(item.getCantidad());
         itemDTO.setPrecioUnitario(item.getPrecioUnitario());
         itemDTO.setTotalLinea(item.getTotalLinea());
@@ -1722,7 +1709,6 @@ public class OrdenService {
                 nuevoItem.setOrden(orden);
                 nuevoItem.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                nuevoItem.setDescripcion(itemDTO.getDescripcion());
                 nuevoItem.setCantidad(itemDTO.getCantidad());
                 nuevoItem.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 nuevoItem.setTotalLinea(itemDTO.getTotalLinea());
@@ -1738,7 +1724,6 @@ public class OrdenService {
 
                 itemExistente.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                itemExistente.setDescripcion(itemDTO.getDescripcion());
                 itemExistente.setCantidad(itemDTO.getCantidad());
                 itemExistente.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 itemExistente.setTotalLinea(itemDTO.getTotalLinea());
@@ -2131,9 +2116,6 @@ public class OrdenService {
         corte.setColor(productoOriginal.getColor());
         corte.setCantidad(0.0); // Se maneja por inventario
         corte.setCosto(0.0); // Por ahora sin costo específico
-
-        // Observación descriptiva
-        corte.setObservacion("Corte generado automáticamente");
 
         return corteService.guardar(corte);
     }

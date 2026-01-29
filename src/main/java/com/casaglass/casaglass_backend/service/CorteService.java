@@ -157,9 +157,6 @@ public class CorteService {
                             }
                             corteExistente.setPrecio1(corteActualizado.getPrecio1());
                         }
-                        if (corteActualizado.getObservacion() != null) {
-                            corteExistente.setObservacion(corteActualizado.getObservacion());
-                        }
 
                         Corte saved = repository.save(corteExistente);
                         return saved;
@@ -206,10 +203,6 @@ public class CorteService {
 
     public List<Corte> listarPorPrecioMaximo(Double precioMaximo) {
         return repository.findByPrecio1LessThanEqual(precioMaximo);
-    }
-
-    public List<Corte> listarConObservaciones() {
-        return repository.findCortesWithObservaciones();
     }
 
     // 🆕 NUEVOS MÉTODOS PARA FILTROS AVANZADOS

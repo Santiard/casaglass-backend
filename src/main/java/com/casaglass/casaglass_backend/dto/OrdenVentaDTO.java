@@ -49,13 +49,13 @@ public class OrdenVentaDTO {
     @AllArgsConstructor
     public static class OrdenItemVentaDTO {
         private Long productoId; // OBLIGATORIO - producto a vender
-        private String descripcion; // OPCIONAL - descripción personalizada
         private Double cantidad; // OBLIGATORIO - cantidad a vender (min: 1)
         private Double precioUnitario; // OBLIGATORIO - precio unitario
         // Opcional: si se reutiliza un corte solicitado existente para vender
         private Long reutilizarCorteSolicitadoId;
         
         // totalLinea se calcula automáticamente en el backend
+        // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
     }
     
     /**

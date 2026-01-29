@@ -20,7 +20,7 @@ import java.io.IOException;
  * 
  * Lógica:
  * - Si el JSON tiene los campos mm, m1, m2 → ProductoVidrio
- * - Si incluye largoCm/observacion → Corte
+ * - Si incluye largoCm → Corte
  * - Si no tiene distintivos → Producto base
  * 
  * IMPORTANTE: Usa un ObjectMapper sin el deserializador para evitar recursión infinita
@@ -43,15 +43,12 @@ public class ProductoDeserializer extends JsonDeserializer<Producto> {
             return pv;
         }
 
-        boolean esCorte = node.has("largoCm") || node.has("observacion");
+        boolean esCorte = node.has("largoCm");
         if (esCorte) {
             Corte corte = new Corte();
             mapearCamposProducto(node, corte);
             if (node.has("largoCm") && !node.get("largoCm").isNull()) {
                 corte.setLargoCm(node.get("largoCm").asDouble());
-            }
-            if (node.has("observacion") && !node.get("observacion").isNull()) {
-                corte.setObservacion(node.get("observacion").asText());
             }
             return corte;
         }

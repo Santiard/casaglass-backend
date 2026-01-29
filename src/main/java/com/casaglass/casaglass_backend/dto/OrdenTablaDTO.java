@@ -92,7 +92,6 @@ public class OrdenTablaDTO {
     public static class OrdenItemTablaDTO {
         private Long id;
         private ProductoTablaDTO producto;
-        private String descripcion;
         private Double cantidad;
         private Double precioUnitario;
         private Double totalLinea;

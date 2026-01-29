@@ -103,6 +103,8 @@ public class OrdenDetalleDTO {
         public ProductoItemDTO(Producto producto) {
             this.id = producto.getId();
             this.codigo = producto.getCodigo();
+            // ✅ Mostrar el nombre completo del producto (incluyendo "Corte de X CMS" si es un corte)
+            // Tanto cliente como trabajador necesitan ver el nombre completo
             this.nombre = producto.getNombre();
             // Convertir enums a String (pueden ser null)
             this.color = producto.getColor() != null ? producto.getColor().name() : null;
@@ -116,7 +118,6 @@ public class OrdenDetalleDTO {
     public static class ItemDetalleDTO {
         private Long id;
         private ProductoItemDTO producto;
-        private String descripcion;
         private Double cantidad;
         private Double precioUnitario;
         private Double totalLinea;
@@ -124,7 +125,7 @@ public class OrdenDetalleDTO {
         public ItemDetalleDTO(OrdenItem item) {
             this.id = item.getId();
             this.producto = item.getProducto() != null ? new ProductoItemDTO(item.getProducto()) : null;
-            this.descripcion = item.getDescripcion();
+            // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
             this.cantidad = item.getCantidad();
             this.precioUnitario = item.getPrecioUnitario();
             this.totalLinea = item.getTotalLinea();

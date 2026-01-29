@@ -35,7 +35,6 @@ public class CorteController {
                               @RequestParam(required = false) Double precioMax,
                               @RequestParam(required = false) Double largoMinimo,
                               @RequestParam(required = false) Double precioMaximo,
-                              @RequestParam(required = false, defaultValue = "false") boolean conObservaciones,
                               @RequestParam(required = false) String tipo,
                               @RequestParam(required = false) String color) {
         
@@ -55,10 +54,6 @@ public class CorteController {
         }
         
         // Filtros específicos existentes
-        if (conObservaciones) {
-            return service.listarConObservaciones();
-        }
-        
         if (largoMin != null && largoMax != null) {
             return service.listarPorRangoLargo(largoMin, largoMax);
         }
@@ -161,11 +156,6 @@ public class CorteController {
     @GetMapping("/precio")
     public List<Corte> listarPorRangoPrecio(@RequestParam Double min, @RequestParam Double max) {
         return service.listarPorRangoPrecio(min, max);
-    }
-
-    @GetMapping("/observaciones")
-    public List<Corte> listarConObservaciones() {
-        return service.listarConObservaciones();
     }
 
     // 🆕 NUEVOS ENDPOINTS ESPECÍFICOS

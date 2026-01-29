@@ -43,7 +43,6 @@ public class OrdenActualizarDTO {
     public static class OrdenItemActualizarDTO {
         private Long id; // null = nuevo item, valor = actualizar existente
         private Long productoId;
-        private String descripcion;
         private Double cantidad;
         private Double precioUnitario;
         private Double totalLinea;

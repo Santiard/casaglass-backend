@@ -55,14 +55,7 @@ public class OrdenItemService {
         if (payload.getProducto() != null && payload.getProducto().getId() != null) {
             Producto prodRef = em.getReference(Producto.class, payload.getProducto().getId());
             item.setProducto(prodRef);
-            if (payload.getDescripcion() == null || payload.getDescripcion().isBlank()) {
-                // Carga perezosa: si 'nombre' no está, Hibernate lo traerá cuando haga falta.
-                item.setDescripcion(prodRef.getNombre());
-            } else {
-                item.setDescripcion(payload.getDescripcion());
-            }
-        } else {
-            item.setDescripcion(payload.getDescripcion()); // puede ser null/blank
+            // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
         }
 
         // Normalizar dinero
@@ -90,9 +83,7 @@ public class OrdenItemService {
             Producto prodRef = em.getReference(Producto.class, payload.getProducto().getId());
             item.setProducto(prodRef);
         }
-        if (payload.getDescripcion() != null) {
-            item.setDescripcion(payload.getDescripcion());
-        }
+        // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
         if (payload.getCantidad() != null) {
             if (payload.getCantidad() < 1) throw new IllegalArgumentException("La cantidad debe ser >= 1");
             item.setCantidad(payload.getCantidad());

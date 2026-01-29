@@ -13,8 +13,4 @@ public class Corte extends Producto {
     @NotNull @Positive
     @Column(name = "largo", nullable = false)
     private Double largoCm;
-
-
-    @Lob
-    private String observacion;
 }
