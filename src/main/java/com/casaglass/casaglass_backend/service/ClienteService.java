@@ -143,18 +143,93 @@ public class ClienteService {
         return clienteRepository.findByNit(nit);
     }
 
+    /**
+     * Normaliza un string: convierte "-", strings vacíos o solo espacios a NULL
+     * Útil para campos opcionales que pueden venir como "-" desde el frontend
+     */
+    private String normalizarStringOpcional(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        String trimmed = valor.trim();
+        if (trimmed.isEmpty() || trimmed.equals("-")) {
+            return null;
+        }
+        return trimmed;
+    }
+    
+    /**
+     * Normaliza el NIT: solo elimina espacios, nunca lo convierte a NULL (es obligatorio)
+     */
+    private String normalizarNit(String nit) {
+        if (nit == null) {
+            return null;
+        }
+        return nit.trim();
+    }
+
     public Cliente guardarCliente(Cliente cliente) {
+        // Normalizar NIT: eliminar espacios en blanco (es obligatorio, no se convierte a NULL)
+        cliente.setNit(normalizarNit(cliente.getNit()));
+        
+        // Normalizar campos opcionales: convertir "-", vacíos o solo espacios a NULL
+        cliente.setCorreo(normalizarStringOpcional(cliente.getCorreo()));
+        cliente.setDireccion(normalizarStringOpcional(cliente.getDireccion()));
+        cliente.setTelefono(normalizarStringOpcional(cliente.getTelefono()));
+        cliente.setCiudad(normalizarStringOpcional(cliente.getCiudad()));
+        
+        // Validar que el NIT no esté duplicado
+        if (cliente.getNit() != null && !cliente.getNit().isEmpty()) {
+            Optional<Cliente> clienteExistente = clienteRepository.findByNit(cliente.getNit());
+            if (clienteExistente.isPresent()) {
+                throw new IllegalArgumentException("El NIT '" + cliente.getNit() + "' ya está registrado.");
+            }
+        }
+        
+        // Validar que el correo no esté duplicado (solo si no es NULL)
+        if (cliente.getCorreo() != null) {
+            Optional<Cliente> clienteConCorreo = clienteRepository.findByCorreo(cliente.getCorreo());
+            if (clienteConCorreo.isPresent()) {
+                throw new IllegalArgumentException("El correo electrónico '" + cliente.getCorreo() + "' ya está registrado.");
+            }
+        }
+        
         return clienteRepository.save(cliente);
     }
 
     public Cliente actualizarCliente(Long id, Cliente cliente) {
         return clienteRepository.findById(id).map(c -> {
-            c.setNit(cliente.getNit());
+            // Normalizar NIT: eliminar espacios (es obligatorio, no se convierte a NULL)
+            String nitNormalizado = normalizarNit(cliente.getNit());
+            
+            // Normalizar campos opcionales: convertir "-", vacíos o solo espacios a NULL
+            String correoNormalizado = normalizarStringOpcional(cliente.getCorreo());
+            String direccionNormalizada = normalizarStringOpcional(cliente.getDireccion());
+            String telefonoNormalizado = normalizarStringOpcional(cliente.getTelefono());
+            String ciudadNormalizada = normalizarStringOpcional(cliente.getCiudad());
+            
+            // Validar que el NIT no esté duplicado (solo si cambió y no es el mismo cliente)
+            if (nitNormalizado != null && !nitNormalizado.isEmpty() && !nitNormalizado.equals(c.getNit())) {
+                Optional<Cliente> clienteExistente = clienteRepository.findByNit(nitNormalizado);
+                if (clienteExistente.isPresent() && !clienteExistente.get().getId().equals(id)) {
+                    throw new IllegalArgumentException("El NIT '" + nitNormalizado + "' ya está registrado.");
+                }
+            }
+            
+            // Validar que el correo no esté duplicado (solo si cambió y no es NULL)
+            if (correoNormalizado != null && !correoNormalizado.equals(c.getCorreo())) {
+                Optional<Cliente> clienteConCorreo = clienteRepository.findByCorreo(correoNormalizado);
+                if (clienteConCorreo.isPresent() && !clienteConCorreo.get().getId().equals(id)) {
+                    throw new IllegalArgumentException("El correo electrónico '" + correoNormalizado + "' ya está registrado.");
+                }
+            }
+            
+            c.setNit(nitNormalizado);
             c.setNombre(cliente.getNombre());
-            c.setDireccion(cliente.getDireccion());
-            c.setTelefono(cliente.getTelefono());
-            c.setCiudad(cliente.getCiudad());
-            c.setCorreo(cliente.getCorreo());
+            c.setDireccion(direccionNormalizada);
+            c.setTelefono(telefonoNormalizado);
+            c.setCiudad(ciudadNormalizada);
+            c.setCorreo(correoNormalizado);
             c.setCredito(cliente.getCredito());
             return clienteRepository.save(c);
         }).orElseThrow(() -> new RuntimeException("Cliente no encontrado con id " + id));

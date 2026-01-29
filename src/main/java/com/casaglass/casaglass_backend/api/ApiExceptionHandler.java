@@ -29,7 +29,7 @@ public class ApiExceptionHandler {
 
     /**
      * Violaciones de integridad (FK/UNIQUE, etc.) -> 409 Conflict
-     * Útil para: NIT duplicado, eliminación con registros relacionados, etc.
+     * Útil para: NIT duplicado, correo duplicado, eliminación con registros relacionados, etc.
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
@@ -41,8 +41,17 @@ public class ApiExceptionHandler {
         lower = lower != null ? lower.toLowerCase() : "";
 
         if (lower.contains("unique") || lower.contains("duplicate") || lower.contains("unicidad")) {
-            // Caso típico: NIT único en proveedores o clientes
-            message = "El NIT ya está registrado.";
+            // Detectar específicamente qué campo tiene el problema
+            // Clave única del NIT en clientes: UKgs8pntaqxksfh6jp4asuokx7a
+            // Clave única del correo en clientes: UK8duxx4vm6d736wokeq3u5skw7
+            if (lower.contains("ukgs8pntaqxksfh6jp4asuokx7a") || lower.contains("nit")) {
+                message = "El NIT ya está registrado.";
+            } else if (lower.contains("uk8duxx4vm6d736wokeq3u5skw7") || lower.contains("correo") || lower.contains("email")) {
+                message = "El correo electrónico ya está registrado.";
+            } else {
+                // Mensaje genérico para otros casos de unique
+                message = "Ya existe un registro con estos datos (violación de restricción única).";
+            }
         } else if (lower.contains("foreign key") || lower.contains("foreign-key") || lower.contains("fk_")) {
             // Caso: no se puede eliminar por relaciones
             message = "No se puede eliminar el registro porque tiene datos relacionados.";

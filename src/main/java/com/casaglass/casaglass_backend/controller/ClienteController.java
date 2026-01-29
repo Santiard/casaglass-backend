@@ -89,14 +89,20 @@ public class ClienteController {
     }
 
     @PostMapping
-    public Cliente guardarCliente(@RequestBody Cliente cliente) {
-        return clienteService.guardarCliente(cliente);
+    public ResponseEntity<?> guardarCliente(@RequestBody Cliente cliente) {
+        try {
+            return ResponseEntity.ok(clienteService.guardarCliente(cliente));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(409).body(Map.of("message", e.getMessage()));
+        }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Cliente> actualizarCliente(@PathVariable Long id, @RequestBody Cliente cliente) {
+    public ResponseEntity<?> actualizarCliente(@PathVariable Long id, @RequestBody Cliente cliente) {
         try {
             return ResponseEntity.ok(clienteService.actualizarCliente(id, cliente));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(409).body(Map.of("message", e.getMessage()));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
