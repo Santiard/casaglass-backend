@@ -60,6 +60,29 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     List<Orden> findAllWithFullRelations();
 
     /**
+     * 🔍 OBTENER ORDEN POR ID CON TODAS LAS RELACIONES CARGADAS
+     * Usa fetch joins para cargar todas las relaciones de una vez y evitar problemas de lazy loading
+     * Especialmente útil para órdenes facturadas donde la sesión puede estar cerrada
+     * 
+     * Carga:
+     * - Items de la orden
+     * - Producto de cada item
+     * - Cliente de la orden
+     * - Sede de la orden
+     * - Trabajador de la orden
+     * - Factura asociada (si existe)
+     */
+    @Query("SELECT DISTINCT o FROM Orden o " +
+           "LEFT JOIN FETCH o.items i " +
+           "LEFT JOIN FETCH i.producto p " +
+           "LEFT JOIN FETCH o.cliente c " +
+           "LEFT JOIN FETCH o.sede s " +
+           "LEFT JOIN FETCH o.trabajador t " +
+           "LEFT JOIN FETCH o.factura f " +
+           "WHERE o.id = :id")
+    Optional<Orden> findByIdWithAllRelations(@Param("id") Long id);
+
+    /**
      * 💰 ÓRDENES A CONTADO DISPONIBLES PARA ENTREGA
      * - De la sede especificada
      * - En el período indicado

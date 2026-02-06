@@ -122,16 +122,19 @@ public class OrdenService {
         subtotalFacturado = Math.round(subtotalFacturado * 100.0) / 100.0;
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalFacturado, orden.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalFacturado, orden.isTieneRetencionFuente(), 
+                                                          orden.isTieneRetencionIca(), orden.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
-        Double total = valores[3];           // Total facturado
+        Double retencionIca = valores[3];    // Retención ICA
+        Double total = valores[4];           // Total facturado
         
         // Guardar valores en la orden
         orden.setSubtotal(subtotalSinIva);        // Base sin IVA
         orden.setIva(iva);                        // IVA
-        orden.setRetencionFuente(retencionFuente); // Retención
+        orden.setRetencionFuente(retencionFuente); // Retención de fuente
+        orden.setRetencionIca(retencionIca);      // Retención ICA
         orden.setTotal(total);                    // Total facturado
         
         // Establecer estado activa por defecto
@@ -211,16 +214,19 @@ public class OrdenService {
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente(), 
+                                                          ventaDTO.isTieneRetencionIca(), ventaDTO.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
-        Double total = valores[3];           // Total facturado
+        Double retencionIca = valores[3];    // Retención ICA
+        Double total = valores[4];           // Total facturado
         
         // Guardar valores en la orden
         orden.setSubtotal(subtotalSinIva);        // Base sin IVA
         orden.setIva(iva);                        // IVA
-        orden.setRetencionFuente(retencionFuente); // Retención
+        orden.setRetencionFuente(retencionFuente); // Retención de fuente
+        orden.setRetencionIca(retencionIca);      // Retención ICA
         orden.setTotal(total);                    // Total facturado
         
         // 🔢 GENERAR NÚMERO AUTOMÁTICO
@@ -349,16 +355,19 @@ public class OrdenService {
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente(), 
+                                                          ventaDTO.isTieneRetencionIca(), ventaDTO.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
-        Double total = valores[3];           // Total facturado
+        Double retencionIca = valores[3];    // Retención ICA
+        Double total = valores[4];           // Total facturado
         
         // Guardar valores en la orden
         orden.setSubtotal(subtotalSinIva);        // Base sin IVA
         orden.setIva(iva);                        // IVA
-        orden.setRetencionFuente(retencionFuente); // Retención
+        orden.setRetencionFuente(retencionFuente); // Retención de fuente
+        orden.setRetencionIca(retencionIca);      // Retención ICA
         orden.setTotal(total);                    // Total facturado
         
         // 🔢 GENERAR NÚMERO AUTOMÁTICO
@@ -370,15 +379,19 @@ public class OrdenService {
         // 💳 CREAR CRÉDITO SI ES NECESARIO (en la misma transacción)
         if (ventaDTO.isCredito()) {
             // ...existing code...
-            // Reutilizar retencionFuente ya calculada arriba (línea 330)
-            Double retencionParaCredito = ordenGuardada.getRetencionFuente() != null 
+            // Reutilizar retenciones ya calculadas arriba
+            Double retencionFuenteParaCredito = ordenGuardada.getRetencionFuente() != null 
                 ? ordenGuardada.getRetencionFuente() 
+                : 0.0;
+            Double retencionIcaParaCredito = ordenGuardada.getRetencionIca() != null 
+                ? ordenGuardada.getRetencionIca() 
                 : 0.0;
             creditoService.crearCreditoParaOrden(
                 ordenGuardada.getId(), 
                 ventaDTO.getClienteId(), 
                 ordenGuardada.getTotal(),  // Total orden
-                retencionParaCredito  // ✅ Pasar también la retención
+                retencionFuenteParaCredito,  // ✅ Retención de fuente
+                retencionIcaParaCredito      // ✅ Retención ICA
             );
         }
         
@@ -474,18 +487,23 @@ public class OrdenService {
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
         ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
+        ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
+        ordenExistente.setPorcentajeIca(ventaDTO.getPorcentajeIca());
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente(), 
+                                                          ventaDTO.isTieneRetencionIca(), ventaDTO.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
-        Double total = valores[3];           // Total facturado
+        Double retencionIca = valores[3];    // Retención ICA
+        Double total = valores[4];           // Total facturado
         
         // Guardar valores en la orden
         ordenExistente.setSubtotal(subtotalSinIva);        // Base sin IVA
         ordenExistente.setIva(iva);                        // IVA
-        ordenExistente.setRetencionFuente(retencionFuente); // Retención
+        ordenExistente.setRetencionFuente(retencionFuente); // Retención de fuente
+        ordenExistente.setRetencionIca(retencionIca);      // Retención ICA
         ordenExistente.setTotal(total);                    // Total facturado
         
         // 💾 GUARDAR ORDEN ACTUALIZADA
@@ -576,18 +594,23 @@ public class OrdenService {
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
         ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
+        ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
+        ordenExistente.setPorcentajeIca(ventaDTO.getPorcentajeIca());
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente(), 
+                                                          ventaDTO.isTieneRetencionIca(), ventaDTO.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
-        Double total = valores[3];           // Total facturado
+        Double retencionIca = valores[3];    // Retención ICA
+        Double total = valores[4];           // Total facturado
         
         // Guardar valores en la orden
         ordenExistente.setSubtotal(subtotalSinIva);        // Base sin IVA
         ordenExistente.setIva(iva);                        // IVA
-        ordenExistente.setRetencionFuente(retencionFuente); // Retención
+        ordenExistente.setRetencionFuente(retencionFuente); // Retención de fuente
+        ordenExistente.setRetencionIca(retencionIca);      // Retención ICA
         ordenExistente.setTotal(total);                    // Total facturado
         
         // 💾 GUARDAR ORDEN ACTUALIZADA PRIMERO
@@ -599,11 +622,12 @@ public class OrdenService {
             
             // Si ya existe crédito, actualizarlo
             if (ordenActualizada.getCreditoDetalle() != null) {
-                // Reutilizar retencionFuente ya calculada arriba (línea 568)
+                // Reutilizar retenciones ya calculadas arriba
                 creditoService.actualizarCreditoParaOrden(
                     ordenActualizada.getCreditoDetalle().getId(),
                     ordenActualizada.getTotal(),  // Total orden
-                    retencionFuente  // ✅ Pasar también la retención (ya calculada)
+                    retencionFuente,  // ✅ Retención de fuente (ya calculada)
+                    retencionIca      // ✅ Retención ICA (ya calculada)
                 );
             } else {
                 // Si no existe crédito, crearlo
@@ -611,7 +635,8 @@ public class OrdenService {
                     ordenActualizada.getId(), 
                     ventaDTO.getClienteId(), 
                     ordenActualizada.getTotal(),  // Total orden
-                    retencionFuente  // ✅ Pasar también la retención (ya calculada)
+                    retencionFuente,  // ✅ Retención de fuente (ya calculada)
+                    retencionIca      // ✅ Retención ICA (ya calculada)
                 );
             }
         } else {
@@ -675,22 +700,25 @@ public class OrdenService {
 
     /**
      * 💰 CALCULAR VALORES MONETARIOS DE LA ORDEN
-     * Calcula subtotal (base sin IVA), IVA, retención de fuente y total
+     * Calcula subtotal (base sin IVA), IVA, retención de fuente, retención ICA y total
      * según la especificación del frontend
      * 
      * @param subtotalFacturado Suma de (precioUnitario × cantidad) de todos los items (CON IVA incluido)
      * @param tieneRetencionFuente Boolean que indica si aplica retención de fuente
-     * @return Array con [subtotalSinIva, iva, retencionFuente, total]
+     * @param tieneRetencionIca Boolean que indica si aplica retención ICA
+     * @param porcentajeIca Porcentaje de retención ICA (si es null, se usa el de BusinessSettings)
+     * @return Array con [subtotalSinIva, iva, retencionFuente, retencionIca, total]
      */
-    private Double[] calcularValoresMonetariosOrden(Double subtotalFacturado, boolean tieneRetencionFuente) {
+    private Double[] calcularValoresMonetariosOrden(Double subtotalFacturado, boolean tieneRetencionFuente, 
+                                                     boolean tieneRetencionIca, Double porcentajeIca) {
         if (subtotalFacturado == null || subtotalFacturado <= 0) {
-            return new Double[]{0.0, 0.0, 0.0, 0.0};
+            return new Double[]{0.0, 0.0, 0.0, 0.0, 0.0};
         }
         
         // Paso 1: Calcular base imponible (total facturado)
         Double baseConIva = subtotalFacturado;
         if (baseConIva <= 0) {
-            return new Double[]{0.0, 0.0, 0.0, 0.0};
+            return new Double[]{0.0, 0.0, 0.0, 0.0, 0.0};
         }
         
         // Paso 2: Calcular subtotal sin IVA (base imponible / 1.19)
@@ -716,11 +744,35 @@ public class OrdenService {
             }
         }
         
-        // Paso 5: Calcular total (total facturado, sin restar retención)
+        // Paso 5: Calcular retención ICA (sobre subtotal sin IVA)
+        Double retencionIca = 0.0;
+        if (tieneRetencionIca) {
+            BusinessSettings config = obtenerConfiguracionRetencion();
+            // Usar porcentajeIca del parámetro si está presente, sino usar el de BusinessSettings
+            Double icaRate = porcentajeIca != null ? porcentajeIca : 
+                             (config.getIcaRate() != null ? config.getIcaRate() : 1.0);
+            Long icaThreshold = config.getIcaThreshold() != null ? config.getIcaThreshold() : 1_000_000L;
+            
+            // Verificar si supera el umbral
+            if (subtotalSinIva >= icaThreshold) {
+                retencionIca = subtotalSinIva * (icaRate / 100.0);
+                retencionIca = Math.round(retencionIca * 100.0) / 100.0;
+            }
+        }
+        
+        // Paso 6: Calcular total (total facturado, sin restar retenciones)
         Double total = subtotalFacturado;
         total = Math.round(total * 100.0) / 100.0;
         
-        return new Double[]{subtotalSinIva, iva, retencionFuente, total};
+        return new Double[]{subtotalSinIva, iva, retencionFuente, retencionIca, total};
+    }
+    
+    /**
+     * 💰 SOBRECARGA DEL MÉTODO PARA COMPATIBILIDAD HACIA ATRÁS
+     * Mantiene compatibilidad con código existente que no pasa parámetros de ICA
+     */
+    private Double[] calcularValoresMonetariosOrden(Double subtotalFacturado, boolean tieneRetencionFuente) {
+        return calcularValoresMonetariosOrden(subtotalFacturado, tieneRetencionFuente, false, null);
     }
 
     /**
@@ -869,6 +921,19 @@ public class OrdenService {
 
     @Transactional(readOnly = true)
     public Optional<Orden> obtenerPorId(Long id) { return repo.findById(id); }
+    
+    /**
+     * 🔍 OBTENER ORDEN POR ID CON TODAS LAS RELACIONES CARGADAS
+     * Usa fetch joins para cargar todas las relaciones de una vez
+     * Especialmente útil para órdenes facturadas donde puede haber problemas de lazy loading
+     * 
+     * @param id ID de la orden
+     * @return Optional con la orden y todas sus relaciones cargadas
+     */
+    @Transactional(readOnly = true)
+    public Optional<Orden> obtenerPorIdConRelaciones(Long id) {
+        return repo.findByIdWithAllRelations(id);
+    }
 
     @Transactional(readOnly = true)
     public Optional<Orden> obtenerPorNumero(Long numero) { return repo.findByNumero(numero); }
@@ -1436,6 +1501,9 @@ public class OrdenService {
         dto.setCredito(orden.isCredito());
         dto.setTieneRetencionFuente(orden.isTieneRetencionFuente());
         dto.setRetencionFuente(orden.getRetencionFuente() != null ? orden.getRetencionFuente() : 0.0);
+        dto.setTieneRetencionIca(orden.isTieneRetencionIca());
+        dto.setPorcentajeIca(orden.getPorcentajeIca());
+        dto.setRetencionIca(orden.getRetencionIca() != null ? orden.getRetencionIca() : 0.0);
         dto.setEstado(orden.getEstado());
         dto.setSubtotal(orden.getSubtotal());
         dto.setIva(orden.getIva() != null ? orden.getIva() : 0.0);
@@ -1550,8 +1618,10 @@ public class OrdenService {
         orden.setVenta(dto.isVenta());
         orden.setCredito(dto.isCredito());
         orden.setTieneRetencionFuente(dto.isTieneRetencionFuente());
+        orden.setTieneRetencionIca(dto.isTieneRetencionIca());
+        orden.setPorcentajeIca(dto.getPorcentajeIca());
         
-        // Recalcular retención de fuente con el nuevo valor de tieneRetencionFuente
+        // Recalcular retenciones con los nuevos valores
         // (se calculará después cuando se actualice el subtotal)
 
         // 3️⃣ Actualizar referencias de entidades
@@ -1583,16 +1653,19 @@ public class OrdenService {
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, orden.isTieneRetencionFuente());
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, orden.isTieneRetencionFuente(), 
+                                                          orden.isTieneRetencionIca(), orden.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
         Double retencionFuente = valores[2]; // Retención de fuente
-        Double total = valores[3];           // Total facturado
+        Double retencionIca = valores[3];    // Retención ICA
+        Double total = valores[4];           // Total facturado
         
         // Guardar valores en la orden
         orden.setSubtotal(subtotalSinIva);        // Base sin IVA
         orden.setIva(iva);                        // IVA
-        orden.setRetencionFuente(retencionFuente); // Retención
+        orden.setRetencionFuente(retencionFuente); // Retención de fuente
+        orden.setRetencionIca(retencionIca);      // Retención ICA
         orden.setTotal(total);                    // Total facturado
 
         // 6️⃣ Guardar orden actualizada PRIMERO
@@ -1625,14 +1698,15 @@ public class OrdenService {
             
             // Verificar si ya existe crédito para esta orden
             if (ordenActualizada.getCreditoDetalle() != null) {
-                // Si ya existe crédito, actualizarlo con el nuevo total y retención
-                // Reutilizar retencionFuente ya calculada arriba (línea 1557)
+                // Si ya existe crédito, actualizarlo con el nuevo total y retenciones
+                // Reutilizar retenciones ya calculadas arriba
                 creditoService.actualizarCreditoParaOrden(
                     ordenActualizada.getCreditoDetalle().getId(),
                     ordenActualizada.getTotal(),  // Total orden
-                    retencionFuente  // ✅ Pasar también la retención (ya calculada)
+                    retencionFuente,  // ✅ Retención de fuente (ya calculada)
+                    retencionIca      // ✅ Retención ICA (ya calculada)
                 );
-                Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente;
+                Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente - retencionIca;
                 // ...existing code...
             } else {
                 // Si no existe crédito, crearlo
@@ -1640,14 +1714,15 @@ public class OrdenService {
                 if (clienteId == null) {
                     // ...existing code...
                 } else {
-                    // Reutilizar retencionFuente ya calculada arriba (línea 1557)
+                    // Reutilizar retenciones ya calculadas arriba
                     creditoService.crearCreditoParaOrden(
                         ordenActualizada.getId(),
                         clienteId,
                         ordenActualizada.getTotal(),  // Total orden
-                        retencionFuente  // ✅ Pasar también la retención (ya calculada)
+                        retencionFuente,  // ✅ Retención de fuente (ya calculada)
+                        retencionIca      // ✅ Retención ICA (ya calculada)
                     );
-                    Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente;
+                    Double saldoPendienteInicial = ordenActualizada.getTotal() - retencionFuente - retencionIca;
                     // Recargar la orden para obtener el crédito recién creado
                     ordenActualizada = repo.findById(ordenActualizada.getId())
                         .orElseThrow(() -> new RuntimeException("Error al recargar orden después de crear crédito"));
@@ -2254,6 +2329,84 @@ public class OrdenService {
         // 4️⃣ ACTUALIZAR CAMPOS DE RETENCIÓN
         orden.setTieneRetencionFuente(dto.getTieneRetencionFuente());
         orden.setRetencionFuente(dto.getRetencionFuente());
+        
+        // 5️⃣ ACTUALIZAR IVA SI SE PROPORCIONÓ (OPCIONAL)
+        if (dto.getIva() != null) {
+            orden.setIva(dto.getIva());
+        }
+        
+        // 6️⃣ RECALCULAR TOTAL (suma de items, SIN restar retención)
+        // El total facturado NO incluye la retención restada
+        // La retención se resta solo para el saldo del crédito
+        double subtotalBruto = 0.0;
+        if (orden.getItems() != null && !orden.getItems().isEmpty()) {
+            for (OrdenItem item : orden.getItems()) {
+                subtotalBruto += item.getTotalLinea() != null ? item.getTotalLinea() : 0.0;
+            }
+        }
+        subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        
+        Double totalFacturado = subtotalBruto;
+        totalFacturado = Math.round(totalFacturado * 100.0) / 100.0;
+        
+        orden.setTotal(totalFacturado);
+        
+        // 7️⃣ GUARDAR ORDEN
+        Orden ordenActualizada = repo.save(orden);
+        
+        // 8️⃣ ACTUALIZAR CRÉDITO SI EXISTE
+        if (orden.isCredito() && orden.getCreditoDetalle() != null) {
+            creditoService.recalcularTotales(orden.getCreditoDetalle().getId());
+        }
+        
+        return ordenActualizada;
+    }
+    
+    /**
+     * 💰 ACTUALIZAR RETENCIÓN ICA DE UNA ORDEN
+     * 
+     * Endpoint especializado para actualizar SOLO los campos de retención ICA
+     * sin necesidad de enviar todos los datos de la orden (items, cliente, sede, etc.)
+     * 
+     * Características:
+     * - Actualiza tieneRetencionIca, porcentajeIca, retencionIca, e IVA
+     * - Recalcula el total de la orden
+     * - Si la orden tiene crédito, actualiza también el saldo del crédito
+     * - Validaciones de seguridad (orden debe existir y estar ACTIVA)
+     * 
+     * @param ordenId ID de la orden a actualizar
+     * @param dto DTO con los nuevos valores de retención ICA
+     * @return Orden actualizada con todos sus campos
+     * @throws IllegalArgumentException si la orden no existe o está anulada
+     */
+    @Transactional
+    public Orden actualizarRetencionIca(Long ordenId, com.casaglass.casaglass_backend.dto.RetencionIcaDTO dto) {
+        // 1️⃣ BUSCAR ORDEN EXISTENTE
+        Orden orden = repo.findById(ordenId)
+            .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+        
+        // 2️⃣ VALIDAR QUE LA ORDEN ESTÉ ACTIVA
+        if (orden.getEstado() == Orden.EstadoOrden.ANULADA) {
+            throw new IllegalArgumentException("No se puede actualizar la retención ICA de una orden anulada");
+        }
+        
+        // 3️⃣ VALIDAR DATOS DEL DTO
+        if (dto.getTieneRetencionIca() == null) {
+            throw new IllegalArgumentException("El campo tieneRetencionIca es obligatorio");
+        }
+        if (dto.getRetencionIca() == null) {
+            throw new IllegalArgumentException("El valor de retencionIca es obligatorio");
+        }
+        
+        // Si no tiene retención, el valor debe ser 0
+        if (!dto.getTieneRetencionIca() && dto.getRetencionIca() != 0.0) {
+            throw new IllegalArgumentException("Si tieneRetencionIca es false, retencionIca debe ser 0.0");
+        }
+        
+        // 4️⃣ ACTUALIZAR CAMPOS DE RETENCIÓN ICA
+        orden.setTieneRetencionIca(dto.getTieneRetencionIca());
+        orden.setPorcentajeIca(dto.getPorcentajeIca());
+        orden.setRetencionIca(dto.getRetencionIca());
         
         // 5️⃣ ACTUALIZAR IVA SI SE PROPORCIONÓ (OPCIONAL)
         if (dto.getIva() != null) {

@@ -51,6 +51,11 @@ public class FacturaCreateDTO {
     private Double retencionFuente = 0.0;
 
     /**
+     * Retención ICA
+     */
+    private Double retencionIca = 0.0;
+
+    /**
      * Total de la factura (se calcula automáticamente si no se proporciona)
      */
     private Double total;

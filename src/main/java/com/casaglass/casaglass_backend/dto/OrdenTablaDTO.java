@@ -27,6 +27,9 @@ public class OrdenTablaDTO {
     private boolean credito;
     private boolean tieneRetencionFuente; // Indica si la orden tiene retención de fuente
     private Double retencionFuente; // Valor monetario de la retención en la fuente
+    private boolean tieneRetencionIca; // Indica si la orden tiene retención ICA
+    private Double porcentajeIca; // Porcentaje de retención ICA (configurable desde frontend)
+    private Double retencionIca; // Valor monetario de la retención ICA
     private Orden.EstadoOrden estado;
     private boolean facturada;  // Indica si la orden tiene una factura asociada
     private String numeroFactura; // Número de la factura asociada (null si no tiene)

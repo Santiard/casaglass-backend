@@ -166,9 +166,14 @@ public class SedeDashboardService {
         String categoria = inventario.getProducto().getCategoria() != null ? 
                 inventario.getProducto().getCategoria().getNombre() : "Sin categoría";
         
+        // Obtener color del producto (como String)
+        String color = inventario.getProducto().getColor() != null ? 
+                inventario.getProducto().getColor().name() : null;
+        
         return new ProductoBajoStockDTO(
                 inventario.getProducto().getCodigo(),
                 inventario.getProducto().getNombre(),
+                color, // ✅ Color del producto
                 categoria,
                 inventario.getCantidad(),
                 20, // Nivel de reorden fijo por ahora, puedes hacerlo configurable

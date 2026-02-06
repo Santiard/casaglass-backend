@@ -25,6 +25,8 @@ public class OrdenActualizarDTO {
     private boolean venta;
     private boolean credito;
     private boolean tieneRetencionFuente = false; // si la orden tiene retención de fuente
+    private boolean tieneRetencionIca = false; // si la orden tiene retención ICA
+    private Double porcentajeIca; // Porcentaje de retención ICA (configurable desde frontend)
     
     // IDs DE ENTIDADES RELACIONADAS (para actualizar referencias)
     private Long clienteId;

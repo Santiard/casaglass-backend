@@ -48,10 +48,18 @@ public class FacturaController {
         }
     }
 
+    /**
+     * 📋 OBTENER FACTURA CON DETALLES COMPLETOS DE LA ORDEN
+     * GET /api/facturas/{id}
+     * 
+     * Retorna la factura con la estructura completa:
+     * - Información de la factura (id, numeroFactura, fecha, subtotal, iva, retencionFuente, total)
+     * - Detalles completos de la orden relacionada (incluyendo items, cliente, sede, etc.)
+     */
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerFactura(@PathVariable Long id) {
         return facturaService.obtenerPorId(id)
-                .map(factura -> ResponseEntity.ok(factura))
+                .map(factura -> ResponseEntity.ok(new com.casaglass.casaglass_backend.dto.FacturaDetalleDTO(factura)))
                 .orElse(ResponseEntity.notFound().build());
     }
 

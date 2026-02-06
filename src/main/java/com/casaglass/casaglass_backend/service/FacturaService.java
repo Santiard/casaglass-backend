@@ -90,8 +90,11 @@ public class FacturaService {
         // Calcular IVA con priorización
         Double ivaFactura = calcularIvaConPriorizacion(facturaDTO, orden);
         
-        // Calcular retención con priorización
+        // Calcular retención de fuente con priorización
         Double retencionFactura = calcularRetencionConPriorizacion(facturaDTO, orden);
+        
+        // Calcular retención ICA con priorización
+        Double retencionIcaFactura = calcularRetencionIcaConPriorizacion(facturaDTO, orden);
         
         // Calcular subtotal sin IVA (necesario para cálculos)
         Double subtotalSinIva = calcularSubtotalSinIva(facturaDTO, orden);
@@ -122,6 +125,7 @@ public class FacturaService {
         factura.setSubtotal(redondearMoneda(subtotalSinIva));
         factura.setIva(redondearMoneda(ivaFactura));
         factura.setRetencionFuente(redondearMoneda(retencionFactura != null ? retencionFactura : 0.0));
+        factura.setRetencionIca(redondearMoneda(retencionIcaFactura != null ? retencionIcaFactura : 0.0));
         
         // Otros campos del DTO (no monetarios)
         factura.setFormaPago(facturaDTO.getFormaPago());
@@ -153,11 +157,19 @@ public class FacturaService {
             ordenActualizada = true;
         }
         
-        // Actualizar retención si la orden tiene tieneRetencionFuente = true pero no tenía el valor calculado
+        // Actualizar retención de fuente si la orden tiene tieneRetencionFuente = true pero no tenía el valor calculado
         if (orden.isTieneRetencionFuente() && 
             (orden.getRetencionFuente() == null || orden.getRetencionFuente() == 0) &&
             retencionFactura != null && retencionFactura > 0) {
             orden.setRetencionFuente(retencionFactura);
+            ordenActualizada = true;
+        }
+        
+        // Actualizar retención ICA si la orden tiene tieneRetencionIca = true pero no tenía el valor calculado
+        if (orden.isTieneRetencionIca() && 
+            (orden.getRetencionIca() == null || orden.getRetencionIca() == 0) &&
+            retencionIcaFactura != null && retencionIcaFactura > 0) {
+            orden.setRetencionIca(retencionIcaFactura);
             ordenActualizada = true;
         }
         
@@ -393,6 +405,7 @@ public class FacturaService {
             factura.setIva(ivaCalculado);
         }
         factura.setRetencionFuente(facturaDTO.getRetencionFuente() != null ? facturaDTO.getRetencionFuente() : 0.0);
+        factura.setRetencionIca(facturaDTO.getRetencionIca() != null ? facturaDTO.getRetencionIca() : 0.0);
         factura.setFormaPago(facturaDTO.getFormaPago());
         factura.setObservaciones(facturaDTO.getObservaciones());
         
@@ -445,6 +458,7 @@ public class FacturaService {
         dto.setSubtotal(factura.getSubtotal());
         dto.setIva(factura.getIva());
         dto.setRetencionFuente(factura.getRetencionFuente());
+        dto.setRetencionIca(factura.getRetencionIca());
         dto.setTotal(factura.getTotal());
         dto.setFormaPago(factura.getFormaPago());
         dto.setEstado(convertirEstado(factura.getEstado()));
@@ -805,6 +819,57 @@ public class FacturaService {
         // Calcular subtotal sin IVA
         Double subtotalSinIva = baseConIva / divisorIva;
         return redondearMoneda(subtotalSinIva);
+    }
+
+    /**
+     * 💰 CALCULAR RETENCIÓN ICA CON PRIORIZACIÓN
+     * Prioriza: DTO > Orden > Cálculo desde total (si tieneRetencionIca = true)
+     * 
+     * @param facturaDTO DTO con valores del frontend
+     * @param orden Orden asociada
+     * @return Retención ICA calculada o obtenida
+     */
+    private Double calcularRetencionIcaConPriorizacion(FacturaCreateDTO facturaDTO, Orden orden) {
+        // 1. Intentar usar valor del DTO si está presente y es válido (> 0)
+        if (facturaDTO.getRetencionIca() != null && facturaDTO.getRetencionIca() > 0) {
+            return facturaDTO.getRetencionIca();
+        }
+        
+        // 2. Si no está en el DTO, usar valor de la orden
+        if (orden.getRetencionIca() != null && orden.getRetencionIca() > 0) {
+            return orden.getRetencionIca();
+        }
+        
+        // 3. Si la orden tiene tieneRetencionIca = true pero no tiene el valor calculado,
+        // calcularlo desde el subtotal (validando el umbral)
+        Boolean tieneRetencion = orden.isTieneRetencionIca();
+        if (tieneRetencion == null || !tieneRetencion) {
+            return 0.0;
+        }
+        
+        // Calcular subtotal sin IVA para verificar umbral y calcular retención
+        Double subtotalSinIva = calcularSubtotalSinIva(facturaDTO, orden);
+        
+        if (subtotalSinIva == null || subtotalSinIva <= 0) {
+            return 0.0;
+        }
+        
+        // ✅ VALIDACIÓN DEL UMBRAL DE ICA
+        // Obtener configuración de retención ICA
+        BusinessSettings config = obtenerConfiguracionRetencion();
+        // Usar porcentajeIca de la orden si está presente, sino usar el de BusinessSettings
+        Double icaRate = orden.getPorcentajeIca() != null ? orden.getPorcentajeIca() : 
+                         (config.getIcaRate() != null ? config.getIcaRate() : 1.0);
+        Long icaThreshold = config.getIcaThreshold() != null ? config.getIcaThreshold() : 1_000_000L;
+        
+        // Verificar si supera el umbral antes de aplicar retención
+        if (subtotalSinIva >= icaThreshold) {
+            Double retencionCalculada = subtotalSinIva * (icaRate / 100.0);
+            return redondearMoneda(retencionCalculada);
+        } else {
+            // No aplicar retención aunque tengaRetencionIca = true si no supera el umbral
+            return 0.0;
+        }
     }
 
     /**

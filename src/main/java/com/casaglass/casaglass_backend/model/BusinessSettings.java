@@ -38,6 +38,19 @@ public class BusinessSettings {
     @Column(name = "rete_threshold", nullable = false)
     private Long reteThreshold = 1_000_000L;
 
+    /** Retención ICA (%) (0–100), ej: 1.0 */
+    @NotNull
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
+    @Column(name = "ica_rate", nullable = false)
+    private Double icaRate = 1.0;
+
+    /** Umbral desde el que aplica retención ICA (COP) */
+    @NotNull
+    @Min(0)
+    @Column(name = "ica_threshold", nullable = false)
+    private Long icaThreshold = 1_000_000L;
+
     /** Marca de tiempo simple (usa LocalDate para seguir tu estilo) */
     @NotNull
     @Column(name = "updated_at", nullable = false)

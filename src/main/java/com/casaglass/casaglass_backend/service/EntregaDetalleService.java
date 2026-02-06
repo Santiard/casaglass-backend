@@ -81,9 +81,18 @@ public class EntregaDetalleService {
                 }
                 
                 // Si ambos son abonos: verificar que no sea el mismo abono
+                // ✅ Validar que los Abonos existan antes de acceder (maneja referencias huérfanas)
                 if (existente.getAbono() != null && detalle.getAbono() != null) {
-                    if (existente.getAbono().getId().equals(detalle.getAbono().getId())) {
-                        throw new RuntimeException("Este abono ya está incluido en esta entrega");
+                    try {
+                        Long abonoExistenteId = existente.getAbono().getId();
+                        Long abonoDetalleId = detalle.getAbono().getId();
+                        if (abonoExistenteId != null && abonoDetalleId != null && 
+                            abonoExistenteId.equals(abonoDetalleId)) {
+                            throw new RuntimeException("Este abono ya está incluido en esta entrega");
+                        }
+                    } catch (jakarta.persistence.EntityNotFoundException e) {
+                        // Uno de los Abonos fue eliminado (referencia huérfana), continuar sin error
+                        // No es el mismo abono si uno no existe
                     }
                 }
                 
@@ -176,8 +185,17 @@ public class EntregaDetalleService {
         if (detalle.getEntrega() != null && 
             entregaDetalleRepository.existsByEntregaIdAndOrdenId(detalle.getEntrega().getId(), orden.getId())) {
             // Verificar si ya existe un detalle con este mismo abono
+            // ✅ Validar que el Abono exista antes de acceder (maneja referencias huérfanas)
             boolean existeAbono = entregaDetalleRepository.findByEntregaId(detalle.getEntrega().getId()).stream()
-                    .anyMatch(d -> d.getAbono() != null && d.getAbono().getId().equals(abonoId));
+                    .anyMatch(d -> {
+                        if (d.getAbono() == null) return false;
+                        try {
+                            return d.getAbono().getId() != null && d.getAbono().getId().equals(abonoId);
+                        } catch (jakarta.persistence.EntityNotFoundException e) {
+                            // El Abono fue eliminado (referencia huérfana), no es el mismo
+                            return false;
+                        }
+                    });
             if (existeAbono) {
                 throw new RuntimeException("Este abono ya está incluido en esta entrega");
             }

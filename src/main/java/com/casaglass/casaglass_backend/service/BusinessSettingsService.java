@@ -35,6 +35,8 @@ public class BusinessSettingsService {
         defaultSettings.setIvaRate(19.0);
         defaultSettings.setReteRate(2.5);
         defaultSettings.setReteThreshold(1_000_000L);
+        defaultSettings.setIcaRate(1.0);
+        defaultSettings.setIcaThreshold(1_000_000L);
         defaultSettings.setUpdatedAt(LocalDate.now());
         return defaultSettings;
     }
@@ -77,6 +79,8 @@ public class BusinessSettingsService {
         existente.setIvaRate(settings.getIvaRate());
         existente.setReteRate(settings.getReteRate());
         existente.setReteThreshold(settings.getReteThreshold());
+        existente.setIcaRate(settings.getIcaRate());
+        existente.setIcaThreshold(settings.getIcaThreshold());
         existente.setUpdatedAt(LocalDate.now());
         
         return repository.save(existente);
@@ -98,6 +102,8 @@ public class BusinessSettingsService {
             existente.setIvaRate(settings.getIvaRate());
             existente.setReteRate(settings.getReteRate());
             existente.setReteThreshold(settings.getReteThreshold());
+            existente.setIcaRate(settings.getIcaRate());
+            existente.setIcaThreshold(settings.getIcaThreshold());
             existente.setUpdatedAt(LocalDate.now());
             return repository.save(existente);
         } else {
@@ -120,6 +126,12 @@ public class BusinessSettingsService {
         }
         if (settings.getReteThreshold() == null || settings.getReteThreshold() < 0) {
             throw new IllegalArgumentException("El rete threshold debe ser mayor o igual a 0");
+        }
+        if (settings.getIcaRate() == null || settings.getIcaRate() < 0 || settings.getIcaRate() > 100) {
+            throw new IllegalArgumentException("El ICA rate debe estar entre 0 y 100");
+        }
+        if (settings.getIcaThreshold() == null || settings.getIcaThreshold() < 0) {
+            throw new IllegalArgumentException("El ICA threshold debe ser mayor o igual a 0");
         }
     }
 

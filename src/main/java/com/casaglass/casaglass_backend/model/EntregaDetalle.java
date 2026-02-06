@@ -83,10 +83,18 @@ public class EntregaDetalle {
     public void inicializarDesdeOrden() {
         if (this.orden != null) {
             // Si hay un abono específico, usar su monto; si no, usar el monto de la orden
-            if (this.abono != null && this.abono.getTotal() != null) {
-                this.montoOrden = this.abono.getTotal(); // Monto del abono, no de la orden completa
-            } else {
+            // ✅ Validar que el Abono existe antes de acceder (maneja referencias huérfanas)
+            try {
+                if (this.abono != null && this.abono.getTotal() != null) {
+                    this.montoOrden = this.abono.getTotal(); // Monto del abono, no de la orden completa
+                } else {
+                    this.montoOrden = this.orden.getTotal();
+                }
+            } catch (jakarta.persistence.EntityNotFoundException e) {
+                // El Abono fue eliminado pero la referencia sigue (referencia huérfana)
+                // Usar el monto de la orden en su lugar
                 this.montoOrden = this.orden.getTotal();
+                this.abono = null; // Limpiar la referencia huérfana
             }
             this.numeroOrden = this.orden.getNumero();
             this.fechaOrden = this.orden.getFecha();

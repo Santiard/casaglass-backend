@@ -24,6 +24,8 @@ public class OrdenVentaDTO {
     private boolean credito = false; // si es venta a crédito
     private boolean incluidaEntrega = false; // si incluye entrega
     private boolean tieneRetencionFuente = false; // si la orden tiene retención de fuente
+    private boolean tieneRetencionIca = false; // si la orden tiene retención ICA
+    private Double porcentajeIca; // Porcentaje de retención ICA (configurable desde frontend)
     
     // 💰 MONTOS POR MÉTODO DE PAGO (solo para órdenes de contado)
     private Double montoEfectivo = 0.0;

@@ -129,6 +129,27 @@ public class Orden {
   @Column(name = "retencion_fuente", nullable = false)
   private Double retencionFuente = 0.0;
 
+  /**
+   * Indica si la orden tiene retención ICA aplicada
+   */
+  @Column(name = "tiene_retencion_ica", nullable = false)
+  private boolean tieneRetencionIca = false;
+
+  /**
+   * Porcentaje de retención ICA (configurable desde el frontend)
+   * Si no se especifica, se usa el valor por defecto de BusinessSettings
+   */
+  @Column(name = "porcentaje_ica")
+  private Double porcentajeIca;
+
+  /**
+   * Valor monetario de la retención ICA
+   * Se calcula automáticamente cuando tieneRetencionIca = true
+   * y la base imponible (subtotal) supera el umbral configurado
+   */
+  @Column(name = "retencion_ica", nullable = false)
+  private Double retencionIca = 0.0;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private EstadoOrden estado = EstadoOrden.ACTIVA;

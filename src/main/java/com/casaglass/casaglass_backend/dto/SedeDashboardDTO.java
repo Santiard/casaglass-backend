@@ -109,6 +109,7 @@ public class SedeDashboardDTO {
     public static class ProductoBajoStockDTO {
         private String codigo;
         private String nombre;
+        private String color; // Color del producto (MATE, BRILLANTE, etc.)
         private String categoria;
         private Double stockActual;
         private Integer nivelReorden; // Calculado como cantidad mínima recomendada

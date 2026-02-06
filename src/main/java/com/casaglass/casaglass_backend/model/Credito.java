@@ -103,10 +103,18 @@ public class Credito {
             retencionFuente = this.orden.getRetencionFuente();
         }
         
-        // ✅ FÓRMULA CORRECTA: Funciona para órdenes CON y SIN retención
-        // - Si NO tiene retención: retencionFuente = 0.0 → saldo = total - abonado
-        // - Si SÍ tiene retención: retencionFuente > 0 → saldo = total - abonado - retención
-        this.saldoPendiente = this.totalCredito - this.totalAbonado - retencionFuente;
+        // 💰 Obtener retención ICA de la orden asociada (si existe)
+        Double retencionIca = 0.0;
+        if (this.orden != null && 
+            this.orden.isTieneRetencionIca() && 
+            this.orden.getRetencionIca() != null) {
+            retencionIca = this.orden.getRetencionIca();
+        }
+        
+        // ✅ FÓRMULA CORRECTA: Funciona para órdenes CON y SIN retenciones
+        // - Si NO tiene retenciones: retencionFuente = 0.0, retencionIca = 0.0 → saldo = total - abonado
+        // - Si SÍ tiene retenciones: retencionFuente > 0 o retencionIca > 0 → saldo = total - abonado - retenciones
+        this.saldoPendiente = this.totalCredito - this.totalAbonado - retencionFuente - retencionIca;
         
         // Actualizar estado automáticamente
         if (this.saldoPendiente <= 0.0) {

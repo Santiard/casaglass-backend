@@ -12,7 +12,7 @@ import java.time.LocalDate;
  * 
  * Contiene toda la información necesaria para:
  * - Mostrar créditos con saldo pendiente
- * - Calcular retención de fuente
+ * - Calcular retención de fuente y retención ICA
  * - Registrar abonos
  * 
  * Endpoint: GET /api/creditos/cliente/{clienteId}/pendientes
@@ -33,7 +33,7 @@ public class CreditoPendienteDTO {
     /** Monto total abonado hasta el momento */
     private Double totalAbonado;
     
-    /** Saldo pendiente (totalCredito - totalAbonado - retencionFuente si aplica) */
+    /** Saldo pendiente (totalCredito - totalAbonado - retencionFuente - retencionIca si aplican) */
     private Double saldoPendiente;
     
     /** Estado del crédito: ABIERTO, CERRADO, VENCIDO, ANULADO */
@@ -74,6 +74,17 @@ public class CreditoPendienteDTO {
     
     /** Valor de la retención en la fuente */
     private Double retencionFuente;
+    
+    // ========== RETENCIÓN ICA ==========
+    
+    /** Indica si la orden tiene retención ICA */
+    private Boolean tieneRetencionIca;
+    
+    /** Valor de la retención ICA */
+    private Double retencionIca;
+    
+    /** Porcentaje de retención ICA aplicado (opcional) */
+    private Double porcentajeIca;
     
     // ========== DATOS ADICIONALES ==========
     
@@ -139,6 +150,11 @@ public class CreditoPendienteDTO {
             // Retención de fuente
             this.tieneRetencionFuente = credito.getOrden().isTieneRetencionFuente();
             this.retencionFuente = credito.getOrden().getRetencionFuente();
+            
+            // Retención ICA
+            this.tieneRetencionIca = credito.getOrden().isTieneRetencionIca();
+            this.retencionIca = credito.getOrden().getRetencionIca();
+            this.porcentajeIca = credito.getOrden().getPorcentajeIca();
             
             // Sede
             if (credito.getOrden().getSede() != null) {

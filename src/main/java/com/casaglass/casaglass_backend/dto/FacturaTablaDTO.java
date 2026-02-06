@@ -21,6 +21,7 @@ public class FacturaTablaDTO {
     private Double subtotal;
     private Double iva;
     private Double retencionFuente;
+    private Double retencionIca;
     private Double total;
     private String formaPago;
     private EstadoFactura estado;

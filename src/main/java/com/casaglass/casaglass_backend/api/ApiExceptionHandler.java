@@ -8,7 +8,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
+import org.hibernate.LazyInitializationException;
 import java.time.Instant;
 import java.util.Map;
 
@@ -94,6 +96,27 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleEmptyDelete(EmptyResultDataAccessException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(body(HttpStatus.NOT_FOUND, "El recurso no existe.", "NOT_FOUND"));
+    }
+
+    /**
+     * Entidad no encontrada (referencias huérfanas o lazy loading fallido) -> 500
+     * Maneja casos donde se intenta acceder a una entidad relacionada que no existe
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleEntityNotFound(EntityNotFoundException ex) {
+        String message = "Error de integridad de datos: Hay referencias a registros que ya no existen. Contacte al administrador para corregir los datos.";
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(body(HttpStatus.INTERNAL_SERVER_ERROR, message, "DATA_INTEGRITY_ERROR"));
+    }
+
+    /**
+     * Error de inicialización perezosa (lazy loading fuera de sesión) -> 500
+     */
+    @ExceptionHandler(LazyInitializationException.class)
+    public ResponseEntity<Map<String, Object>> handleLazyInitialization(LazyInitializationException ex) {
+        String message = "Error al cargar datos relacionados. Por favor, intente nuevamente.";
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(body(HttpStatus.INTERNAL_SERVER_ERROR, message, "LAZY_LOADING_ERROR"));
     }
 
     /**

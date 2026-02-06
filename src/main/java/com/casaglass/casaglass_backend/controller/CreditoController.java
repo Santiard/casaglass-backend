@@ -41,10 +41,12 @@ public class CreditoController {
     public ResponseEntity<?> crearParaOrden(@PathVariable Long ordenId, 
                                            @RequestParam Long clienteId, 
                                            @RequestParam Double totalOrden,
-                                           @RequestParam(required = false) Double retencionFuente) {
+                                           @RequestParam(required = false) Double retencionFuente,
+                                           @RequestParam(required = false) Double retencionIca) {
         try {
-            Double retencion = (retencionFuente != null && retencionFuente > 0) ? retencionFuente : 0.0;
-            Credito credito = service.crearCreditoParaOrden(ordenId, clienteId, totalOrden, retencion);
+            Double retencionFuenteValor = (retencionFuente != null && retencionFuente > 0) ? retencionFuente : 0.0;
+            Double retencionIcaValor = (retencionIca != null && retencionIca > 0) ? retencionIca : 0.0;
+            Credito credito = service.crearCreditoParaOrden(ordenId, clienteId, totalOrden, retencionFuenteValor, retencionIcaValor);
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Crédito creado exitosamente",
                 "credito", new CreditoResponseDTO(credito)

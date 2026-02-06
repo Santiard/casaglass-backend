@@ -300,12 +300,38 @@ public class OrdenController {
      * - Información básica de la orden (id, numero, fecha, obra, total)
      * - Cliente con todos sus datos (id, nombre, nit, direccion, telefono)
      * - Items con información del producto (id, nombre)
+     * 
+     * ✅ Usa fetch joins para cargar todas las relaciones de una vez
+     * ✅ Funciona correctamente incluso para órdenes facturadas
+     * ✅ Evita problemas de lazy loading
      */
     @GetMapping("/{id}/detalle")
     public ResponseEntity<OrdenDetalleDTO> obtenerDetalle(@PathVariable Long id) {
-        return service.obtenerPorId(id)
-                .map(orden -> ResponseEntity.ok(new OrdenDetalleDTO(orden)))
-                .orElse(ResponseEntity.notFound().build());
+        try {
+            // ✅ Usar método que carga todas las relaciones con fetch joins
+            // Esto evita problemas de lazy loading, especialmente para órdenes facturadas
+            return service.obtenerPorIdConRelaciones(id)
+                    .map(orden -> {
+                        // ✅ Forzar inicialización de colecciones si es necesario
+                        if (orden.getItems() != null) {
+                            orden.getItems().size(); // Forzar carga de items
+                        }
+                        return ResponseEntity.ok(new OrdenDetalleDTO(orden));
+                    })
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (org.hibernate.LazyInitializationException e) {
+            // Si aún falla por lazy loading, intentar cargar de nuevo
+            log.warn("Error de lazy loading al obtener detalle de orden {}: {}", id, e.getMessage());
+            return service.obtenerPorIdConRelaciones(id)
+                    .map(orden -> ResponseEntity.ok(new OrdenDetalleDTO(orden)))
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            log.error("Orden no encontrada con ID: {}", id);
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error al obtener detalle de orden {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("/numero/{numero}")
@@ -489,6 +515,45 @@ public class OrdenController {
             
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Retención de fuente actualizada exitosamente",
+                "orden", ordenActualizada
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "tipo", "VALIDACION"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Error interno del servidor: " + e.getMessage(),
+                "tipo", "SERVIDOR"
+            ));
+        }
+    }
+
+    /**
+     * 💰 ACTUALIZAR RETENCIÓN ICA DE UNA ORDEN
+     * PUT /api/ordenes/{id}/retencion-ica
+     * 
+     * Endpoint especializado para actualizar SOLO los campos de retención ICA
+     * sin necesidad de enviar todos los datos de la orden (items, cliente, sede, etc.)
+     * 
+     * Request Body:
+     * {
+     *   "tieneRetencionIca": true,        // OBLIGATORIO: boolean
+     *   "porcentajeIca": 1.0,             // OPCIONAL: número (si no se envía, se usa el de BusinessSettings)
+     *   "retencionIca": 10000.50,         // OBLIGATORIO: número (0.0 si no tiene retención)
+     *   "iva": 47500.00                   // OPCIONAL: número (se calcula automáticamente si no se envía)
+     * }
+     */
+    @PutMapping("/{id}/retencion-ica")
+    public ResponseEntity<?> actualizarRetencionIca(
+            @PathVariable Long id,
+            @RequestBody com.casaglass.casaglass_backend.dto.RetencionIcaDTO retencionDTO) {
+        try {
+            Orden ordenActualizada = service.actualizarRetencionIca(id, retencionDTO);
+            
+            return ResponseEntity.ok(Map.of(
+                "mensaje", "Retención ICA actualizada exitosamente",
                 "orden", ordenActualizada
             ));
         } catch (IllegalArgumentException e) {
