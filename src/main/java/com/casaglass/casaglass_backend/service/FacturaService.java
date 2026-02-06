@@ -378,7 +378,15 @@ public class FacturaService {
     }
 
     /**
-     * Actualizar factura
+     * ✅ ACTUALIZAR FACTURA CON SOPORTE DE ACTUALIZACIÓN PARCIAL
+     * 
+     * Solo actualiza los campos que vienen en el DTO (no null).
+     * Permite actualizar campos individuales o combinados.
+     * 
+     * Ejemplos de uso:
+     * - { "numeroFactura": "123" } → solo cambia el número
+     * - { "clienteId": 5 } → solo cambia el cliente
+     * - { "numeroFactura": "123", "clienteId": 5 } → cambia ambos
      */
     @Transactional
     public Factura actualizarFactura(Long facturaId, FacturaCreateDTO facturaDTO) {
@@ -393,31 +401,86 @@ public class FacturaService {
             throw new IllegalArgumentException("No se puede actualizar una factura anulada");
         }
 
-        // Actualizar campos
-        factura.setFecha(facturaDTO.getFecha() != null ? facturaDTO.getFecha() : factura.getFecha());
-        factura.setSubtotal(facturaDTO.getSubtotal());
-        // Calcular IVA: si viene en el DTO se usa, si no se calcula desde el subtotal
-        if (facturaDTO.getIva() != null && facturaDTO.getIva() > 0) {
-            factura.setIva(facturaDTO.getIva());
-        } else {
-            // Calcular IVA automáticamente desde el subtotal (que ya incluye IVA)
-            Double ivaCalculado = calcularIvaDesdeSubtotal(facturaDTO.getSubtotal());
-            factura.setIva(ivaCalculado);
+        boolean necesitaRecalcularTotal = false;
+
+        // ✅ ACTUALIZAR NÚMERO DE FACTURA (con validación de unicidad)
+        if (facturaDTO.getNumeroFactura() != null && !facturaDTO.getNumeroFactura().trim().isEmpty()) {
+            String nuevoNumero = facturaDTO.getNumeroFactura().trim();
+            
+            // Validar que no sea el mismo número actual
+            if (!nuevoNumero.equals(factura.getNumeroFactura())) {
+                // Validar unicidad: verificar que no exista otra factura con ese número
+                Optional<Factura> facturaExistente = facturaRepo.findByNumeroFactura(nuevoNumero);
+                if (facturaExistente.isPresent() && !facturaExistente.get().getId().equals(facturaId)) {
+                    throw new IllegalArgumentException("Ya existe una factura con el número: " + nuevoNumero);
+                }
+                
+                factura.setNumeroFactura(nuevoNumero);
+            }
         }
-        factura.setRetencionFuente(facturaDTO.getRetencionFuente() != null ? facturaDTO.getRetencionFuente() : 0.0);
-        factura.setRetencionIca(facturaDTO.getRetencionIca() != null ? facturaDTO.getRetencionIca() : 0.0);
-        factura.setFormaPago(facturaDTO.getFormaPago());
-        factura.setObservaciones(facturaDTO.getObservaciones());
-        
-        // Actualizar cliente si se proporciona
+
+        // ✅ ACTUALIZAR FECHA (solo si viene en el DTO)
+        if (facturaDTO.getFecha() != null) {
+            factura.setFecha(facturaDTO.getFecha());
+        }
+
+        // ✅ ACTUALIZAR CLIENTE (solo si viene clienteId en el DTO)
         if (facturaDTO.getClienteId() != null) {
             Cliente cliente = clienteRepository.findById(facturaDTO.getClienteId())
                     .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado con ID: " + facturaDTO.getClienteId()));
             factura.setCliente(cliente);
         }
 
-        // Recalcular total
-        factura.calcularTotal();
+        // ✅ ACTUALIZAR CAMPOS MONETARIOS (solo si vienen en el DTO)
+        if (facturaDTO.getSubtotal() != null) {
+            if (facturaDTO.getSubtotal() <= 0) {
+                throw new IllegalArgumentException("El subtotal debe ser mayor a 0");
+            }
+            factura.setSubtotal(facturaDTO.getSubtotal());
+            necesitaRecalcularTotal = true;
+        }
+
+        // Calcular IVA: solo si se actualizó el subtotal o si viene explícitamente en el DTO
+        if (necesitaRecalcularTotal || facturaDTO.getIva() != null) {
+            if (facturaDTO.getIva() != null && facturaDTO.getIva() >= 0) {
+                factura.setIva(facturaDTO.getIva());
+            } else if (necesitaRecalcularTotal) {
+                // Si se actualizó el subtotal, recalcular IVA automáticamente
+                Double ivaCalculado = calcularIvaDesdeSubtotal(factura.getSubtotal());
+                factura.setIva(ivaCalculado);
+            }
+        }
+
+        if (facturaDTO.getRetencionFuente() != null) {
+            if (facturaDTO.getRetencionFuente() < 0) {
+                throw new IllegalArgumentException("La retención en la fuente no puede ser negativa");
+            }
+            factura.setRetencionFuente(facturaDTO.getRetencionFuente());
+            necesitaRecalcularTotal = true;
+        }
+
+        if (facturaDTO.getRetencionIca() != null) {
+            if (facturaDTO.getRetencionIca() < 0) {
+                throw new IllegalArgumentException("La retención ICA no puede ser negativa");
+            }
+            factura.setRetencionIca(facturaDTO.getRetencionIca());
+            necesitaRecalcularTotal = true;
+        }
+
+        // ✅ ACTUALIZAR FORMA DE PAGO (solo si viene en el DTO)
+        if (facturaDTO.getFormaPago() != null) {
+            factura.setFormaPago(facturaDTO.getFormaPago());
+        }
+
+        // ✅ ACTUALIZAR OBSERVACIONES (solo si viene en el DTO)
+        if (facturaDTO.getObservaciones() != null) {
+            factura.setObservaciones(facturaDTO.getObservaciones());
+        }
+
+        // ✅ RECALCULAR TOTAL solo si se actualizaron campos monetarios
+        if (necesitaRecalcularTotal) {
+            factura.calcularTotal();
+        }
 
         return facturaRepo.save(factura);
     }
