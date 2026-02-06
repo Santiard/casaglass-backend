@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.dto.ProductoActualizarDTO;
+import com.casaglass.casaglass_backend.dto.ProductoPosicionDTO;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.TipoProducto;
 import com.casaglass.casaglass_backend.model.ColorProducto;
@@ -196,5 +197,38 @@ public class ProductoController {
     @GetMapping("/categorias-texto")
     public List<String> categoriasTexto() {
         return service.listarCategoriasTexto();
+    }
+
+    /**
+     * 📍 LISTAR PRODUCTOS PARA TABLA DE POSICIONES
+     * GET /api/productos/posiciones
+     * 
+     * Retorna solo los campos necesarios para mostrar la tabla de posiciones:
+     * - id, codigo, nombre, color, posicion, categoria
+     * 
+     * Incluye productos normales y ProductoVidrio
+     * Excluye Cortes
+     * 
+     * Ordenamiento:
+     * - Productos con posición: ordenados por posición numérica ascendente
+     * - Productos sin posición: al final del array
+     * 
+     * Parámetros:
+     * - categoriaId (opcional): Filtrar por categoría específica
+     * 
+     * Ejemplo:
+     * GET /api/productos/posiciones
+     * GET /api/productos/posiciones?categoriaId=1
+     */
+    @GetMapping("/posiciones")
+    public ResponseEntity<List<ProductoPosicionDTO>> listarProductosParaPosiciones(
+            @RequestParam(required = false) Long categoriaId) {
+        try {
+            List<ProductoPosicionDTO> productos = service.listarProductosParaPosiciones(categoriaId);
+            return ResponseEntity.ok(productos);
+        } catch (Exception e) {
+            log.error("Error al listar productos para posiciones", e);
+            return ResponseEntity.status(500).body(List.of());
+        }
     }
 }

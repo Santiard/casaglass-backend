@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.dto.ProductoActualizarDTO;
+import com.casaglass.casaglass_backend.dto.ProductoPosicionDTO;
 import com.casaglass.casaglass_backend.model.Categoria;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.Producto;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -210,6 +212,17 @@ public class ProductoService {
         return productos;
     }
 
+    /**
+     * 💾 GUARDAR PRODUCTO CON MANEJO DE POSICIÓN
+     * 
+     * Si se especifica una posición, se inserta el producto en esa posición
+     * y se corren todos los productos posteriores (sumando 1 a su posición).
+     * 
+     * Si no se especifica posición, se asigna la última posición + 1.
+     * 
+     * @param p Producto a guardar
+     * @return Producto guardado con posición asignada
+     */
     public Producto guardar(Producto p) {
         // Validar categoría si viene con ID
         if (p.getCategoria() != null && p.getCategoria().getId() != null) {
@@ -220,13 +233,83 @@ public class ProductoService {
             p.setCategoria(null);
         }
         
-        // Guardar el producto primero
+        // 📍 MANEJO DE POSICIÓN
+        String posicionSolicitada = p.getPosicion();
+        
+        if (posicionSolicitada != null && !posicionSolicitada.trim().isEmpty()) {
+            // Intentar parsear la posición como número
+            try {
+                Long posicionNumerica = Long.parseLong(posicionSolicitada.trim());
+                
+                // Validar que la posición sea positiva
+                if (posicionNumerica <= 0) {
+                    throw new IllegalArgumentException("La posición debe ser un número positivo mayor a 0");
+                }
+                
+                // Correr todos los productos con posición >= a la solicitada
+                correrPosicionesProductos(posicionNumerica);
+                
+                // Asignar la posición al nuevo producto
+                p.setPosicion(String.valueOf(posicionNumerica));
+                
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("La posición debe ser un número válido. Valor recibido: " + posicionSolicitada);
+            }
+        } else {
+            // Si no viene posición, asignar la última posición + 1
+            Long maximaPosicion = repo.obtenerMaximaPosicion();
+            Long nuevaPosicion = (maximaPosicion != null) ? maximaPosicion + 1 : 1;
+            p.setPosicion(String.valueOf(nuevaPosicion));
+        }
+        
+        // Guardar el producto
         Producto productoGuardado = repo.save(p);
         
         // ✅ Crear inventario con cantidad 0 para las 3 sedes automáticamente
         crearInventarioInicial(productoGuardado);
         
         return productoGuardado;
+    }
+
+    /**
+     * 🔄 CORRER POSICIONES DE PRODUCTOS
+     * 
+     * Cuando se inserta un producto en una posición específica, todos los productos
+     * con posición >= a esa posición deben correrse hacia abajo (sumar 1).
+     * 
+     * Ejemplo:
+     * - Si insertas en posición 5, los productos en posición 5, 6, 7, 8... pasan a 6, 7, 8, 9...
+     * 
+     * @param posicionInicial Posición desde la cual correr los productos
+     */
+    private void correrPosicionesProductos(Long posicionInicial) {
+        // Obtener todos los productos con posición >= a la posición inicial
+        List<Producto> productosACorrer = repo.encontrarProductosConPosicionMayorOIgual(posicionInicial);
+        
+        // Ordenar por posición descendente para evitar conflictos al actualizar
+        productosACorrer.sort((a, b) -> {
+            try {
+                Long posA = Long.parseLong(a.getPosicion());
+                Long posB = Long.parseLong(b.getPosicion());
+                return posB.compareTo(posA); // Orden descendente
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        });
+        
+        // Correr cada producto sumando 1 a su posición
+        for (Producto producto : productosACorrer) {
+            try {
+                Long posicionActual = Long.parseLong(producto.getPosicion());
+                Long nuevaPosicion = posicionActual + 1;
+                producto.setPosicion(String.valueOf(nuevaPosicion));
+                repo.save(producto);
+            } catch (NumberFormatException e) {
+                // Si hay un error al parsear, saltar este producto
+                // (no debería pasar si la consulta funciona correctamente)
+                continue;
+            }
+        }
     }
 
     public Producto actualizar(Long id, ProductoActualizarDTO dto) {
@@ -410,5 +493,103 @@ public class ProductoService {
 
     public List<String> listarCategoriasTexto() {
         return repo.findDistinctCategorias();
+    }
+
+    /**
+     * 📍 LISTAR PRODUCTOS PARA TABLA DE POSICIONES
+     * 
+     * Retorna solo los campos necesarios para mostrar la tabla de posiciones:
+     * - id, codigo, nombre, color, posicion, categoria
+     * 
+     * Incluye productos normales y ProductoVidrio
+     * Excluye Cortes
+     * 
+     * Ordenamiento:
+     * - Productos con posición: ordenados por posición numérica ascendente
+     * - Productos sin posición: al final del array
+     * 
+     * @param categoriaId (opcional) Filtrar por categoría específica
+     * @return Lista de ProductoPosicionDTO ordenados por posición
+     */
+    @Transactional(readOnly = true)
+    public List<ProductoPosicionDTO> listarProductosParaPosiciones(Long categoriaId) {
+        // Obtener todos los productos (incluyendo ProductoVidrio)
+        List<Producto> todosLosProductos = repo.findAll();
+        
+        // Filtrar Cortes (excluir)
+        List<Producto> productos = todosLosProductos.stream()
+                .filter(p -> !(p instanceof com.casaglass.casaglass_backend.model.Corte))
+                .collect(Collectors.toList());
+        
+        // Filtrar por categoría si se especifica
+        if (categoriaId != null) {
+            productos = productos.stream()
+                    .filter(p -> p.getCategoria() != null && p.getCategoria().getId().equals(categoriaId))
+                    .collect(Collectors.toList());
+        }
+        
+        // Convertir a DTO
+        List<ProductoPosicionDTO> dtos = productos.stream()
+                .map(this::convertirAProductoPosicionDTO)
+                .collect(Collectors.toList());
+        
+        // Ordenar: productos con posición primero (por posición numérica), luego sin posición
+        dtos.sort((a, b) -> {
+            // Si ambos tienen posición, ordenar numéricamente
+            if (a.getPosicion() != null && b.getPosicion() != null) {
+                try {
+                    Long posA = Long.parseLong(a.getPosicion());
+                    Long posB = Long.parseLong(b.getPosicion());
+                    return posA.compareTo(posB);
+                } catch (NumberFormatException e) {
+                    // Si hay error al parsear, mantener orden original
+                    return 0;
+                }
+            }
+            // Si solo 'a' tiene posición, va primero
+            if (a.getPosicion() != null && b.getPosicion() == null) {
+                return -1;
+            }
+            // Si solo 'b' tiene posición, va primero
+            if (a.getPosicion() == null && b.getPosicion() != null) {
+                return 1;
+            }
+            // Si ninguno tiene posición, mantener orden original
+            return 0;
+        });
+        
+        return dtos;
+    }
+
+    /**
+     * 🔄 CONVERTIR Producto a ProductoPosicionDTO
+     */
+    private ProductoPosicionDTO convertirAProductoPosicionDTO(Producto producto) {
+        ProductoPosicionDTO dto = new ProductoPosicionDTO();
+        dto.setId(producto.getId());
+        dto.setCodigo(producto.getCodigo());
+        dto.setNombre(producto.getNombre());
+        
+        // Color: convertir enum a String, o "NA" si es null
+        if (producto.getColor() != null) {
+            dto.setColor(producto.getColor().name());
+        } else {
+            dto.setColor("NA");
+        }
+        
+        // Posición: puede ser null
+        dto.setPosicion(producto.getPosicion());
+        
+        // Categoría: crear DTO simplificado
+        if (producto.getCategoria() != null) {
+            ProductoPosicionDTO.CategoriaDTO categoriaDTO = new ProductoPosicionDTO.CategoriaDTO();
+            categoriaDTO.setId(producto.getCategoria().getId());
+            categoriaDTO.setNombre(producto.getCategoria().getNombre());
+            dto.setCategoria(categoriaDTO);
+        } else {
+            dto.setCategoria(null);
+        }
+        
+        return dto;
     }
 }

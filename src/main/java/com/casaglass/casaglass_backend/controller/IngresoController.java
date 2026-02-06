@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ingresos")
@@ -155,13 +156,74 @@ public class IngresoController {
         }
     }
 
+    /**
+     * 🗑️ ELIMINAR INGRESO (con soporte para ingresos procesados)
+     * 
+     * DELETE /api/ingresos/{id}
+     * 
+     * Si el ingreso está procesado, automáticamente revierte el inventario
+     * antes de eliminarlo. Esto permite corregir errores de duplicación.
+     * 
+     * Respuestas:
+     * - 204 No Content: Ingreso eliminado correctamente
+     * - 404 Not Found: Ingreso no encontrado
+     * - 500 Internal Server Error: Error al revertir inventario o eliminar
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminarIngreso(@PathVariable Long id) {
         try {
             ingresoService.eliminarIngreso(id);
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
+            log.error("Error al eliminar ingreso ID: {}", id, e);
+            // Si es un error de "no encontrado", retornar 404
+            if (e.getMessage() != null && e.getMessage().contains("no encontrado")) {
+                return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+            }
+            // Otros errores retornar 500
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error inesperado al eliminar ingreso ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "Error inesperado: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 🔄 DESPROCESAR INGRESO (revertir inventario sin eliminar)
+     * 
+     * PUT /api/ingresos/{id}/desprocesar
+     * 
+     * Revierte los cambios en el inventario que se hicieron al procesar el ingreso,
+     * pero mantiene el registro del ingreso. Útil para corregir errores sin perder
+     * el historial del ingreso.
+     * 
+     * Respuestas:
+     * - 200 OK: Ingreso desprocesado correctamente
+     * - 400 Bad Request: El ingreso no está procesado o hay un error
+     * - 404 Not Found: Ingreso no encontrado
+     */
+    @PutMapping("/{id}/desprocesar")
+    public ResponseEntity<?> desprocesarIngreso(@PathVariable Long id) {
+        try {
+            Ingreso ingreso = ingresoService.obtenerIngresoPorId(id)
+                    .orElseThrow(() -> new RuntimeException("Ingreso no encontrado"));
+            
+            ingresoService.desprocesarIngreso(ingreso);
+            
+            // Recargar el ingreso actualizado
+            Ingreso ingresoActualizado = ingresoService.obtenerIngresoPorId(id)
+                    .orElseThrow(() -> new RuntimeException("Error al recargar ingreso"));
+            
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "Ingreso desprocesado correctamente. El inventario ha sido revertido.",
+                    "ingreso", ingresoActualizado
+            ));
+        } catch (RuntimeException e) {
+            log.error("Error al desprocesar ingreso ID: {}", id, e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error inesperado al desprocesar ingreso ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "Error inesperado: " + e.getMessage()));
         }
     }
 

@@ -94,4 +94,20 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
         @Param("codigo") String codigo,
         @Param("nombre") String nombre
     );
+
+    /**
+     * 📍 Obtener la máxima posición numérica de todos los productos
+     * Retorna null si no hay productos con posición
+     * Usa consulta nativa para mejor compatibilidad con MariaDB
+     */
+    @Query(value = "SELECT MAX(CAST(posicion AS UNSIGNED)) FROM productos WHERE posicion IS NOT NULL AND posicion != ''", nativeQuery = true)
+    Long obtenerMaximaPosicion();
+
+    /**
+     * 📍 Obtener productos con posición mayor o igual a un valor específico
+     * Útil para correr posiciones al insertar un nuevo producto
+     * Usa consulta nativa para mejor compatibilidad con MariaDB
+     */
+    @Query(value = "SELECT * FROM productos WHERE posicion IS NOT NULL AND posicion != '' AND CAST(posicion AS UNSIGNED) >= :posicionMinima ORDER BY CAST(posicion AS UNSIGNED) ASC", nativeQuery = true)
+    List<Producto> encontrarProductosConPosicionMayorOIgual(@Param("posicionMinima") Long posicionMinima);
 }
