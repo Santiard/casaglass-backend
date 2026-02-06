@@ -283,8 +283,20 @@ public class ProductoService {
      * @param posicionInicial Posición desde la cual correr los productos
      */
     private void correrPosicionesProductos(Long posicionInicial) {
-        // Obtener todos los productos con posición >= a la posición inicial
-        List<Producto> productosACorrer = repo.encontrarProductosConPosicionMayorOIgual(posicionInicial);
+        // Obtener todos los productos con posición (excluye Cortes)
+        List<Producto> todosLosProductosConPosicion = repo.encontrarProductosConPosicion();
+        
+        // Filtrar en Java: solo productos con posición >= posicionInicial
+        List<Producto> productosACorrer = todosLosProductosConPosicion.stream()
+                .filter(p -> {
+                    try {
+                        Long posicion = Long.parseLong(p.getPosicion());
+                        return posicion >= posicionInicial;
+                    } catch (NumberFormatException e) {
+                        return false; // Si no se puede parsear, excluir
+                    }
+                })
+                .collect(Collectors.toList());
         
         // Ordenar por posición descendente para evitar conflictos al actualizar
         productosACorrer.sort((a, b) -> {

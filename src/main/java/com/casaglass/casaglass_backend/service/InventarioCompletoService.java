@@ -378,6 +378,7 @@ public class InventarioCompletoService {
         
         String tipoProducto = producto.getTipo() != null ? producto.getTipo().name() : null;
         String colorProducto = producto.getColor() != null ? producto.getColor().name() : null;
+        String posicion = producto.getPosicion(); // 📍 Incluir posición
 
         return new ProductoInventarioCompletoDTO(
             producto.getId(),
@@ -387,6 +388,7 @@ public class InventarioCompletoService {
             categoriaDTO,  // ✅ Ahora es CategoriaDTO { id, nombre } en lugar de String
             tipoProducto,
             colorProducto,
+            posicion,  // 📍 Incluir posición
             esVidrio,
             mm,
             m1,

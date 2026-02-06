@@ -17,6 +17,7 @@ public class ProductoInventarioCompletoDTO {
     private CategoriaDTO categoria;  // ✅ Cambiado de String a CategoriaDTO { id, nombre }
     private String tipo; // Campo tipo
     private String color; // Campo color
+    private String posicion; // 📍 Posición del producto (puede ser null)
     
     // === Datos específicos para vidrios ===
     private Boolean esVidrio;
@@ -40,7 +41,7 @@ public class ProductoInventarioCompletoDTO {
     
     // Constructor principal con cálculo automático de total
     public ProductoInventarioCompletoDTO(Long id, String codigo, String nombre, String descripcion, CategoriaDTO categoria, String tipo, String color,
-                                        Boolean esVidrio, Double mm, Double m1, Double m2,
+                                        String posicion, Boolean esVidrio, Double mm, Double m1, Double m2,
                                         Double cantidadInsula, Double cantidadCentro, Double cantidadPatios,
                                         Double costo, Double precio1, Double precio2, Double precio3) {
         this.id = id;
@@ -50,6 +51,7 @@ public class ProductoInventarioCompletoDTO {
         this.categoria = categoria;
         this.tipo = tipo;
         this.color = color;
+        this.posicion = posicion;
         this.esVidrio = esVidrio;
         this.mm = mm;
         this.m1 = m1;

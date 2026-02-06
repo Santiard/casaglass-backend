@@ -2,10 +2,12 @@ package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.Categoria;
 import com.casaglass.casaglass_backend.model.Inventario;
+import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.ProductoVidrio;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.repository.CategoriaRepository;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
+import com.casaglass.casaglass_backend.repository.ProductoRepository;
 import com.casaglass.casaglass_backend.repository.ProductoVidrioRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import jakarta.persistence.EntityManager;
@@ -15,12 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class ProductoVidrioService {
 
     private final ProductoVidrioRepository repo;
+    private final ProductoRepository productoRepo; // Para acceder a métodos de posición
     private final CategoriaRepository categoriaRepo;
     private final InventarioRepository inventarioRepo;
     private final SedeRepository sedeRepo;
@@ -28,11 +32,13 @@ public class ProductoVidrioService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public ProductoVidrioService(ProductoVidrioRepository repo, 
+    public ProductoVidrioService(ProductoVidrioRepository repo,
+                                 ProductoRepository productoRepo,
                                  CategoriaRepository categoriaRepo,
                                  InventarioRepository inventarioRepo,
                                  SedeRepository sedeRepo) {
         this.repo = repo;
+        this.productoRepo = productoRepo;
         this.categoriaRepo = categoriaRepo;
         this.inventarioRepo = inventarioRepo;
         this.sedeRepo = sedeRepo;
@@ -84,6 +90,35 @@ public class ProductoVidrioService {
             } else {
                 p.setM1m2(0.0);
             }
+        }
+        
+        // 📍 MANEJO DE POSICIÓN (igual que en ProductoService)
+        String posicionSolicitada = p.getPosicion();
+        
+        if (posicionSolicitada != null && !posicionSolicitada.trim().isEmpty()) {
+            // Intentar parsear la posición como número
+            try {
+                Long posicionNumerica = Long.parseLong(posicionSolicitada.trim());
+                
+                // Validar que la posición sea positiva
+                if (posicionNumerica <= 0) {
+                    throw new IllegalArgumentException("La posición debe ser un número positivo mayor a 0");
+                }
+                
+                // Correr todos los productos con posición >= a la solicitada
+                correrPosicionesProductos(posicionNumerica);
+                
+                // Asignar la posición al nuevo producto
+                p.setPosicion(String.valueOf(posicionNumerica));
+                
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("La posición debe ser un número válido. Valor recibido: " + posicionSolicitada);
+            }
+        } else {
+            // Si no viene posición, asignar la última posición + 1
+            Long maximaPosicion = productoRepo.obtenerMaximaPosicion();
+            Long nuevaPosicion = (maximaPosicion != null) ? maximaPosicion + 1 : 1;
+            p.setPosicion(String.valueOf(nuevaPosicion));
         }
         
         // ✅ USAR entityManager.persist() DIRECTAMENTE para forzar que Hibernate detecte el tipo
@@ -155,8 +190,50 @@ public class ProductoVidrioService {
 
     public ProductoVidrio actualizar(Long id, ProductoVidrio p) {
         return repo.findById(id).map(actual -> {
+            // 📍 MANEJO DE POSICIÓN (igual que en ProductoService)
+            String posicionSolicitada = p.getPosicion();
+            String posicionActual = actual.getPosicion();
+            
+            // Solo procesar posición si cambió
+            if (posicionSolicitada != null && !posicionSolicitada.trim().isEmpty()) {
+                // Si la posición cambió, procesarla
+                if (!posicionSolicitada.equals(posicionActual)) {
+                    try {
+                        Long posicionNumerica = Long.parseLong(posicionSolicitada.trim());
+                        
+                        // Validar que la posición sea positiva
+                        if (posicionNumerica <= 0) {
+                            throw new IllegalArgumentException("La posición debe ser un número positivo mayor a 0");
+                        }
+                        
+                        // Si el producto ya tenía posición, liberarla primero (correr productos hacia arriba)
+                        if (posicionActual != null && !posicionActual.trim().isEmpty()) {
+                            try {
+                                Long posicionActualNum = Long.parseLong(posicionActual.trim());
+                                // Correr productos que estaban después de la posición actual hacia arriba
+                                liberarPosicion(posicionActualNum);
+                            } catch (NumberFormatException e) {
+                                // Si no se puede parsear, ignorar
+                            }
+                        }
+                        
+                        // Correr productos con posición >= a la nueva posición
+                        correrPosicionesProductos(posicionNumerica);
+                        
+                        // Asignar la nueva posición
+                        actual.setPosicion(String.valueOf(posicionNumerica));
+                        
+                    } catch (NumberFormatException e) {
+                        throw new IllegalArgumentException("La posición debe ser un número válido. Valor recibido: " + posicionSolicitada);
+                    }
+                }
+                // Si la posición no cambió, mantenerla
+            } else {
+                // Si se envía null o vacío, mantener la posición actual (no cambiar)
+                // actual.setPosicion(posicionActual); // Ya está asignada
+            }
+            
             // Campos heredados de Producto
-            actual.setPosicion(p.getPosicion());
             actual.setCodigo(p.getCodigo());
             actual.setNombre(p.getNombre());
             actual.setColor(p.getColor());
@@ -184,6 +261,103 @@ public class ProductoVidrioService {
 
             return repo.save(actual);
         }).orElseThrow(() -> new RuntimeException("ProductoVidrio no encontrado con id " + id));
+    }
+    
+    /**
+     * 🔄 CORRER POSICIONES DE PRODUCTOS
+     * 
+     * Cuando se inserta o actualiza un producto en una posición específica, todos los productos
+     * con posición >= a esa posición deben correrse hacia abajo (sumar 1).
+     * 
+     * @param posicionInicial Posición desde la cual correr los productos
+     */
+    private void correrPosicionesProductos(Long posicionInicial) {
+        // Obtener todos los productos con posición (excluye Cortes)
+        List<Producto> todosLosProductosConPosicion = productoRepo.encontrarProductosConPosicion();
+        
+        // Filtrar en Java: solo productos con posición >= posicionInicial
+        List<Producto> productosACorrer = todosLosProductosConPosicion.stream()
+                .filter(prod -> {
+                    try {
+                        Long posicion = Long.parseLong(prod.getPosicion());
+                        return posicion >= posicionInicial;
+                    } catch (NumberFormatException e) {
+                        return false;
+                    }
+                })
+                .collect(Collectors.toList());
+        
+        // Ordenar por posición descendente para evitar conflictos al actualizar
+        productosACorrer.sort((a, b) -> {
+            try {
+                Long posA = Long.parseLong(a.getPosicion());
+                Long posB = Long.parseLong(b.getPosicion());
+                return posB.compareTo(posA); // Orden descendente
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        });
+        
+        // Correr cada producto sumando 1 a su posición
+        for (Producto producto : productosACorrer) {
+            try {
+                Long posicionActual = Long.parseLong(producto.getPosicion());
+                Long nuevaPosicion = posicionActual + 1;
+                producto.setPosicion(String.valueOf(nuevaPosicion));
+                productoRepo.save(producto);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+        }
+    }
+    
+    /**
+     * 🔄 LIBERAR POSICIÓN
+     * 
+     * Cuando un producto cambia de posición, los productos que estaban después
+     * de su posición anterior deben correrse hacia arriba (restar 1).
+     * 
+     * @param posicionLiberada Posición que se está liberando
+     */
+    private void liberarPosicion(Long posicionLiberada) {
+        // Obtener todos los productos con posición > posicionLiberada
+        List<Producto> todosLosProductosConPosicion = productoRepo.encontrarProductosConPosicion();
+        
+        List<Producto> productosACorrer = todosLosProductosConPosicion.stream()
+                .filter(prod -> {
+                    try {
+                        Long posicion = Long.parseLong(prod.getPosicion());
+                        return posicion > posicionLiberada;
+                    } catch (NumberFormatException e) {
+                        return false;
+                    }
+                })
+                .collect(Collectors.toList());
+        
+        // Ordenar por posición ascendente para correr hacia arriba
+        productosACorrer.sort((a, b) -> {
+            try {
+                Long posA = Long.parseLong(a.getPosicion());
+                Long posB = Long.parseLong(b.getPosicion());
+                return posA.compareTo(posB); // Orden ascendente
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        });
+        
+        // Correr cada producto restando 1 a su posición
+        for (Producto producto : productosACorrer) {
+            try {
+                Long posicionActual = Long.parseLong(producto.getPosicion());
+                Long nuevaPosicion = posicionActual - 1;
+                if (nuevaPosicion > 0) { // Solo si la nueva posición es válida
+                    producto.setPosicion(String.valueOf(nuevaPosicion));
+                    productoRepo.save(producto);
+                }
+            } catch (NumberFormatException e) {
+                continue;
+            }
+        }
     }
 
     public void eliminar(Long id) {

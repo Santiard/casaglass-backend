@@ -104,10 +104,11 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     Long obtenerMaximaPosicion();
 
     /**
-     * 📍 Obtener productos con posición mayor o igual a un valor específico
+     * 📍 Obtener productos con posición (excluyendo Cortes)
      * Útil para correr posiciones al insertar un nuevo producto
-     * Usa consulta nativa para mejor compatibilidad con MariaDB
+     * Usa JPQL para manejar correctamente la herencia JOINED
+     * El filtrado por posición numérica se hace en Java para evitar problemas con CAST en JPQL
      */
-    @Query(value = "SELECT * FROM productos WHERE posicion IS NOT NULL AND posicion != '' AND CAST(posicion AS UNSIGNED) >= :posicionMinima ORDER BY CAST(posicion AS UNSIGNED) ASC", nativeQuery = true)
-    List<Producto> encontrarProductosConPosicionMayorOIgual(@Param("posicionMinima") Long posicionMinima);
+    @Query("SELECT p FROM Producto p WHERE TYPE(p) != Corte AND p.posicion IS NOT NULL AND p.posicion != ''")
+    List<Producto> encontrarProductosConPosicion();
 }
