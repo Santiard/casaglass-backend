@@ -341,8 +341,9 @@ public class IngresoService {
         // Guardar el ingreso
         Ingreso ingresoGuardado = ingresoRepository.save(ingreso);
 
-        // NO procesar automáticamente - el usuario debe hacerlo manualmente
-        // procesarInventario(ingresoGuardado);
+        // ✅ PROCESAR AUTOMÁTICAMENTE el inventario al crear el ingreso
+        // Esto simplifica el flujo: los empleados no necesitan hacer clic en "procesar"
+        procesarInventario(ingresoGuardado);
 
         return ingresoGuardado;
     }
