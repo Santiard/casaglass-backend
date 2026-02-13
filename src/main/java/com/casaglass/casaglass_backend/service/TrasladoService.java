@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.dto.TrasladoDetalleBatchDTO;
+import com.casaglass.casaglass_backend.exception.InventarioInsuficienteException;
 import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.TrasladoDetalleRepository;
 import com.casaglass.casaglass_backend.repository.TrasladoRepository;
