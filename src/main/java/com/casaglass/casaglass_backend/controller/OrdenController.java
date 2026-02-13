@@ -4,6 +4,7 @@ import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
+import com.casaglass.casaglass_backend.dto.OrdenVentaResponseDTO;
 import com.casaglass.casaglass_backend.dto.OrdenDetalleDTO;
 import com.casaglass.casaglass_backend.dto.OrdenResponseDTO;
 import com.casaglass.casaglass_backend.dto.FacturaCreateDTO;
@@ -128,17 +129,18 @@ public class OrdenController {
     public ResponseEntity<?> crearOrdenVenta(@RequestBody OrdenVentaDTO ventaDTO) {
         try {
             // Crear orden (con o sin crédito según el flag)
-            Orden ordenCreada;
+            OrdenVentaResponseDTO respuesta;
             if (ventaDTO.isCredito()) {
-                ordenCreada = service.crearOrdenVentaConCredito(ventaDTO);
+                respuesta = service.crearOrdenVentaConCredito(ventaDTO);
             } else {
-                ordenCreada = service.crearOrdenVenta(ventaDTO);
+                respuesta = service.crearOrdenVenta(ventaDTO);
             }
             
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Orden de venta creada exitosamente",
-                "orden", ordenCreada,
-                "numero", ordenCreada.getNumero()
+                "orden", respuesta.getOrden(),
+                "numero", respuesta.getOrden().getNumero(),
+                "cortesCreados", respuesta.getCortesCreados()
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(

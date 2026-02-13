@@ -13,6 +13,8 @@ import com.casaglass.casaglass_backend.service.InventarioCorteService;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenActualizarDTO;
 import com.casaglass.casaglass_backend.dto.OrdenVentaDTO;
+import com.casaglass.casaglass_backend.dto.OrdenVentaResponseDTO;
+import com.casaglass.casaglass_backend.dto.CorteCreacionDTO;
 import com.casaglass.casaglass_backend.dto.CreditoTablaDTO;
 import com.casaglass.casaglass_backend.dto.OrdenCreditoDTO;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
@@ -157,7 +159,7 @@ public class OrdenService {
      * Valida todos los campos necesarios y maneja inventario automáticamente
      */
     @Transactional
-    public Orden crearOrdenVenta(OrdenVentaDTO ventaDTO) {
+    public OrdenVentaResponseDTO crearOrdenVenta(OrdenVentaDTO ventaDTO) {
         // 🔍 VALIDACIONES DE NEGOCIO
         validarDatosVenta(ventaDTO);
         
@@ -237,8 +239,9 @@ public class OrdenService {
         
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
         // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
+        List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            procesarCortes(ordenGuardada, ventaDTO.getCortes());
+            cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
         }
 
         // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
@@ -250,7 +253,8 @@ public class OrdenService {
         // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
         actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
 
-        return ordenGuardada;
+        // 📤 DEVOLVER RESPUESTA CON ORDEN Y CORTES CREADOS
+        return new OrdenVentaResponseDTO(ordenGuardada, cortesCreados);
     }
     /**
      * 🗓️ VENTAS DEL DÍA POR SEDE
@@ -282,7 +286,7 @@ public class OrdenService {
      * 💳 CREAR ORDEN DE VENTA CON CRÉDITO - Método unificado sin transacciones anidadas
      */
     @Transactional
-    public Orden crearOrdenVentaConCredito(OrdenVentaDTO ventaDTO) {
+    public OrdenVentaResponseDTO crearOrdenVentaConCredito(OrdenVentaDTO ventaDTO) {
         // ...existing code...
         
         // 🔍 VALIDACIONES DE NEGOCIO
@@ -397,9 +401,10 @@ public class OrdenService {
         
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
         // Esto crea los cortes nuevos y actualiza inventarios
+        List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             // ...existing code...
-            procesarCortes(ordenGuardada, ventaDTO.getCortes());
+            cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
         }
         
         // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
@@ -411,7 +416,8 @@ public class OrdenService {
         // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
         actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
         
-        return ordenGuardada;
+        // 📤 DEVOLVER RESPUESTA CON ORDEN Y CORTES CREADOS
+        return new OrdenVentaResponseDTO(ordenGuardada, cortesCreados);
     }
 
     /**
@@ -1577,6 +1583,7 @@ public class OrdenService {
         OrdenTablaDTO.OrdenItemTablaDTO itemDTO = new OrdenTablaDTO.OrdenItemTablaDTO();
         
         itemDTO.setId(item.getId());
+        itemDTO.setProductoId(item.getProducto() != null ? item.getProducto().getId() : null);  // ← Mapear productoId
         itemDTO.setCantidad(item.getCantidad());
         itemDTO.setPrecioUnitario(item.getPrecioUnitario());
         itemDTO.setTotalLinea(item.getTotalLinea());
@@ -2017,7 +2024,9 @@ public class OrdenService {
      * Si los cortes ya existen, simplemente se incrementa su inventario.
      */
     @Transactional
-    private void procesarCortes(Orden orden, List<OrdenVentaDTO.CorteSolicitadoDTO> cortes) {
+    private List<CorteCreacionDTO> procesarCortes(Orden orden, List<OrdenVentaDTO.CorteSolicitadoDTO> cortes) {
+        List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
+        
         for (OrdenVentaDTO.CorteSolicitadoDTO corteDTO : cortes) {
             // Validar que tenga cantidades por sede
             if (corteDTO.getCantidadesPorSede() == null || corteDTO.getCantidadesPorSede().isEmpty()) {
@@ -2048,6 +2057,14 @@ public class OrdenService {
                 orden.getSede().getId(),
                 "SOLICITADO" // Solo para logging interno, no se incluye en el nombre
             );
+            
+            // 📝 Guardar información del corte creado para devolverla
+            CorteCreacionDTO corteCreado = new CorteCreacionDTO(
+                corteSolicitado.getId(),
+                corteDTO.getMedidaSolicitada(),
+                corteDTO.getProductoId()
+            );
+            cortesCreados.add(corteCreado);
             
             // 3. Determinar corte sobrante (reutilizar si llega ID, de lo contrario crear)
             Corte corteSobrante;
@@ -2108,6 +2125,8 @@ public class OrdenService {
                 }
             }
         }
+        
+        return cortesCreados;
     }
     
     /**

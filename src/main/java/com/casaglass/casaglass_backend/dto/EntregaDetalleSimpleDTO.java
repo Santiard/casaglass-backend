@@ -18,6 +18,7 @@ public class EntregaDetalleSimpleDTO {
     private Long ordenId;
     private Long abonoId; // ID del abono específico (si aplica)
     private Long reembolsoId; // ID del reembolso (si aplica)
+    private String observacionReembolso; // Motivo del reembolso (si aplica)
     private Long numeroOrden;
     private LocalDate fechaOrden;
     private Double montoOrden;
@@ -140,6 +141,7 @@ public class EntregaDetalleSimpleDTO {
             // ✅ Obtener ReembolsoVenta de forma segura (maneja referencias huérfanas)
             ReembolsoVenta reembolso = obtenerReembolsoSeguro(detalle);
             this.reembolsoId = reembolso != null ? reembolso.getId() : null;
+            this.observacionReembolso = reembolso != null ? reembolso.getMotivo() : null;
             
             this.numeroOrden = detalle.getNumeroOrden();
             this.fechaOrden = detalle.getFechaOrden();
@@ -195,6 +197,7 @@ public class EntregaDetalleSimpleDTO {
             this.ordenId = null;
             this.abonoId = null;
             this.reembolsoId = null;
+            this.observacionReembolso = null;
             this.numeroOrden = detalle != null ? detalle.getNumeroOrden() : null;
             this.fechaOrden = detalle != null ? detalle.getFechaOrden() : null;
             this.montoOrden = detalle != null ? detalle.getMontoOrden() : null;
@@ -211,6 +214,7 @@ public class EntregaDetalleSimpleDTO {
             this.ordenId = null;
             this.abonoId = null;
             this.reembolsoId = null;
+            this.observacionReembolso = null;
             this.numeroOrden = detalle != null ? detalle.getNumeroOrden() : null;
             this.fechaOrden = detalle != null ? detalle.getFechaOrden() : null;
             this.montoOrden = detalle != null ? detalle.getMontoOrden() : null;
@@ -239,6 +243,7 @@ public class EntregaDetalleSimpleDTO {
             // ✅ Obtener ReembolsoVenta de forma segura (maneja referencias huérfanas)
             ReembolsoVenta reembolso = obtenerReembolsoSeguro(detalle);
             this.reembolsoId = reembolso != null ? reembolso.getId() : null;
+            this.observacionReembolso = reembolso != null ? reembolso.getMotivo() : null;
             
             this.numeroOrden = detalle.getNumeroOrden();
             this.fechaOrden = detalle.getFechaOrden();
@@ -299,6 +304,7 @@ public class EntregaDetalleSimpleDTO {
             this.ordenId = null;
             this.abonoId = null;
             this.reembolsoId = null;
+            this.observacionReembolso = null;
             this.numeroOrden = detalle != null ? detalle.getNumeroOrden() : null;
             this.fechaOrden = detalle != null ? detalle.getFechaOrden() : null;
             this.montoOrden = detalle != null ? detalle.getMontoOrden() : null;
@@ -315,6 +321,7 @@ public class EntregaDetalleSimpleDTO {
             this.ordenId = null;
             this.abonoId = null;
             this.reembolsoId = null;
+            this.observacionReembolso = null;
             this.numeroOrden = detalle != null ? detalle.getNumeroOrden() : null;
             this.fechaOrden = detalle != null ? detalle.getFechaOrden() : null;
             this.montoOrden = detalle != null ? detalle.getMontoOrden() : null;

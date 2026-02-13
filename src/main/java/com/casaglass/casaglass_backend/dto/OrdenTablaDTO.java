@@ -94,6 +94,7 @@ public class OrdenTablaDTO {
     @AllArgsConstructor
     public static class OrdenItemTablaDTO {
         private Long id;
+        private Long productoId;  // ← ID del producto para referencia directa
         private ProductoTablaDTO producto;
         private Double cantidad;
         private Double precioUnitario;

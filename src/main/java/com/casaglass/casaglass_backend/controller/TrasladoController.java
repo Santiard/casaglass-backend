@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.dto.TrasladoResponseDTO;
+import com.casaglass.casaglass_backend.exception.InventarioInsuficienteException;
 import com.casaglass.casaglass_backend.model.Traslado;
 import com.casaglass.casaglass_backend.service.TrasladoService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,6 +24,9 @@ public class TrasladoController {
     public ResponseEntity<?> crear(@RequestBody Traslado traslado) {
         try {
             return ResponseEntity.ok(service.crear(traslado));
+        } catch (InventarioInsuficienteException e) {
+            // Error específico de inventario insuficiente
+            return ResponseEntity.badRequest().body("INVENTARIO_INSUFICIENTE: " + e.getMessage());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {

@@ -122,6 +122,7 @@ public class OrdenDetalleDTO {
     @AllArgsConstructor
     public static class ItemDetalleDTO {
         private Long id;
+        private Long productoId;  // ← ID del producto para referencia directa
         private ProductoItemDTO producto;
         private Double cantidad;
         private Double precioUnitario;
@@ -129,6 +130,7 @@ public class OrdenDetalleDTO {
         
         public ItemDetalleDTO(OrdenItem item) {
             this.id = item.getId();
+            this.productoId = item.getProducto() != null ? item.getProducto().getId() : null;  // ← Mapear productoId
             this.producto = item.getProducto() != null ? new ProductoItemDTO(item.getProducto()) : null;
             // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
             this.cantidad = item.getCantidad();

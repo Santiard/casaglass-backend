@@ -126,15 +126,19 @@ public class TrasladoService {
                 double nuevaCantidadOrigen = invOrigen.getCantidad() - cantidad;
                 
                 if (nuevaCantidadOrigen < 0) {
-                    throw new RuntimeException("No hay suficiente stock en sede origen. Disponible: " + 
-                        invOrigen.getCantidad() + ", requerido: " + cantidad);
+                    throw new InventarioInsuficienteException(
+                        "No hay suficiente stock en sede origen. Disponible: " + 
+                        invOrigen.getCantidad() + ", requerido: " + cantidad,
+                        invOrigen.getCantidad(), cantidad, productoId, sedeOrigenId);
                 }
                 
                 invOrigen.setCantidad(nuevaCantidadOrigen);
                 inventarioService.actualizar(invOrigen.getId(), invOrigen);
             } else {
-                throw new RuntimeException("No existe inventario del producto ID " + productoId + 
-                    " en sede origen ID " + sedeOrigenId);
+                throw new InventarioInsuficienteException(
+                    "No existe inventario del producto ID " + productoId + 
+                    " en sede origen ID " + sedeOrigenId,
+                    0.0, cantidad, productoId, sedeOrigenId);
             }
             
             // 2. SUMAR a sede destino
@@ -485,7 +489,8 @@ public class TrasladoService {
                 nuevoInventario.setCantidad(ajuste);
                 inventarioService.guardar(nuevoInventario);
             } else {
-                throw new RuntimeException("No existe inventario del producto ID " + productoId + 
+                throw new InventarioInsuficienteException(
+                    "No existe inventario del producto ID " + productoId + 
                     " en sede " + tipo + " ID " + sedeId);
             }
         }

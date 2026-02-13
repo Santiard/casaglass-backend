@@ -341,9 +341,8 @@ public class IngresoService {
         // Guardar el ingreso
         Ingreso ingresoGuardado = ingresoRepository.save(ingreso);
 
-        // ✅ PROCESAR AUTOMÁTICAMENTE el inventario al crear el ingreso
-        // Esto simplifica el flujo: los empleados no necesitan hacer clic en "procesar"
-        procesarInventario(ingresoGuardado);
+        // NO procesar automáticamente - el usuario debe hacerlo manualmente
+        // procesarInventario(ingresoGuardado);
 
         return ingresoGuardado;
     }
@@ -448,99 +447,15 @@ public class IngresoService {
         return resultado;
     }
 
-    /**
-     * ✅ ELIMINAR INGRESO (con soporte para ingresos procesados)
-     * 
-     * Si el ingreso está procesado, primero revierte el inventario automáticamente
-     * antes de eliminarlo. Esto permite corregir errores de duplicación.
-     * 
-     * @param id ID del ingreso a eliminar
-     */
     public void eliminarIngreso(Long id) {
-        // Usar consulta con FETCH para cargar detalles si es necesario
-        Ingreso ingreso = ingresoRepository.findByIdWithDetalles(id);
-        if (ingreso == null) {
-            throw new RuntimeException("Ingreso no encontrado");
-        }
+        Ingreso ingreso = ingresoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Ingreso no encontrado"));
 
-        // Si el ingreso está procesado, desprocesarlo primero (revertir inventario)
         if (ingreso.getProcesado()) {
-            log.info("⚠️ Eliminando ingreso procesado ID: {}. Revirtiendo inventario automáticamente...", id);
-            desprocesarIngreso(ingreso);
+            throw new RuntimeException("No se puede eliminar un ingreso ya procesado");
         }
 
-        // Eliminar el ingreso (los detalles se eliminan en cascada)
         ingresoRepository.deleteById(id);
-        log.info("✅ Ingreso ID: {} eliminado correctamente", id);
-    }
-
-    /**
-     * 🔄 DESPROCESAR INGRESO (revertir cambios en inventario)
-     * 
-     * Revierte los cambios que se hicieron al procesar el ingreso:
-     * - Resta las cantidades del inventario
-     * 
-     * NOTA: El costo del producto NO se revierte porque es un promedio ponderado
-     * calculado desde múltiples ingresos. Si se necesita recalcular el costo,
-     * se debe hacer manualmente o mediante un proceso de recálculo global.
-     * 
-     * @param ingreso Ingreso a desprocesar
-     */
-    public void desprocesarIngreso(Ingreso ingreso) {
-        if (!ingreso.getProcesado()) {
-            log.warn("⚠️ Intento de desprocesar un ingreso que no está procesado. ID: {}", ingreso.getId());
-            return;
-        }
-
-        // Obtener la sede principal
-        Sede sedePrincipal = sedeRepository.findById(SEDE_PRINCIPAL_ID)
-                .orElseThrow(() -> new RuntimeException("Sede principal no encontrada (ID: " + SEDE_PRINCIPAL_ID + "). Verifique que exista una sede con ID 1 en la base de datos."));
-
-        // Revertir cada detalle del ingreso
-        for (IngresoDetalle detalle : ingreso.getDetalles()) {
-            Producto producto = detalle.getProducto();
-            Double cantidadIngresada = detalle.getCantidad();
-
-            if (producto == null || producto.getId() == null) {
-                log.warn("⚠️ Detalle de ingreso sin producto válido. Se omite la reversión para este detalle.");
-                continue;
-            }
-
-            // Buscar el inventario para este producto en la sede principal
-            Optional<Inventario> inventarioOpt = inventarioService
-                    .obtenerPorProductoYSede(producto.getId(), sedePrincipal.getId());
-
-            if (inventarioOpt.isPresent()) {
-                Inventario inventario = inventarioOpt.get();
-                // Restar la cantidad que se sumó al procesar
-                double nuevaCantidad = inventario.getCantidad() - cantidadIngresada;
-                
-                // Proteger contra cantidades negativas (no debería pasar, pero por seguridad)
-                if (nuevaCantidad < 0) {
-                    log.warn("⚠️ Al revertir ingreso, el inventario del producto ID: {} quedaría negativo (actual: {}, a restar: {}). Se establece en 0.", 
-                            producto.getId(), inventario.getCantidad(), cantidadIngresada);
-                    nuevaCantidad = 0.0;
-                }
-                
-                inventario.setCantidad(nuevaCantidad);
-                inventarioService.actualizar(inventario.getId(), inventario);
-                log.debug("✅ Revertido inventario - Producto ID: {}, Cantidad restada: {}, Nueva cantidad: {}", 
-                        producto.getId(), cantidadIngresada, nuevaCantidad);
-            } else {
-                log.warn("⚠️ No se encontró inventario para el producto ID: {} en la sede principal. No se puede revertir.", producto.getId());
-            }
-
-            // NOTA: No revertimos el costo del producto porque:
-            // 1. El costo es un promedio ponderado calculado desde múltiples ingresos
-            // 2. No tenemos el costo anterior guardado
-            // 3. Recalcular el costo requeriría consultar todos los ingresos procesados del producto
-            // Si se necesita recalcular el costo, se debe hacer manualmente o mediante un proceso de recálculo global
-        }
-
-        // Marcar el ingreso como no procesado
-        ingreso.setProcesado(false);
-        ingresoRepository.save(ingreso);
-        log.info("✅ Ingreso ID: {} desprocesado correctamente", ingreso.getId());
     }
 
     /**
