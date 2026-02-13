@@ -1,11 +1,14 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.dto.ResumenMesDTO;
 import com.casaglass.casaglass_backend.model.Abono;
+import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.EntregaDinero;
 import com.casaglass.casaglass_backend.model.EntregaDetalle;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.ReembolsoVenta;
 import com.casaglass.casaglass_backend.repository.AbonoRepository;
+import com.casaglass.casaglass_backend.repository.CreditoRepository;
 import com.casaglass.casaglass_backend.repository.EntregaDineroRepository;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import com.casaglass.casaglass_backend.repository.ReembolsoVentaRepository;
@@ -16,7 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.TextStyle;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -42,6 +47,9 @@ public class EntregaDineroService {
 
     @Autowired
     private AbonoRepository abonoRepository;
+
+    @Autowired
+    private CreditoRepository creditoRepository;
 
     @Transactional(readOnly = true)
     public List<EntregaDinero> obtenerTodas() {
@@ -434,5 +442,43 @@ public class EntregaDineroService {
 
         return entrega.getMonto() != null && entrega.getMonto() > 0.0 && 
                entrega.getEstado() == EntregaDinero.EstadoEntrega.ENTREGADA;
+    }
+    
+    /**
+     * Calcula el resumen del mes de una entrega específica
+     * @param fechaEntrega La fecha de la entrega para determinar el mes a analizar
+     * @return ResumenMesDTO con totales de ventas y créditos activos del mes
+     */
+    @Transactional(readOnly = true)
+    public ResumenMesDTO calcularResumenMes(LocalDate fechaEntrega) {
+        if (fechaEntrega == null) {
+            return new ResumenMesDTO(0.0, 0.0, "");
+        }
+        
+        // Calcular primer y último día del mes
+        LocalDate inicioMes = fechaEntrega.withDayOfMonth(1);
+        LocalDate finMes = fechaEntrega.withDayOfMonth(fechaEntrega.lengthOfMonth());
+        
+        // 1. Calcular total de ventas del mes (órdenes con venta=true del mes)
+        List<Orden> ordenesDelMes = ordenRepository.findByFechaBetween(inicioMes, finMes);
+        Double totalVentasMes = ordenesDelMes.stream()
+                .filter(orden -> orden.isVenta() && orden.getEstado() == Orden.EstadoOrden.ACTIVA)
+                .mapToDouble(orden -> orden.getTotal() != null ? orden.getTotal() : 0.0)
+                .sum();
+        
+        // 2. Calcular total de créditos activos del mes
+        List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
+        Double totalCreditosActivosMes = creditosActivos.stream()
+                .filter(credito -> credito.getFechaInicio() != null && 
+                        !credito.getFechaInicio().isBefore(inicioMes) && 
+                        !credito.getFechaInicio().isAfter(finMes))
+                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+                .sum();
+        
+        // 3. Generar nombre del mes
+        String mesNombre = fechaEntrega.getMonth().getDisplayName(TextStyle.FULL, new Locale("es", "ES"))
+                + " " + fechaEntrega.getYear();
+        
+        return new ResumenMesDTO(totalVentasMes, totalCreditosActivosMes, mesNombre);
     }
 }

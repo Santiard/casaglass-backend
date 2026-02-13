@@ -169,6 +169,12 @@ public class EntregaDineroController {
                                 .map(EntregaDetalleSimpleDTO::new)
                                 .collect(Collectors.toList()));
                     }
+                    
+                    // ✅ Calcular y agregar resumen del mes
+                    if (entrega.getFechaEntrega() != null) {
+                        dto.setResumenMes(service.calcularResumenMes(entrega.getFechaEntrega()));
+                    }
+                    
                     return ResponseEntity.ok(dto);
                 })
                 .orElse(ResponseEntity.notFound().build());

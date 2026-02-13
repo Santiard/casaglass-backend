@@ -32,6 +32,9 @@ public class EntregaDineroResponseDTO {
     // Información adicional calculada
     private Integer totalOrdenes;
     
+    // Resumen del mes de la entrega
+    private ResumenMesDTO resumenMes;
+    
     // Constructor desde entidad
     public EntregaDineroResponseDTO(EntregaDinero entrega) {
         // ✅ Envolver en try-catch para manejar excepciones durante la inicialización de colecciones lazy
@@ -85,6 +88,7 @@ public class EntregaDineroResponseDTO {
             this.estado = null;
             this.detalles = List.of();
             this.totalOrdenes = 0;
+            this.resumenMes = null; // Se calculará después en el controlador
         } catch (Exception e) {
             // Cualquier otra excepción: inicializar con valores por defecto
             this.id = entrega != null ? entrega.getId() : null;
@@ -100,6 +104,7 @@ public class EntregaDineroResponseDTO {
             this.estado = null;
             this.detalles = List.of();
             this.totalOrdenes = 0;
+            this.resumenMes = null; // Se calculará después en el controlador
         }
     }
 }

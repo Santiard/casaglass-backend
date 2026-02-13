@@ -22,6 +22,16 @@ public class EntregaDetalleSimpleDTO {
     private Long numeroOrden;
     private LocalDate fechaOrden;
     private Double montoOrden;
+    
+    // Desglose de montos de la orden
+    private Double subtotal; // Base imponible sin IVA
+    private Double iva; // Valor del IVA
+    private Double total; // Total con IVA (antes de retenciones)
+    private Double retencionFuente; // Valor de retención en la fuente
+    private Double retencionIca; // Valor de retención ICA
+    private Boolean tieneRetencionFuente;
+    private Boolean tieneRetencionIca;
+    
     private Boolean ventaCredito;
     private String clienteNombre;
     private String observaciones;
@@ -155,6 +165,25 @@ public class EntregaDetalleSimpleDTO {
                 this.montoOrden = detalle.getMontoOrden();
             }
             
+            // ✅ MAPEAR MONTOS DETALLADOS desde la orden
+            if (detalle.getOrden() != null) {
+                this.subtotal = detalle.getOrden().getSubtotal();
+                this.iva = detalle.getOrden().getIva();
+                this.total = detalle.getOrden().getTotal();
+                this.retencionFuente = detalle.getOrden().getRetencionFuente();
+                this.retencionIca = detalle.getOrden().getRetencionIca();
+                this.tieneRetencionFuente = detalle.getOrden().isTieneRetencionFuente();
+                this.tieneRetencionIca = detalle.getOrden().isTieneRetencionIca();
+            } else {
+                this.subtotal = null;
+                this.iva = null;
+                this.total = null;
+                this.retencionFuente = null;
+                this.retencionIca = null;
+                this.tieneRetencionFuente = null;
+                this.tieneRetencionIca = null;
+            }
+            
             this.ventaCredito = detalle.getVentaCredito();
             this.clienteNombre = detalle.getClienteNombre();
             this.observaciones = detalle.getObservaciones();
@@ -255,6 +284,25 @@ public class EntregaDetalleSimpleDTO {
             } else {
                 // Es orden/abono normal: usar montoOrden del detalle
                 this.montoOrden = detalle.getMontoOrden();
+            }
+            
+            // ✅ MAPEAR MONTOS DETALLADOS desde la orden
+            if (detalle.getOrden() != null) {
+                this.subtotal = detalle.getOrden().getSubtotal();
+                this.iva = detalle.getOrden().getIva();
+                this.total = detalle.getOrden().getTotal();
+                this.retencionFuente = detalle.getOrden().getRetencionFuente();
+                this.retencionIca = detalle.getOrden().getRetencionIca();
+                this.tieneRetencionFuente = detalle.getOrden().isTieneRetencionFuente();
+                this.tieneRetencionIca = detalle.getOrden().isTieneRetencionIca();
+            } else {
+                this.subtotal = null;
+                this.iva = null;
+                this.total = null;
+                this.retencionFuente = null;
+                this.retencionIca = null;
+                this.tieneRetencionFuente = null;
+                this.tieneRetencionIca = null;
             }
             
             this.ventaCredito = detalle.getVentaCredito();
