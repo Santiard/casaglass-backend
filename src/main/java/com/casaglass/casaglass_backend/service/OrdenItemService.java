@@ -55,6 +55,7 @@ public class OrdenItemService {
         if (payload.getProducto() != null && payload.getProducto().getId() != null) {
             Producto prodRef = em.getReference(Producto.class, payload.getProducto().getId());
             item.setProducto(prodRef);
+            item.setNombre(prodRef.getNombre());
             // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
         }
 
@@ -82,6 +83,7 @@ public class OrdenItemService {
         if (payload.getProducto() != null && payload.getProducto().getId() != null) {
             Producto prodRef = em.getReference(Producto.class, payload.getProducto().getId());
             item.setProducto(prodRef);
+            item.setNombre(prodRef.getNombre());
         }
         // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
         if (payload.getCantidad() != null) {

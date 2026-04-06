@@ -755,13 +755,22 @@ public class OrdenController {
     public ResponseEntity<?> actualizarOrden(@PathVariable Long id, 
                                             @RequestBody OrdenActualizarDTO ordenDTO) {
         try {
+            log.info("[PUT /api/ordenes/tabla/{}] Inicio actualización items={} venta={} credito={} sedeId={}",
+                id,
+                ordenDTO.getItems() != null ? ordenDTO.getItems().size() : 0,
+                ordenDTO.isVenta(),
+                ordenDTO.isCredito(),
+                ordenDTO.getSedeId());
             OrdenTablaDTO ordenActualizada = service.actualizarOrden(id, ordenDTO);
+            log.info("[PUT /api/ordenes/tabla/{}] OK actualización completada", id);
             return ResponseEntity.ok(ordenActualizada);
         } catch (IllegalArgumentException e) {
+            log.error("[PUT /api/ordenes/tabla/{}] Error de validación: {}", id, e.getMessage(), e);
             e.printStackTrace();
             return ResponseEntity.status(404)
                     .body(Map.of("error", "Orden no encontrada", "message", e.getMessage()));
         } catch (Exception e) {
+            log.error("[PUT /api/ordenes/tabla/{}] Error inesperado: {}", id, e.getMessage(), e);
             e.printStackTrace();
             return ResponseEntity.status(400)
                     .body(Map.of("error", "Error procesando solicitud", "message", e.getMessage()));

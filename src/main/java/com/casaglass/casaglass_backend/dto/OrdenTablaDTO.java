@@ -95,6 +95,7 @@ public class OrdenTablaDTO {
     public static class OrdenItemTablaDTO {
         private Long id;
         private Long productoId;  // ← ID del producto para referencia directa
+        private String nombre;
         private ProductoTablaDTO producto;
         private Double cantidad;
         private Double precioUnitario;

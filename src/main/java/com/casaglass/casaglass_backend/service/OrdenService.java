@@ -34,6 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 // no need for LocalDateTime/LocalTime
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -201,6 +205,7 @@ public class OrdenService {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
             }
+            item.setNombre(resolverNombreDetalle(item));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -242,6 +247,7 @@ public class OrdenService {
         List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
+            aplicarCortesAItems(ordenGuardada, cortesCreados);
         }
 
         // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
@@ -344,6 +350,7 @@ public class OrdenService {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
             }
+            item.setNombre(resolverNombreDetalle(item));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -478,6 +485,7 @@ public class OrdenService {
             item.setOrden(ordenExistente);
             item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+            item.setNombre(resolverNombreDetalle(item));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -521,7 +529,8 @@ public class OrdenService {
         // 🔪 PROCESAR CORTES SI EXISTEN
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             // ...existing code...
-            procesarCortes(ordenActualizada, ventaDTO.getCortes());
+            List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
+            aplicarCortesAItems(ordenActualizada, cortesCreados);
         }
         
         return ordenActualizada;
@@ -585,6 +594,7 @@ public class OrdenService {
             item.setOrden(ordenExistente);
             item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+            item.setNombre(resolverNombreDetalle(item));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -658,7 +668,8 @@ public class OrdenService {
         // 🔪 PROCESAR CORTES SI EXISTEN
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             // ...existing code...
-            procesarCortes(ordenActualizada, ventaDTO.getCortes());
+            List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
+            aplicarCortesAItems(ordenActualizada, cortesCreados);
         }
         
         return ordenActualizada;
@@ -1584,6 +1595,7 @@ public class OrdenService {
         
         itemDTO.setId(item.getId());
         itemDTO.setProductoId(item.getProducto() != null ? item.getProducto().getId() : null);  // ← Mapear productoId
+        itemDTO.setNombre(resolverNombreDetalle(item));
         itemDTO.setCantidad(item.getCantidad());
         itemDTO.setPrecioUnitario(item.getPrecioUnitario());
         itemDTO.setTotalLinea(item.getTotalLinea());
@@ -1611,6 +1623,13 @@ public class OrdenService {
      */
     @Transactional
     public OrdenTablaDTO actualizarOrden(Long ordenId, OrdenActualizarDTO dto) {
+        log.info("[actualizarOrden] Inicio actualización ordenId={} itemsDTO={} ventaNueva={} creditoNuevo={} sedeNueva={}",
+            ordenId,
+            dto.getItems() != null ? dto.getItems().size() : 0,
+            dto.isVenta(),
+            dto.isCredito(),
+            dto.getSedeId());
+
         // 1️⃣ Buscar orden existente
         Orden orden = repo.findById(ordenId)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
@@ -1677,12 +1696,21 @@ public class OrdenService {
 
         // 6️⃣ Guardar orden actualizada PRIMERO
         Orden ordenActualizada = repo.save(orden);
+        log.info("[actualizarOrden] Orden guardada ordenId={} ventaAntes={} ventaDespues={} sedeId={} subtotal={} total={}",
+            ordenActualizada.getId(),
+            eraVentaAntes,
+            ordenActualizada.isVenta(),
+            ordenActualizada.getSede() != null ? ordenActualizada.getSede().getId() : null,
+            ordenActualizada.getSubtotal(),
+            ordenActualizada.getTotal());
         
         // 📦 MANEJO DE INVENTARIO: Descontar stock si se confirmó una cotización
         // Si cambió de cotización (venta=false) a venta (venta=true), descontar inventario
         if (!eraVentaAntes && ordenActualizada.isVenta()) {
+            log.info("[actualizarOrden] Aplicando descuento de inventario por conversión a venta ordenId={}", ordenActualizada.getId());
             actualizarInventarioPorVenta(ordenActualizada);
         } else if (eraVentaAntes && !ordenActualizada.isVenta()) {
+            log.info("[actualizarOrden] Restaurando inventario por conversión a cotización ordenId={}", ordenActualizada.getId());
             restaurarInventarioPorAnulacion(ordenActualizada);
         }
         // ...existing code...
@@ -1791,6 +1819,7 @@ public class OrdenService {
                 nuevoItem.setOrden(orden);
                 nuevoItem.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+                nuevoItem.setNombre(resolverNombreDetalle(nuevoItem));
                 nuevoItem.setCantidad(itemDTO.getCantidad());
                 nuevoItem.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 nuevoItem.setTotalLinea(itemDTO.getTotalLinea());
@@ -1806,9 +1835,54 @@ public class OrdenService {
 
                 itemExistente.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
+                itemExistente.setNombre(resolverNombreDetalle(itemExistente));
                 itemExistente.setCantidad(itemDTO.getCantidad());
                 itemExistente.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 itemExistente.setTotalLinea(itemDTO.getTotalLinea());
+            }
+        }
+    }
+
+    private String resolverNombreDetalle(OrdenItem item) {
+        if (item == null) {
+            return null;
+        }
+        if (item.getNombre() != null && !item.getNombre().isBlank()) {
+            return item.getNombre();
+        }
+        return item.getProducto() != null ? item.getProducto().getNombre() : null;
+    }
+
+    private void aplicarCortesAItems(Orden orden, List<CorteCreacionDTO> cortesCreados) {
+        if (orden == null || cortesCreados == null || cortesCreados.isEmpty() || orden.getItems() == null || orden.getItems().isEmpty()) {
+            return;
+        }
+
+        Map<Long, Deque<Corte>> cortesPorProductoBase = new HashMap<>();
+        for (CorteCreacionDTO corteCreado : cortesCreados) {
+            if (corteCreado == null || corteCreado.getCorteId() == null || corteCreado.getProductoBase() == null) {
+                continue;
+            }
+            Corte corte = corteRepository.findById(corteCreado.getCorteId()).orElse(null);
+            if (corte == null) {
+                continue;
+            }
+            cortesPorProductoBase
+                .computeIfAbsent(corteCreado.getProductoBase(), key -> new ArrayDeque<>())
+                .addLast(corte);
+        }
+
+        for (OrdenItem item : orden.getItems()) {
+            if (item == null || item.getProducto() == null || item.getProducto().getId() == null) {
+                continue;
+            }
+            Deque<Corte> cortesPendientes = cortesPorProductoBase.get(item.getProducto().getId());
+            if (cortesPendientes != null && !cortesPendientes.isEmpty()) {
+                Corte corte = cortesPendientes.removeFirst();
+                item.setProducto(corte);
+                item.setNombre(corte.getNombre());
+            } else if (item.getNombre() == null || item.getNombre().isBlank()) {
+                item.setNombre(item.getProducto().getNombre());
             }
         }
     }
@@ -1837,6 +1911,7 @@ public class OrdenService {
      */
     private void actualizarInventarioPorVenta(Orden orden, OrdenVentaDTO ventaDTO) {
         if (orden.getItems() == null || orden.getItems().isEmpty()) {
+            log.info("[actualizarInventarioPorVenta] Orden sin items, se omite actualización. ordenId={}", orden.getId());
             return;
         }
 
@@ -1852,6 +1927,11 @@ public class OrdenService {
         
         // Obtener la sede de la orden (donde se realiza la venta)
         Long sedeId = orden.getSede().getId();
+        log.info("[actualizarInventarioPorVenta] Inicio ordenId={} sedeId={} items={} productosEnCortes={}",
+            orden.getId(),
+            sedeId,
+            orden.getItems().size(),
+            productosEnCortes.size());
 
         for (OrdenItem item : orden.getItems()) {
             if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
@@ -1860,14 +1940,27 @@ public class OrdenService {
                 
                 // ⚠️ SKIP: Si este producto está en cortes[], procesarCortes() ya maneja su inventario
                 if (productosEnCortes.contains(productoId)) {
+                    log.debug("[actualizarInventarioPorVenta] SKIP producto en cortes ordenId={} itemId={} productoId={} cantidad={}",
+                        orden.getId(), item.getId(), productoId, cantidadVendida);
                     continue;
                 }
+
+                log.info("[actualizarInventarioPorVenta] Procesando item ordenId={} itemId={} productoId={} cantidad={} esCorte={}",
+                    orden.getId(),
+                    item.getId(),
+                    productoId,
+                    cantidadVendida,
+                    item.getProducto() instanceof Corte);
 
                 if (item.getProducto() instanceof Corte) {
                     // Venta de CORTE: decrementar inventario de cortes en la sede
                     try {
                         inventarioCorteService.decrementarStock(productoId, sedeId, cantidadVendida);
+                        log.info("[actualizarInventarioPorVenta] Corte descontado ordenId={} productoId={} sedeId={} cantidad={}",
+                            orden.getId(), productoId, sedeId, cantidadVendida);
                     } catch (IllegalArgumentException e) {
+                        log.error("[actualizarInventarioPorVenta] Error decrementando corte ordenId={} productoId={} sedeId={} cantidad={} causa={}",
+                            orden.getId(), productoId, sedeId, cantidadVendida, e.getMessage(), e);
                         throw new IllegalArgumentException("❌ Stock de corte insuficiente para corte ID " + productoId + " en sede ID " + sedeId + ": " + e.getMessage());
                     }
                 } else {
@@ -1900,10 +1993,14 @@ public class OrdenService {
     @Transactional
     private void actualizarInventarioConcurrente(Long productoId, Long sedeId, Double cantidadVendida) {
         try {
+            log.info("[actualizarInventarioConcurrente] Inicio productoId={} sedeId={} cantidadVendida={}",
+                productoId, sedeId, cantidadVendida);
+
             // 🔍 BUSCAR INVENTARIO (usa lock optimista vía @Version en la entidad)
             Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
             
             if (!inventarioOpt.isPresent()) {
+                log.error("[actualizarInventarioConcurrente] Inventario no encontrado productoId={} sedeId={}", productoId, sedeId);
                 throw new IllegalArgumentException(
                     String.format("❌ No existe inventario para producto ID %d en sede ID %d", productoId, sedeId)
                 );
@@ -1913,32 +2010,62 @@ public class OrdenService {
             
             // ➖ ACTUALIZAR CANTIDAD (permite valores negativos para ventas anticipadas)
             double nuevaCantidad = inventario.getCantidad() - cantidadVendida;
+
+            log.info("[actualizarInventarioConcurrente] Update inventarioId={} productoId={} sedeId={} version={} cantidadAnterior={} cantidadVendida={} cantidadNueva={}",
+                inventario.getId(),
+                productoId,
+                sedeId,
+                inventario.getVersion(),
+                inventario.getCantidad(),
+                cantidadVendida,
+                nuevaCantidad);
             
             inventario.setCantidad(nuevaCantidad);
             inventarioService.actualizar(inventario.getId(), inventario);
+
+            log.info("[actualizarInventarioConcurrente] OK inventarioId={} productoId={} sedeId={} cantidadNueva={}",
+                inventario.getId(), productoId, sedeId, nuevaCantidad);
             
         } catch (IllegalArgumentException e) {
+            log.error("[actualizarInventarioConcurrente] Validación fallida productoId={} sedeId={} cantidad={} causa={}",
+                productoId, sedeId, cantidadVendida, e.getMessage(), e);
             // Re-lanzar errores de validación
             throw e;
         } catch (jakarta.persistence.OptimisticLockException e) {
             // 🔒 Lock optimista: Otro proceso modificó el inventario (muy raro)
+            log.error("[actualizarInventarioConcurrente] OptimisticLockException productoId={} sedeId={} cantidad={}",
+                productoId, sedeId, cantidadVendida, e);
             throw new RuntimeException(
-                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
+                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId),
+                e
             );
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
             // 🔒 Variante de Spring para OptimisticLockException
+            log.error("[actualizarInventarioConcurrente] ObjectOptimisticLockingFailureException productoId={} sedeId={} cantidad={}",
+                productoId, sedeId, cantidadVendida, e);
             throw new RuntimeException(
-                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId)
+                String.format("⚠️ Otro usuario modificó el inventario del producto ID %d. Por favor, intente nuevamente.", productoId),
+                e
             );
         } catch (org.springframework.dao.DataAccessException e) {
             // Otros errores de base de datos
+            log.error("[actualizarInventarioConcurrente] DataAccessException productoId={} sedeId={} cantidad={}",
+                productoId, sedeId, cantidadVendida, e);
             throw new RuntimeException(
-                String.format("❌ Error de base de datos al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
+                String.format("❌ Error de base de datos al actualizar inventario del producto ID %d. Intente nuevamente.", productoId),
+                e
             );
+        } catch (RuntimeException e) {
+            log.error("[actualizarInventarioConcurrente] RuntimeException productoId={} sedeId={} cantidad={} causa={}",
+                productoId, sedeId, cantidadVendida, e.getMessage(), e);
+            throw e;
         } catch (Exception e) {
             // Manejar otros errores inesperados
+            log.error("[actualizarInventarioConcurrente] Exception inesperada productoId={} sedeId={} cantidad={}",
+                productoId, sedeId, cantidadVendida, e);
             throw new RuntimeException(
-                String.format("❌ Error inesperado al actualizar inventario del producto ID %d. Intente nuevamente.", productoId)
+                String.format("❌ Error inesperado al actualizar inventario del producto ID %d. Intente nuevamente.", productoId),
+                e
             );
         }
     }
