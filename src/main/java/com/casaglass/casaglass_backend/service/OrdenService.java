@@ -412,6 +412,7 @@ public class OrdenService {
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             // ...existing code...
             cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
+            aplicarCortesAItems(ordenGuardada, cortesCreados);
         }
         
         // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
@@ -1819,7 +1820,11 @@ public class OrdenService {
                 nuevoItem.setOrden(orden);
                 nuevoItem.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                nuevoItem.setNombre(resolverNombreDetalle(nuevoItem));
+                if (itemDTO.getNombre() != null && !itemDTO.getNombre().isBlank()) {
+                    nuevoItem.setNombre(itemDTO.getNombre());
+                } else {
+                    nuevoItem.setNombre(resolverNombreDetalle(nuevoItem));
+                }
                 nuevoItem.setCantidad(itemDTO.getCantidad());
                 nuevoItem.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 nuevoItem.setTotalLinea(itemDTO.getTotalLinea());
@@ -1835,7 +1840,11 @@ public class OrdenService {
 
                 itemExistente.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                itemExistente.setNombre(resolverNombreDetalle(itemExistente));
+                if (itemDTO.getNombre() != null && !itemDTO.getNombre().isBlank()) {
+                    itemExistente.setNombre(itemDTO.getNombre());
+                } else {
+                    itemExistente.setNombre(resolverNombreDetalle(itemExistente));
+                }
                 itemExistente.setCantidad(itemDTO.getCantidad());
                 itemExistente.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 itemExistente.setTotalLinea(itemDTO.getTotalLinea());

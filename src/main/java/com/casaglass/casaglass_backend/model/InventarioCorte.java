@@ -1,7 +1,6 @@
 package com.casaglass.casaglass_backend.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Min;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -38,6 +37,6 @@ public class InventarioCorte {
     private Sede sede;
 
     @Column(nullable = false)
-    @Min(0)
+    // Se permiten valores negativos para ventas anticipadas, consistente con Inventario.
     private Double cantidad;
 }
