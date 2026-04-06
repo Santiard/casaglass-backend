@@ -2094,6 +2094,13 @@ public class OrdenService {
         for (OrdenItem item : orden.getItems()) {
             if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
                 Long productoId = item.getProducto().getId();
+                Double cantidadARestaurar = item.getCantidad();
+
+                if (item.getProducto() instanceof Corte) {
+                    // Para cortes, restaurar SIEMPRE en inventario_cortes.
+                    inventarioCorteService.incrementarStock(productoId, sedeId, cantidadARestaurar);
+                    continue;
+                }
                 
                 // Buscar inventario del producto en la sede
                 Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
@@ -2101,13 +2108,12 @@ public class OrdenService {
                 if (inventarioOpt.isPresent()) {
                     Inventario inventario = inventarioOpt.get();
                     double cantidadActual = inventario.getCantidad();
-                    double cantidadARestaurar = item.getCantidad();
                     
                     // Sumar cantidad restaurada usando método seguro
                     inventarioService.actualizarInventarioVenta(productoId, sedeId, cantidadActual + cantidadARestaurar);
                 } else {
                     // Si no existe inventario, crearlo con la cantidad restaurada usando método seguro
-                    inventarioService.actualizarInventarioVenta(productoId, sedeId, item.getCantidad());
+                    inventarioService.actualizarInventarioVenta(productoId, sedeId, cantidadARestaurar);
                 }
             }
         }
