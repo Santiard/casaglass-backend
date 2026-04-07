@@ -6,6 +6,8 @@ import com.casaglass.casaglass_backend.model.InventarioCorte;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.repository.InventarioCorteRepository;
 import jakarta.persistence.EntityManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,8 @@ import java.util.Optional;
 
 @Service
 public class InventarioCorteService {
+
+    private static final Logger log = LoggerFactory.getLogger(InventarioCorteService.class);
 
     private final InventarioCorteRepository repository;
     private final EntityManager entityManager;
@@ -158,9 +162,14 @@ public class InventarioCorteService {
         
         if (inventarioOpt.isPresent()) {
             InventarioCorte inventario = inventarioOpt.get();
+            Double anterior = inventario.getCantidad();
             inventario.setCantidad(inventario.getCantidad() + cantidad);
+            log.info("[InventarioCorteService.incrementarStock] UPDATE corteId={} sedeId={} anterior={} delta={} nuevo={}",
+                corteId, sedeId, anterior, cantidad, inventario.getCantidad());
             return repository.save(inventario);
         } else {
+            log.info("[InventarioCorteService.incrementarStock] CREATE corteId={} sedeId={} cantidadInicial={}",
+                corteId, sedeId, cantidad);
             return actualizarStock(corteId, sedeId, cantidad);
         }
     }
@@ -171,10 +180,13 @@ public class InventarioCorteService {
         
         if (inventarioOpt.isPresent()) {
             InventarioCorte inventario = inventarioOpt.get();
+            Double anterior = inventario.getCantidad();
             double nuevaCantidad = inventario.getCantidad() - cantidad;
             // ✅ Permitir valores negativos (ventas anticipadas, como en productos normales)
             // Si el inventario está en 0 y se vende, queda en negativo (se puede reponer después)
             inventario.setCantidad(nuevaCantidad);
+            log.info("[InventarioCorteService.decrementarStock] UPDATE corteId={} sedeId={} anterior={} delta={} nuevo={}",
+                corteId, sedeId, anterior, cantidad, nuevaCantidad);
             return repository.save(inventario);
         } else {
             // ✅ Si no existe inventario, crearlo con cantidad negativa (venta anticipada)
@@ -183,6 +195,8 @@ public class InventarioCorteService {
             nuevoInventario.setCorte(entityManager.getReference(Corte.class, corteId));
             nuevoInventario.setSede(entityManager.getReference(Sede.class, sedeId));
             nuevoInventario.setCantidad(-cantidad); // Cantidad negativa = venta anticipada
+            log.info("[InventarioCorteService.decrementarStock] CREATE corteId={} sedeId={} cantidadInicialNegativa={}",
+                corteId, sedeId, -cantidad);
             return repository.save(nuevoInventario);
         }
     }

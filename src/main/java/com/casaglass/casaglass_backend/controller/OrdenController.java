@@ -808,6 +808,38 @@ public class OrdenController {
         }
     }
 
+    /**
+     * 🧹 ELIMINAR ORDEN ANULADA (BORRADO FÍSICO)
+     *
+     * Reglas de negocio:
+     * - Solo elimina órdenes en estado ANULADA
+     * - Si existe crédito asociado, debe estar ANULADO
+     * - Si tiene factura asociada, no se elimina
+     *
+     * Uso recomendado: limpieza administrativa en módulo de órdenes anuladas.
+     */
+    @DeleteMapping("/{id}/eliminar-anulada")
+    public ResponseEntity<?> eliminarOrdenAnulada(@PathVariable Long id) {
+        try {
+            service.eliminarOrdenAnulada(id);
+            return ResponseEntity.ok(Map.of(
+                "message", "Orden anulada eliminada correctamente",
+                "ordenId", id
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "No se pudo eliminar la orden anulada",
+                "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Error interno al eliminar orden anulada",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
     // 🧾 ================================
     // 🧾 ENDPOINT DE FACTURACIÓN
     // 🧾 ================================

@@ -8,6 +8,9 @@ import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.Corte;
+import com.casaglass.casaglass_backend.model.OrdenCortePlan;
+import com.casaglass.casaglass_backend.model.OrdenCortePlanSede;
+import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.service.CorteService;
 import com.casaglass.casaglass_backend.service.InventarioCorteService;
 import com.casaglass.casaglass_backend.dto.OrdenTablaDTO;
@@ -24,6 +27,7 @@ import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
 import com.casaglass.casaglass_backend.repository.CorteRepository;
+import com.casaglass.casaglass_backend.repository.OrdenCortePlanRepository;
 import com.casaglass.casaglass_backend.repository.BusinessSettingsRepository;
 import com.casaglass.casaglass_backend.model.BusinessSettings;
 import jakarta.persistence.EntityManager;
@@ -62,6 +66,7 @@ public class OrdenService {
     private final InventarioCorteService inventarioCorteService;
     private final FacturaRepository facturaRepository;
     private final CorteRepository corteRepository;
+    private final OrdenCortePlanRepository ordenCortePlanRepository;
     private final BusinessSettingsRepository businessSettingsRepository;
 
     public OrdenService(OrdenRepository repo, 
@@ -76,6 +81,7 @@ public class OrdenService {
                        InventarioCorteService inventarioCorteService,
                        FacturaRepository facturaRepository,
                        CorteRepository corteRepository,
+                       OrdenCortePlanRepository ordenCortePlanRepository,
                        BusinessSettingsRepository businessSettingsRepository) { 
         this.repo = repo; 
         this.clienteRepository = clienteRepository;
@@ -89,6 +95,7 @@ public class OrdenService {
         this.inventarioCorteService = inventarioCorteService;
         this.facturaRepository = facturaRepository;
         this.corteRepository = corteRepository;
+        this.ordenCortePlanRepository = ordenCortePlanRepository;
         this.businessSettingsRepository = businessSettingsRepository;
     }
 
@@ -243,21 +250,27 @@ public class OrdenService {
         Orden ordenGuardada = repo.save(orden);
         
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
-        // Esto crea los cortes nuevos y actualiza inventarios de sobrantes
+        // Si es cotización, se guarda plan sin tocar inventario real.
         List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
-            aplicarCortesAItems(ordenGuardada, cortesCreados);
+            if (ventaDTO.isVenta()) {
+                cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
+                aplicarCortesAItems(ordenGuardada, cortesCreados);
+            } else {
+                guardarPlanCortesCotizacion(ordenGuardada, ventaDTO.getCortes());
+            }
         }
 
-        // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
-        // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
-        // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
-        incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
+        if (ventaDTO.isVenta()) {
+            // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
+            // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
+            // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
+            incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
 
-        // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
-        // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
-        actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
+            // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
+            // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
+            actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
+        }
 
         // 📤 DEVOLVER RESPUESTA CON ORDEN Y CORTES CREADOS
         return new OrdenVentaResponseDTO(ordenGuardada, cortesCreados);
@@ -407,22 +420,28 @@ public class OrdenService {
         }
         
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
-        // Esto crea los cortes nuevos y actualiza inventarios
+        // Si es cotización, se guarda plan sin tocar inventario real.
         List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
         if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             // ...existing code...
-            cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
-            aplicarCortesAItems(ordenGuardada, cortesCreados);
+            if (ventaDTO.isVenta()) {
+                cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
+                aplicarCortesAItems(ordenGuardada, cortesCreados);
+            } else {
+                guardarPlanCortesCotizacion(ordenGuardada, ventaDTO.getCortes());
+            }
         }
         
-        // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
-        // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
-        // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
-        incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
-        
-        // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
-        // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
-        actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
+        if (ventaDTO.isVenta()) {
+            // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
+            // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
+            // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
+            incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
+            
+            // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
+            // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
+            actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
+        }
         
         // 📤 DEVOLVER RESPUESTA CON ORDEN Y CORTES CREADOS
         return new OrdenVentaResponseDTO(ordenGuardada, cortesCreados);
@@ -523,15 +542,20 @@ public class OrdenService {
         
         // 💾 GUARDAR ORDEN ACTUALIZADA
         Orden ordenActualizada = repo.save(ordenExistente);
-        
-        // 📦 ACTUALIZAR INVENTARIO CON LOS NUEVOS ITEMS
-        actualizarInventarioPorVenta(ordenActualizada);
-        
-        // 🔪 PROCESAR CORTES SI EXISTEN
-        if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            // ...existing code...
-            List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
-            aplicarCortesAItems(ordenActualizada, cortesCreados);
+
+        if (ordenActualizada.isVenta()) {
+            // Si se confirman ventas desde una cotización, ejecutar primero plan pendiente.
+            if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+                List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
+                aplicarCortesAItems(ordenActualizada, cortesCreados);
+            } else {
+                ejecutarPlanCortesSiExiste(ordenActualizada);
+            }
+
+            // 📦 ACTUALIZAR INVENTARIO CON LOS NUEVOS ITEMS
+            actualizarInventarioPorVenta(ordenActualizada);
+        } else if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+            guardarPlanCortesCotizacion(ordenActualizada, ventaDTO.getCortes());
         }
         
         return ordenActualizada;
@@ -663,14 +687,19 @@ public class OrdenService {
             }
         }
         
-        // 📦 ACTUALIZAR INVENTARIO CON LOS NUEVOS ITEMS
-        actualizarInventarioPorVenta(ordenActualizada);
-        
-        // 🔪 PROCESAR CORTES SI EXISTEN
-        if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            // ...existing code...
-            List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
-            aplicarCortesAItems(ordenActualizada, cortesCreados);
+        if (ordenActualizada.isVenta()) {
+            // Si se confirman ventas desde una cotización, ejecutar primero plan pendiente.
+            if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+                List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
+                aplicarCortesAItems(ordenActualizada, cortesCreados);
+            } else {
+                ejecutarPlanCortesSiExiste(ordenActualizada);
+            }
+
+            // 📦 ACTUALIZAR INVENTARIO CON LOS NUEVOS ITEMS
+            actualizarInventarioPorVenta(ordenActualizada);
+        } else if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+            guardarPlanCortesCotizacion(ordenActualizada, ventaDTO.getCortes());
         }
         
         return ordenActualizada;
@@ -1708,6 +1737,7 @@ public class OrdenService {
         // 📦 MANEJO DE INVENTARIO: Descontar stock si se confirmó una cotización
         // Si cambió de cotización (venta=false) a venta (venta=true), descontar inventario
         if (!eraVentaAntes && ordenActualizada.isVenta()) {
+            ejecutarPlanCortesSiExiste(ordenActualizada);
             log.info("[actualizarOrden] Aplicando descuento de inventario por conversión a venta ordenId={}", ordenActualizada.getId());
             actualizarInventarioPorVenta(ordenActualizada);
         } else if (eraVentaAntes && !ordenActualizada.isVenta()) {
@@ -1896,6 +1926,143 @@ public class OrdenService {
         }
     }
 
+    private void guardarPlanCortesCotizacion(Orden orden, List<OrdenVentaDTO.CorteSolicitadoDTO> cortes) {
+        if (orden == null || cortes == null || cortes.isEmpty()) {
+            return;
+        }
+
+        ordenCortePlanRepository.deleteByOrdenIdAndEstado(orden.getId(), OrdenCortePlan.EstadoPlanCorte.PLANIFICADO);
+
+        int index = 0;
+        for (OrdenVentaDTO.CorteSolicitadoDTO corteDTO : cortes) {
+            if (corteDTO.getProductoId() == null || corteDTO.getMedidaSolicitada() == null || corteDTO.getCantidad() == null) {
+                continue;
+            }
+
+            Producto origen = productoRepository.findById(corteDTO.getProductoId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + corteDTO.getProductoId()));
+
+            OrdenCortePlan plan = new OrdenCortePlan();
+            plan.setOrden(orden);
+            plan.setProductoOrigen(origen);
+            plan.setOrigenTipo(origen instanceof Corte ? OrdenCortePlan.OrigenTipo.CORTE : OrdenCortePlan.OrigenTipo.PERFIL);
+            if (origen instanceof Corte) {
+                plan.setOrigenCorte((Corte) origen);
+            }
+            plan.setPlanOrden(index++);
+            plan.setMedidaSolicitada(corteDTO.getMedidaSolicitada());
+            plan.setMedidaSobrante(corteDTO.getMedidaSobrante());
+            plan.setCantidad(corteDTO.getCantidad());
+            plan.setPrecioUnitarioSolicitado(corteDTO.getPrecioUnitarioSolicitado());
+            plan.setPrecioUnitarioSobrante(corteDTO.getPrecioUnitarioSobrante());
+            plan.setReutilizarCorteId(corteDTO.getReutilizarCorteId());
+            plan.setEstado(OrdenCortePlan.EstadoPlanCorte.PLANIFICADO);
+
+            if (corteDTO.getCantidadesPorSede() != null) {
+                for (OrdenVentaDTO.CorteSolicitadoDTO.CantidadPorSedeDTO cantidadSedeDTO : corteDTO.getCantidadesPorSede()) {
+                    if (cantidadSedeDTO.getSedeId() == null || cantidadSedeDTO.getCantidad() == null || cantidadSedeDTO.getCantidad() <= 0) {
+                        continue;
+                    }
+                    OrdenCortePlanSede cantidadSede = new OrdenCortePlanSede();
+                    cantidadSede.setPlan(plan);
+                    cantidadSede.setSede(entityManager.getReference(Sede.class, cantidadSedeDTO.getSedeId()));
+                    cantidadSede.setCantidad(cantidadSedeDTO.getCantidad());
+                    plan.getCantidadesPorSede().add(cantidadSede);
+                }
+            }
+
+            ordenCortePlanRepository.save(plan);
+        }
+
+        aplicarNombresPlanificadosEnItemsCotizacion(orden, cortes);
+        repo.save(orden);
+    }
+
+    private void aplicarNombresPlanificadosEnItemsCotizacion(Orden orden, List<OrdenVentaDTO.CorteSolicitadoDTO> cortes) {
+        if (orden.getItems() == null || orden.getItems().isEmpty()) {
+            return;
+        }
+
+        Map<Long, Deque<String>> nombresPorProductoBase = new HashMap<>();
+        for (OrdenVentaDTO.CorteSolicitadoDTO corteDTO : cortes) {
+            if (corteDTO.getProductoId() == null || corteDTO.getMedidaSolicitada() == null) {
+                continue;
+            }
+
+            Producto productoBase = productoRepository.findById(corteDTO.getProductoId()).orElse(null);
+            if (productoBase == null) {
+                continue;
+            }
+
+            String nombreBase = productoBase.getNombre() != null ? productoBase.getNombre() : "Producto";
+            String nombreCorte = nombreBase + " Corte de " + corteDTO.getMedidaSolicitada() + " CMS";
+
+            int repeticiones = corteDTO.getCantidad() != null ? Math.max(1, corteDTO.getCantidad().intValue()) : 1;
+            Deque<String> cola = nombresPorProductoBase.computeIfAbsent(corteDTO.getProductoId(), key -> new ArrayDeque<>());
+            for (int i = 0; i < repeticiones; i++) {
+                cola.addLast(nombreCorte);
+            }
+        }
+
+        for (OrdenItem item : orden.getItems()) {
+            if (item.getProducto() == null || item.getProducto().getId() == null) {
+                continue;
+            }
+
+            Deque<String> colaNombres = nombresPorProductoBase.get(item.getProducto().getId());
+            if (colaNombres != null && !colaNombres.isEmpty()) {
+                item.setNombre(colaNombres.removeFirst());
+            }
+        }
+    }
+
+    private void ejecutarPlanCortesSiExiste(Orden orden) {
+        if (orden == null || orden.getId() == null) {
+            return;
+        }
+
+        List<OrdenCortePlan> planes = ordenCortePlanRepository
+            .findByOrdenIdAndEstadoOrderByPlanOrdenAsc(orden.getId(), OrdenCortePlan.EstadoPlanCorte.PLANIFICADO);
+
+        if (planes.isEmpty()) {
+            return;
+        }
+
+        List<OrdenVentaDTO.CorteSolicitadoDTO> cortesDTO = new ArrayList<>();
+        for (OrdenCortePlan plan : planes) {
+            OrdenVentaDTO.CorteSolicitadoDTO dto = new OrdenVentaDTO.CorteSolicitadoDTO();
+            dto.setProductoId(plan.getProductoOrigen().getId());
+            dto.setMedidaSolicitada(plan.getMedidaSolicitada());
+            dto.setCantidad(plan.getCantidad());
+            dto.setPrecioUnitarioSolicitado(plan.getPrecioUnitarioSolicitado());
+            dto.setPrecioUnitarioSobrante(plan.getPrecioUnitarioSobrante());
+            dto.setReutilizarCorteId(plan.getReutilizarCorteId());
+            dto.setMedidaSobrante(plan.getMedidaSobrante());
+
+            List<OrdenVentaDTO.CorteSolicitadoDTO.CantidadPorSedeDTO> cantidadesPorSede = new ArrayList<>();
+            for (OrdenCortePlanSede cantidadSede : plan.getCantidadesPorSede()) {
+                cantidadesPorSede.add(new OrdenVentaDTO.CorteSolicitadoDTO.CantidadPorSedeDTO(
+                    cantidadSede.getSede().getId(),
+                    cantidadSede.getCantidad()
+                ));
+            }
+            dto.setCantidadesPorSede(cantidadesPorSede);
+            cortesDTO.add(dto);
+        }
+
+        List<CorteCreacionDTO> cortesCreados = procesarCortes(orden, cortesDTO);
+        aplicarCortesAItems(orden, cortesCreados);
+
+        for (int i = 0; i < planes.size(); i++) {
+            OrdenCortePlan plan = planes.get(i);
+            plan.setEstado(OrdenCortePlan.EstadoPlanCorte.EJECUTADO);
+            if (i < cortesCreados.size()) {
+                plan.setCorteSolicitadoId(cortesCreados.get(i).getCorteId());
+            }
+            ordenCortePlanRepository.save(plan);
+        }
+    }
+
     /**
      * Actualiza el inventario restando los productos vendidos
      * Se ejecuta cuando se crea una nueva orden (venta)
@@ -1954,14 +2121,16 @@ public class OrdenService {
                     continue;
                 }
 
+                boolean esCorte = esProductoCorte(productoId);
+
                 log.info("[actualizarInventarioPorVenta] Procesando item ordenId={} itemId={} productoId={} cantidad={} esCorte={}",
                     orden.getId(),
                     item.getId(),
                     productoId,
                     cantidadVendida,
-                    item.getProducto() instanceof Corte);
+                    esCorte);
 
-                if (item.getProducto() instanceof Corte) {
+                if (esCorte) {
                     // Venta de CORTE: decrementar inventario de cortes en la sede
                     try {
                         inventarioCorteService.decrementarStock(productoId, sedeId, cantidadVendida);
@@ -2091,15 +2260,67 @@ public class OrdenService {
         // Obtener la sede de la orden
         Long sedeId = orden.getSede().getId();
 
+        // Fallback para órdenes históricas donde el item quedó con producto base
+        // pero realmente representaba un corte vendido.
+        Deque<Long> cortesPlanEjecutadoPendientes = new ArrayDeque<>();
+        List<OrdenCortePlan> planesEjecutados = ordenCortePlanRepository
+            .findByOrdenIdAndEstadoOrderByPlanOrdenAsc(orden.getId(), OrdenCortePlan.EstadoPlanCorte.EJECUTADO);
+        for (OrdenCortePlan plan : planesEjecutados) {
+            if (plan.getCorteSolicitadoId() != null) {
+                cortesPlanEjecutadoPendientes.addLast(plan.getCorteSolicitadoId());
+            }
+        }
+
+        log.info("[restaurarInventarioPorAnulacion] ordenId={} sedeId={} items={} planesEjecutadosConCorte={}",
+            orden.getId(),
+            sedeId,
+            orden.getItems().size(),
+            cortesPlanEjecutadoPendientes.size());
+
         for (OrdenItem item : orden.getItems()) {
             if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
                 Long productoId = item.getProducto().getId();
                 Double cantidadARestaurar = item.getCantidad();
 
-                if (item.getProducto() instanceof Corte) {
+                Long corteIdARestaurar = null;
+                boolean esCorteDirecto = esProductoCorte(productoId);
+                String nombreItem = item.getNombre() != null ? item.getNombre().toLowerCase() : "";
+                String nombreProducto = item.getProducto().getNombre() != null ? item.getProducto().getNombre().toLowerCase() : "";
+                boolean pareceCortePorNombre = nombreItem.contains("corte de") || nombreProducto.contains("corte de");
+                if (esCorteDirecto) {
+                    corteIdARestaurar = productoId;
+                } else {
+                    if (pareceCortePorNombre && !cortesPlanEjecutadoPendientes.isEmpty()) {
+                        corteIdARestaurar = cortesPlanEjecutadoPendientes.removeFirst();
+                    } else if (pareceCortePorNombre) {
+                        // Fallback de seguridad: en ventas directas puede no existir plan.
+                        // Intentar restaurar con el mismo productoId del item.
+                        corteIdARestaurar = productoId;
+                    }
+                }
+
+                log.info("[restaurarInventarioPorAnulacion] itemId={} productoId={} nombreItem='{}' nombreProducto='{}' cantidad={} esCorteDirecto={} pareceCortePorNombre={} corteIdFallback={}",
+                    item.getId(),
+                    productoId,
+                    item.getNombre(),
+                    item.getProducto().getNombre(),
+                    cantidadARestaurar,
+                    esCorteDirecto,
+                    pareceCortePorNombre,
+                    corteIdARestaurar);
+
+                if (corteIdARestaurar != null) {
                     // Para cortes, restaurar SIEMPRE en inventario_cortes.
-                    inventarioCorteService.incrementarStock(productoId, sedeId, cantidadARestaurar);
-                    continue;
+                    try {
+                        inventarioCorteService.incrementarStock(corteIdARestaurar, sedeId, cantidadARestaurar);
+                        log.info("[restaurarInventarioPorAnulacion] Corte restaurado corteId={} sedeId={} cantidad={}",
+                            corteIdARestaurar, sedeId, cantidadARestaurar);
+                        continue;
+                    } catch (Exception ex) {
+                        // Si falla (p.ej. ID no es corte real), degradar a inventario normal.
+                        log.warn("[restaurarInventarioPorAnulacion] No se pudo restaurar como corte corteId={} sedeId={} cantidad={} causa={} -> fallback inventario normal productoId={}",
+                            corteIdARestaurar, sedeId, cantidadARestaurar, ex.getMessage(), productoId);
+                    }
                 }
                 
                 // Buscar inventario del producto en la sede
@@ -2117,6 +2338,13 @@ public class OrdenService {
                 }
             }
         }
+    }
+
+    private boolean esProductoCorte(Long productoId) {
+        if (productoId == null) {
+            return false;
+        }
+        return corteRepository.existsById(productoId);
     }
 
     /**
@@ -2150,8 +2378,50 @@ public class OrdenService {
 
         // Cambiar estado a anulada
         orden.setEstado(Orden.EstadoOrden.ANULADA);
+
+        List<OrdenCortePlan> planesPendientes = ordenCortePlanRepository
+            .findByOrdenIdAndEstadoOrderByPlanOrdenAsc(orden.getId(), OrdenCortePlan.EstadoPlanCorte.PLANIFICADO);
+        for (OrdenCortePlan plan : planesPendientes) {
+            plan.setEstado(OrdenCortePlan.EstadoPlanCorte.ANULADO);
+            ordenCortePlanRepository.save(plan);
+        }
         
         return repo.save(orden);
+    }
+
+    /**
+     * 🧹 ELIMINAR FÍSICAMENTE UNA ORDEN ANULADA
+     *
+     * Reglas:
+     * - Solo permite eliminar órdenes en estado ANULADA
+     * - Si tiene crédito asociado, debe estar ANULADO para poder eliminarse
+     * - Si tiene factura asociada, no permite eliminación (mantener trazabilidad)
+     * - Elimina planes de cortes asociados para evitar conflictos de FK
+     */
+    @Transactional
+    public void eliminarOrdenAnulada(Long id) {
+        Orden orden = repo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + id));
+
+        if (orden.getEstado() != Orden.EstadoOrden.ANULADA) {
+            throw new IllegalArgumentException("Solo se pueden eliminar órdenes en estado ANULADA");
+        }
+
+        if (facturaRepository.findByOrdenId(id).isPresent()) {
+            throw new IllegalArgumentException("No se puede eliminar una orden anulada que tenga factura asociada");
+        }
+
+        Credito creditoAsociado = orden.getCreditoDetalle();
+        if (creditoAsociado != null) {
+            if (creditoAsociado.getEstado() != Credito.EstadoCredito.ANULADO) {
+                throw new IllegalArgumentException("El crédito asociado debe estar ANULADO antes de eliminar la orden");
+            }
+            creditoService.eliminar(creditoAsociado.getId());
+            orden.setCreditoDetalle(null);
+        }
+
+        ordenCortePlanRepository.deleteByOrdenId(id);
+        repo.delete(orden);
     }
     
     /**
@@ -2188,6 +2458,14 @@ public class OrdenService {
                     inventarioCorteService.decrementarStock(productoOriginal.getId(), sedeId, cantidad);
                 } catch (Exception e) {
                     throw new RuntimeException("Error al decrementar inventario del corte que se está cortando: " + e.getMessage());
+                }
+            } else {
+                Long sedeId = orden.getSede().getId();
+                Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
+                try {
+                    actualizarInventarioConcurrente(productoOriginal.getId(), sedeId, cantidad);
+                } catch (Exception e) {
+                    throw new RuntimeException("Error al decrementar inventario del producto origen del corte: " + e.getMessage());
                 }
             }
             
@@ -2236,9 +2514,12 @@ public class OrdenService {
             
             Long sedeId = orden.getSede().getId();
             Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
-            
-            // NO incrementar inventario del corte solicitado (el vendido)
-            // El corte solicitado debe quedar con stock 0 tras la venta
+
+            // ✅ Flujo consistente con producto entero:
+            // 1) Al generar el corte solicitado, entra al inventario de cortes.
+            // 2) Al procesar la venta, se descuenta.
+            // 3) Al anular, se vuelve a sumar.
+            inventarioCorteService.incrementarStock(corteSolicitado.getId(), sedeId, cantidad);
             
             // Si ambos cortes son el mismo (ej: corte por la mitad), solo uno debe quedar en inventario
             if (corteSolicitado.getId().equals(corteSobrante.getId())) {

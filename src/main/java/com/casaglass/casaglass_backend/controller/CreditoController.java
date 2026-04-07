@@ -6,8 +6,11 @@ import com.casaglass.casaglass_backend.dto.EntregaClienteEspecialResumenDTO;
 import com.casaglass.casaglass_backend.dto.MarcarCreditosClienteEspecialRequest;
 import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.EntregaClienteEspecial;
+import com.casaglass.casaglass_backend.model.Orden;
+import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import com.casaglass.casaglass_backend.service.CreditoService;
 import com.casaglass.casaglass_backend.service.EntregaClienteEspecialService;
+import com.casaglass.casaglass_backend.service.OrdenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.validation.Valid;
@@ -29,11 +32,17 @@ public class CreditoController {
 
     private final CreditoService service;
     private final EntregaClienteEspecialService entregaClienteEspecialService;
+    private final OrdenService ordenService;
+    private final OrdenRepository ordenRepository;
 
     public CreditoController(CreditoService service,
-                             EntregaClienteEspecialService entregaClienteEspecialService) {
+                             EntregaClienteEspecialService entregaClienteEspecialService,
+                             OrdenService ordenService,
+                             OrdenRepository ordenRepository) {
         this.service = service;
         this.entregaClienteEspecialService = entregaClienteEspecialService;
+        this.ordenService = ordenService;
+        this.ordenRepository = ordenRepository;
     }
 
     /** 💳 Crear crédito para una orden específica */
@@ -274,10 +283,42 @@ public class CreditoController {
     @PutMapping("/{creditoId}/anular")
     public ResponseEntity<?> anularCredito(@PathVariable Long creditoId) {
         try {
-            Credito credito = service.anularCredito(creditoId);
+            Credito credito = service.obtener(creditoId)
+                    .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado"));
+
+            Long ordenId = null;
+            if (credito.getOrden() != null && credito.getOrden().getId() != null) {
+                ordenId = credito.getOrden().getId();
+            } else {
+                ordenId = ordenRepository.findByCreditoDetalleId(creditoId)
+                        .map(Orden::getId)
+                        .orElse(null);
+            }
+
+            if (ordenId != null) {
+                Orden ordenAnulada = ordenService.anularOrden(ordenId);
+                Credito creditoActualizado = ordenAnulada.getCreditoDetalle() != null
+                        ? ordenAnulada.getCreditoDetalle()
+                        : service.obtener(creditoId).orElse(credito);
+
+                log.info("[CreditoController.anularCredito] Anulación vía orden completada creditoId={} ordenId={} estadoOrden={}",
+                        creditoId,
+                        ordenId,
+                        ordenAnulada.getEstado());
+
+                return ResponseEntity.ok(Map.of(
+                        "mensaje", "Crédito y orden anulados exitosamente",
+                        "credito", new CreditoResponseDTO(creditoActualizado),
+                        "ordenId", ordenAnulada.getId(),
+                        "estadoOrden", ordenAnulada.getEstado().toString()
+                ));
+            }
+
+            Credito creditoAnulado = service.anularCredito(creditoId);
+            log.warn("[CreditoController.anularCredito] Crédito sin orden asociada (incluyendo fallback por creditoDetalleId). Solo se anula crédito creditoId={}", creditoId);
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Crédito anulado exitosamente",
-                "credito", new CreditoResponseDTO(credito)
+                "credito", new CreditoResponseDTO(creditoAnulado)
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

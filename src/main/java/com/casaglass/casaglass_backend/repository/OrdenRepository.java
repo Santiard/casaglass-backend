@@ -28,6 +28,8 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
 
     List<Orden> findByCredito(boolean credito); // true = a crédito
 
+    Optional<Orden> findByCreditoDetalleId(Long creditoDetalleId);
+
     List<Orden> findByFechaBetween(LocalDate desde, LocalDate hasta);
 
     List<Orden> findBySedeId(Long sedeId);
