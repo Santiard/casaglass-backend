@@ -2332,18 +2332,12 @@ public class OrdenService {
                     pareceCortePorNombre,
                     corteIdARestaurar);
 
-                if (corteIdARestaurar != null) {
-                    // Para cortes, restaurar SIEMPRE en inventario_cortes.
-                    try {
-                        inventarioCorteService.incrementarStock(corteIdARestaurar, sedeId, cantidadARestaurar);
-                        log.info("[restaurarInventarioPorAnulacion] Corte restaurado corteId={} sedeId={} cantidad={}",
-                            corteIdARestaurar, sedeId, cantidadARestaurar);
-                        continue;
-                    } catch (Exception ex) {
-                        // Si falla (p.ej. ID no es corte real), degradar a inventario normal.
-                        log.warn("[restaurarInventarioPorAnulacion] No se pudo restaurar como corte corteId={} sedeId={} cantidad={} causa={} -> fallback inventario normal productoId={}",
-                            corteIdARestaurar, sedeId, cantidadARestaurar, ex.getMessage(), productoId);
-                    }
+                if (corteIdARestaurar != null && esProductoCorte(corteIdARestaurar)) {
+                    // Para cortes reales, restaurar en inventario_cortes.
+                    inventarioCorteService.incrementarStock(corteIdARestaurar, sedeId, cantidadARestaurar);
+                    log.info("[restaurarInventarioPorAnulacion] Corte restaurado corteId={} sedeId={} cantidad={}",
+                        corteIdARestaurar, sedeId, cantidadARestaurar);
+                    continue;
                 }
                 
                 // Buscar inventario del producto en la sede
@@ -2387,16 +2381,16 @@ public class OrdenService {
             throw new IllegalArgumentException("La orden ya está anulada");
         }
 
-        // Restaurar inventario antes de anular
-        restaurarInventarioPorAnulacion(orden);
+        // Restaurar inventario solo si la orden ya estaba confirmada como venta.
+        // Las cotizaciones no descuentan stock, por lo que no deben restaurarlo al anular.
+        if (orden.isVenta()) {
+            restaurarInventarioPorAnulacion(orden);
+        }
 
         // 💳 ANULAR CRÉDITO ASOCIADO SI EXISTE
+        // No suprimir excepciones aquí; capturarlas puede dejar la transacción en rollback-only.
         if (orden.getCreditoDetalle() != null) {
-            try {
-                creditoService.anularCredito(orden.getCreditoDetalle().getId());
-            } catch (Exception e) {
-                // Si falla la anulación del crédito, continuar con la anulación de la orden
-            }
+            creditoService.anularCredito(orden.getCreditoDetalle().getId());
         }
 
         // Cambiar estado a anulada
