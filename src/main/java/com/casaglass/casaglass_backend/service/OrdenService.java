@@ -212,7 +212,7 @@ public class OrdenService {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
             }
-            item.setNombre(resolverNombreDetalle(item));
+            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre()));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -363,7 +363,7 @@ public class OrdenService {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
             }
-            item.setNombre(resolverNombreDetalle(item));
+            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre()));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -461,9 +461,13 @@ public class OrdenService {
         // 📝 BUSCAR ORDEN EXISTENTE
         Orden ordenExistente = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
-        
-        // 🔄 RESTAURAR INVENTARIO DE LA ORDEN ANTERIOR
-        restaurarInventarioPorAnulacion(ordenExistente);
+
+        // 🔄 RESTAURAR INVENTARIO SOLO SI LA ORDEN PREVIA ERA VENTA
+        // Evita tocar inventario cuando se está editando una cotización.
+        boolean eraVentaAntes = ordenExistente.isVenta();
+        if (eraVentaAntes) {
+            restaurarInventarioPorAnulacion(ordenExistente);
+        }
         
         // 📝 ACTUALIZAR CAMPOS BÁSICOS
         ordenExistente.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
@@ -505,7 +509,7 @@ public class OrdenService {
             item.setOrden(ordenExistente);
             item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-            item.setNombre(resolverNombreDetalle(item));
+            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre()));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -575,9 +579,13 @@ public class OrdenService {
         // 📝 BUSCAR ORDEN EXISTENTE
         Orden ordenExistente = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
-        
-        // 🔄 RESTAURAR INVENTARIO DE LA ORDEN ANTERIOR
-        restaurarInventarioPorAnulacion(ordenExistente);
+
+        // 🔄 RESTAURAR INVENTARIO SOLO SI LA ORDEN PREVIA ERA VENTA
+        // Evita tocar inventario cuando se está editando una cotización.
+        boolean eraVentaAntes = ordenExistente.isVenta();
+        if (eraVentaAntes) {
+            restaurarInventarioPorAnulacion(ordenExistente);
+        }
         
         // 📝 ACTUALIZAR CAMPOS BÁSICOS
         ordenExistente.setFecha(ventaDTO.getFecha() != null ? ventaDTO.getFecha() : LocalDate.now());
@@ -619,7 +627,7 @@ public class OrdenService {
             item.setOrden(ordenExistente);
             item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-            item.setNombre(resolverNombreDetalle(item));
+            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre()));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -1634,7 +1642,7 @@ public class OrdenService {
         if (item.getProducto() != null) {
             OrdenTablaDTO.ProductoTablaDTO productoDTO = new OrdenTablaDTO.ProductoTablaDTO(
                 item.getProducto().getCodigo(),
-                item.getProducto().getNombre(),
+                resolverNombreDetalle(item),
                 item.getProducto().getColor() != null ? item.getProducto().getColor().name() : null
             );
             itemDTO.setProducto(productoDTO);
@@ -1850,11 +1858,7 @@ public class OrdenService {
                 nuevoItem.setOrden(orden);
                 nuevoItem.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                if (itemDTO.getNombre() != null && !itemDTO.getNombre().isBlank()) {
-                    nuevoItem.setNombre(itemDTO.getNombre());
-                } else {
-                    nuevoItem.setNombre(resolverNombreDetalle(nuevoItem));
-                }
+                nuevoItem.setNombre(resolverNombreDetalleDesdePayload(nuevoItem.getProducto(), itemDTO.getNombre()));
                 nuevoItem.setCantidad(itemDTO.getCantidad());
                 nuevoItem.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 nuevoItem.setTotalLinea(itemDTO.getTotalLinea());
@@ -1870,11 +1874,7 @@ public class OrdenService {
 
                 itemExistente.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                if (itemDTO.getNombre() != null && !itemDTO.getNombre().isBlank()) {
-                    itemExistente.setNombre(itemDTO.getNombre());
-                } else {
-                    itemExistente.setNombre(resolverNombreDetalle(itemExistente));
-                }
+                itemExistente.setNombre(resolverNombreDetalleDesdePayload(itemExistente.getProducto(), itemDTO.getNombre()));
                 itemExistente.setCantidad(itemDTO.getCantidad());
                 itemExistente.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 itemExistente.setTotalLinea(itemDTO.getTotalLinea());
@@ -1890,6 +1890,29 @@ public class OrdenService {
             return item.getNombre();
         }
         return item.getProducto() != null ? item.getProducto().getNombre() : null;
+    }
+
+    private String resolverNombreDetalleDesdePayload(Producto producto, String nombrePayload) {
+        if (nombrePayload == null || nombrePayload.isBlank()) {
+            return producto != null ? producto.getNombre() : null;
+        }
+
+        String nombreLimpio = nombrePayload.trim();
+        if (producto == null || producto.getNombre() == null || producto.getNombre().isBlank()) {
+            return nombreLimpio;
+        }
+
+        // Si llega como "Corte de X CMS", anteponer el nombre base del producto.
+        if (nombreLimpio.toLowerCase().startsWith("corte de ")) {
+            String nombreProducto = producto.getNombre().trim();
+            int idx = nombreProducto.indexOf(" Corte de ");
+            String baseNombre = idx != -1 ? nombreProducto.substring(0, idx).trim() : nombreProducto;
+            if (!baseNombre.isBlank()) {
+                return baseNombre + " " + nombreLimpio;
+            }
+        }
+
+        return nombreLimpio;
     }
 
     private void aplicarCortesAItems(Orden orden, List<CorteCreacionDTO> cortesCreados) {
@@ -2440,8 +2463,8 @@ public class OrdenService {
         List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
         
         for (OrdenVentaDTO.CorteSolicitadoDTO corteDTO : cortes) {
-            // Validar que tenga cantidades por sede
-            if (corteDTO.getCantidadesPorSede() == null || corteDTO.getCantidadesPorSede().isEmpty()) {
+            // Validaciones básicas del DTO
+            if (corteDTO == null || corteDTO.getProductoId() == null || corteDTO.getMedidaSolicitada() == null) {
                 continue;
             }
             
@@ -2450,8 +2473,8 @@ public class OrdenService {
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + corteDTO.getProductoId()));
             
             // 1.5 🔪 SI SE ESTÁ CORTANDO UN CORTE EXISTENTE, DECREMENTAR SU INVENTARIO
-            // Usar verificación por existencia en tabla de cortes para evitar problemas con proxies.
-            if (esProductoCorte(productoOriginal.getId())) {
+            // ⚠️ SOLO SI ES VENTA (venta=true). Si es cotización (venta=false), se maneja después.
+            if (orden.isVenta() && esProductoCorte(productoOriginal.getId())) {
                 Long sedeId = orden.getSede().getId();
                 Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
                 try {
@@ -2459,7 +2482,8 @@ public class OrdenService {
                 } catch (Exception e) {
                     throw new RuntimeException("Error al decrementar inventario del corte que se está cortando: " + e.getMessage());
                 }
-            } else {
+            } else if (!orden.isVenta() && !esProductoCorte(productoOriginal.getId())) {
+                // Si es cotización y es un producto normal (no corte), decrementar el inventario normal
                 Long sedeId = orden.getSede().getId();
                 Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
                 try {

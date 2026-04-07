@@ -2,8 +2,12 @@ package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.Categoria;
 import com.casaglass.casaglass_backend.model.Corte;
+import com.casaglass.casaglass_backend.model.InventarioCorte;
+import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.repository.CategoriaRepository;
 import com.casaglass.casaglass_backend.repository.CorteRepository;
+import com.casaglass.casaglass_backend.dto.CorteActualizarCompletoDTO;
+import com.casaglass.casaglass_backend.dto.CorteInventarioCompletoDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -166,6 +170,123 @@ public class CorteService {
                     }
                 })
                 .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + id));
+    }
+
+    /**
+     * 🔄 ACTUALIZAR CORTE + INVENTARIO POR SEDE EN UNA SOLA ACCIÓN
+     *
+     * Usa el mismo flujo del modal para evitar desincronización entre datos del corte
+     * y cantidades por sede.
+     */
+    @Transactional
+    public CorteInventarioCompletoDTO actualizarCompleto(Long id, CorteActualizarCompletoDTO dto) {
+        Corte corteActualizado = repository.findById(id)
+                .map(corteExistente -> {
+                    try {
+                        if (dto.getPosicion() != null) {
+                            corteExistente.setPosicion(dto.getPosicion());
+                        }
+                        if (dto.getCodigo() != null) {
+                            corteExistente.setCodigo(dto.getCodigo());
+                        }
+                        if (dto.getNombre() != null) {
+                            corteExistente.setNombre(dto.getNombre());
+                        }
+                        if (dto.getTipo() != null) {
+                            corteExistente.setTipo(com.casaglass.casaglass_backend.model.TipoProducto.valueOf(dto.getTipo().toUpperCase()));
+                        }
+                        if (dto.getColor() != null) {
+                            corteExistente.setColor(com.casaglass.casaglass_backend.model.ColorProducto.valueOf(dto.getColor().toUpperCase()));
+                        }
+                        if (dto.getDescripcion() != null) {
+                            corteExistente.setDescripcion(dto.getDescripcion());
+                        }
+                        if (dto.getCantidad() != null) {
+                            corteExistente.setCantidad(dto.getCantidad());
+                        }
+                        if (dto.getCosto() != null) {
+                            corteExistente.setCosto(dto.getCosto());
+                        }
+                        if (dto.getPrecio1() != null) {
+                            corteExistente.setPrecio1(dto.getPrecio1());
+                        }
+                        if (dto.getPrecio2() != null) {
+                            corteExistente.setPrecio2(dto.getPrecio2());
+                        }
+                        if (dto.getPrecio3() != null) {
+                            corteExistente.setPrecio3(dto.getPrecio3());
+                        }
+                        if (dto.getCategoria() != null && dto.getCategoria().getId() != null) {
+                            Categoria cat = categoriaRepository.findById(dto.getCategoria().getId())
+                                    .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada con ID: " + dto.getCategoria().getId()));
+                            corteExistente.setCategoria(cat);
+                        } else {
+                            corteExistente.setCategoria(null);
+                        }
+                        if (dto.getLargoCm() != null) {
+                            if (dto.getLargoCm() <= 0) {
+                                throw new IllegalArgumentException("El largo debe ser mayor que 0");
+                            }
+                            corteExistente.setLargoCm(dto.getLargoCm());
+                        }
+
+                        return repository.save(corteExistente);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Error al actualizar corte completo: " + e.getMessage(), e);
+                    }
+                })
+                .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + id));
+
+        // Actualizar inventario por sede solo si se enviaron cantidades
+        if (dto.getCantidadInsula() != null || dto.getCantidadCentro() != null || dto.getCantidadPatios() != null) {
+            Sede sedeInsula = sedeService.obtenerPorNombre("insula")
+                    .orElseThrow(() -> new RuntimeException("No se encontró la sede Insula"));
+            Sede sedeCentro = sedeService.obtenerPorNombre("centro")
+                    .orElseThrow(() -> new RuntimeException("No se encontró la sede Centro"));
+            Sede sedePatios = sedeService.obtenerPorNombre("patios")
+                    .orElseThrow(() -> new RuntimeException("No se encontró la sede Patios"));
+
+            if (dto.getCantidadInsula() != null) {
+                inventarioCorteService.actualizarStock(corteActualizado.getId(), sedeInsula.getId(), dto.getCantidadInsula());
+            }
+            if (dto.getCantidadCentro() != null) {
+                inventarioCorteService.actualizarStock(corteActualizado.getId(), sedeCentro.getId(), dto.getCantidadCentro());
+            }
+            if (dto.getCantidadPatios() != null) {
+                inventarioCorteService.actualizarStock(corteActualizado.getId(), sedePatios.getId(), dto.getCantidadPatios());
+            }
+        }
+
+        // Construir respuesta consolidada para refrescar el frontend
+        Sede sedeInsula = sedeService.obtenerPorNombre("insula").orElse(null);
+        Sede sedeCentro = sedeService.obtenerPorNombre("centro").orElse(null);
+        Sede sedePatios = sedeService.obtenerPorNombre("patios").orElse(null);
+
+        Double cantidadInsula = sedeInsula != null
+                ? inventarioCorteService.obtenerPorCorteYSede(corteActualizado.getId(), sedeInsula.getId()).map(InventarioCorte::getCantidad).orElse(0.0)
+                : 0.0;
+        Double cantidadCentro = sedeCentro != null
+                ? inventarioCorteService.obtenerPorCorteYSede(corteActualizado.getId(), sedeCentro.getId()).map(InventarioCorte::getCantidad).orElse(0.0)
+                : 0.0;
+        Double cantidadPatios = sedePatios != null
+                ? inventarioCorteService.obtenerPorCorteYSede(corteActualizado.getId(), sedePatios.getId()).map(InventarioCorte::getCantidad).orElse(0.0)
+                : 0.0;
+
+        return new CorteInventarioCompletoDTO(
+                corteActualizado.getId(),
+                corteActualizado.getCodigo(),
+                corteActualizado.getNombre(),
+                corteActualizado.getCategoria() != null ? corteActualizado.getCategoria().getNombre() : null,
+                corteActualizado.getTipo() != null ? corteActualizado.getTipo().name() : null,
+                corteActualizado.getColor() != null ? corteActualizado.getColor().name() : null,
+                corteActualizado.getLargoCm(),
+                cantidadInsula,
+                cantidadCentro,
+                cantidadPatios,
+                corteActualizado.getPrecio1(),
+                corteActualizado.getPrecio2(),
+                corteActualizado.getPrecio3()
+        );
     }
 
     @Transactional

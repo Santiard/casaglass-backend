@@ -53,6 +53,7 @@ public class OrdenVentaDTO {
         private Long productoId; // OBLIGATORIO - producto a vender
         private Double cantidad; // OBLIGATORIO - cantidad a vender (min: 1)
         private Double precioUnitario; // OBLIGATORIO - precio unitario
+        private String nombre; // OPCIONAL - nombre de detalle (ej: "HORIZONTAL Corte de 25 CMS")
         // Opcional: si se reutiliza un corte solicitado existente para vender
         private Long reutilizarCorteSolicitadoId;
         

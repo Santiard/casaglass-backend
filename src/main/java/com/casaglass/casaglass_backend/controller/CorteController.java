@@ -2,6 +2,8 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.model.Corte;
 import com.casaglass.casaglass_backend.service.CorteService;
+import com.casaglass.casaglass_backend.dto.CorteActualizarCompletoDTO;
+import com.casaglass.casaglass_backend.dto.CorteInventarioCompletoDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -115,6 +117,26 @@ public class CorteController {
     public ResponseEntity<?> actualizar(@PathVariable Long id, @RequestBody Corte corte) {
         try {
             Corte resultado = service.actualizar(id, corte);
+            return ResponseEntity.ok(resultado);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error interno: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 🔄 ACTUALIZAR CORTE + INVENTARIO POR SEDE EN UNA SOLA ACCIÓN
+     *
+     * Debe usarse desde el modal cuando el usuario cambia datos del corte
+     * y también cantidades por sede en la misma edición.
+     */
+    @PutMapping("/{id}/completo")
+    public ResponseEntity<?> actualizarCompleto(@PathVariable Long id, @RequestBody CorteActualizarCompletoDTO corte) {
+        try {
+            CorteInventarioCompletoDTO resultado = service.actualizarCompleto(id, corte);
             return ResponseEntity.ok(resultado);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
