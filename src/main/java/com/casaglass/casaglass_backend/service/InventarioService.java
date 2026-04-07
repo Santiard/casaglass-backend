@@ -5,6 +5,7 @@ import com.casaglass.casaglass_backend.dto.InventarioProductoDTO;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Sede;
+import com.casaglass.casaglass_backend.repository.CorteRepository;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import jakarta.persistence.EntityManager;
@@ -23,11 +24,21 @@ public class InventarioService {
     private final InventarioRepository repo;
     private final EntityManager em;
     private final SedeRepository sedeRepo;
+    private final CorteRepository corteRepository;
 
-    public InventarioService(InventarioRepository repo, EntityManager em, SedeRepository sedeRepo) {
+    public InventarioService(InventarioRepository repo, EntityManager em, SedeRepository sedeRepo, CorteRepository corteRepository) {
         this.repo = repo;
         this.em = em;
         this.sedeRepo = sedeRepo;
+        this.corteRepository = corteRepository;
+    }
+
+    private void validarNoEsCorte(Long productoId, String contexto) {
+        if (productoId != null && corteRepository.existsById(productoId)) {
+            throw new IllegalArgumentException(
+                "El producto ID " + productoId + " es un corte y no debe gestionarse en inventario normal (" + contexto + "). Use inventario_cortes."
+            );
+        }
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +91,8 @@ public class InventarioService {
             throw new IllegalArgumentException("Se requieren producto.id y sede.id");
         }
 
+        validarNoEsCorte(productoId, "guardar");
+
         try {
             // Buscar si ya existe inventario para esta combinación producto-sede
             Optional<Inventario> inventarioExistente = obtenerPorProductoYSede(productoId, sedeId);
@@ -123,6 +136,8 @@ public class InventarioService {
             throw new IllegalArgumentException("Se requieren producto ID y sede ID");
         }
 
+        validarNoEsCorte(productoId, "actualizarInventarioVenta");
+
         try {
             // Buscar inventario existente
             Optional<Inventario> inventarioOpt = obtenerPorProductoYSede(productoId, sedeId);
@@ -158,6 +173,11 @@ public class InventarioService {
     public Inventario actualizar(Long id, Inventario payload) {
         try {
             return repo.findById(id).map(actual -> {
+                Long productoObjetivoId = payload.getProducto() != null && payload.getProducto().getId() != null
+                    ? payload.getProducto().getId()
+                    : (actual.getProducto() != null ? actual.getProducto().getId() : null);
+                validarNoEsCorte(productoObjetivoId, "actualizar");
+
                 // Permitir cambiar cantidad; cambiar producto/sede es posible,
                 // pero puede chocar con la uniqueConstraint si ya existe esa combinación.
                 if (payload.getProducto() != null && payload.getProducto().getId() != null) {
@@ -218,6 +238,8 @@ public class InventarioService {
      */
     @Transactional
     public List<Inventario> actualizarInventarioPorProducto(Long productoId, InventarioActualizarDTO dto) {
+        validarNoEsCorte(productoId, "actualizarInventarioPorProducto");
+
         // Obtener IDs de las 3 sedes
         Long insulaId = obtenerSedeId("insula");
         Long centroId = obtenerSedeId("centro");

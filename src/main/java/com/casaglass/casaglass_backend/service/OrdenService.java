@@ -2450,8 +2450,8 @@ public class OrdenService {
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + corteDTO.getProductoId()));
             
             // 1.5 🔪 SI SE ESTÁ CORTANDO UN CORTE EXISTENTE, DECREMENTAR SU INVENTARIO
-            // Verificar si el producto original es un Corte (instanceof)
-            if (productoOriginal instanceof Corte) {
+            // Usar verificación por existencia en tabla de cortes para evitar problemas con proxies.
+            if (esProductoCorte(productoOriginal.getId())) {
                 Long sedeId = orden.getSede().getId();
                 Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
                 try {
