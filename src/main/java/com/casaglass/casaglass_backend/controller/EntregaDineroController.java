@@ -170,9 +170,9 @@ public class EntregaDineroController {
                                 .collect(Collectors.toList()));
                     }
                     
-                    // ✅ Calcular y agregar resumen del mes
+                    // ✅ Calcular y agregar resumen del mes (pasando la entrega completa)
                     if (entrega.getFechaEntrega() != null) {
-                        dto.setResumenMes(service.calcularResumenMes(entrega.getFechaEntrega()));
+                        dto.setResumenMes(service.calcularResumenMes(entrega));
                     }
                     
                     return ResponseEntity.ok(dto);
@@ -385,14 +385,24 @@ public class EntregaDineroController {
      */
     @GetMapping("/ordenes-disponibles")
     public ResponseEntity<?> obtenerOrdenesDisponibles(@RequestParam Long sedeId,
-                                                       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-                                                       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         try {
+            LocalDate fechaHasta = hasta != null ? hasta : LocalDate.now();
+            LocalDate fechaDesde = desde;
+
+            // Si no se envía rango, calcular automáticamente desde la última entrega de la sede.
+            if (fechaDesde == null) {
+                LocalDate[] rango = service.resolverRangoDesdeUltimaEntrega(sedeId, fechaHasta);
+                fechaDesde = rango[0];
+                fechaHasta = rango[1];
+            }
+
             // Obtener órdenes A CONTADO disponibles
-            List<Orden> ordenesContado = entregaDetalleService.obtenerOrdenesContadoDisponibles(sedeId, desde, hasta);
+            List<Orden> ordenesContado = entregaDetalleService.obtenerOrdenesContadoDisponibles(sedeId, fechaDesde, fechaHasta);
             
             // Obtener ABONOS disponibles (no órdenes) de créditos en el período
-            List<Abono> abonosDisponibles = abonoService.obtenerAbonosDisponiblesParaEntrega(sedeId, desde, hasta);
+            List<Abono> abonosDisponibles = abonoService.obtenerAbonosDisponiblesParaEntrega(sedeId, fechaDesde, fechaHasta);
             
             return ResponseEntity.ok(Map.of(
                 "ordenesContado", ordenesContado.stream()
@@ -401,6 +411,10 @@ public class EntregaDineroController {
                 "abonosDisponibles", abonosDisponibles.stream()
                     .map(this::convertirAAbonoParaEntregaDTO)
                     .collect(Collectors.toList()),
+                "rangoAplicado", Map.of(
+                    "desde", fechaDesde,
+                    "hasta", fechaHasta
+                ),
                 "totales", Map.of(
                     "contado", ordenesContado.size(),
                     "credito", abonosDisponibles.size(),

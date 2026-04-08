@@ -7,7 +7,9 @@ import com.casaglass.casaglass_backend.dto.MarcarCreditosClienteEspecialRequest;
 import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.EntregaClienteEspecial;
 import com.casaglass.casaglass_backend.model.Orden;
+import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
+import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import com.casaglass.casaglass_backend.service.CreditoService;
 import com.casaglass.casaglass_backend.service.EntregaClienteEspecialService;
 import com.casaglass.casaglass_backend.service.OrdenService;
@@ -34,15 +36,18 @@ public class CreditoController {
     private final EntregaClienteEspecialService entregaClienteEspecialService;
     private final OrdenService ordenService;
     private final OrdenRepository ordenRepository;
+    private final TrabajadorRepository trabajadorRepository;
 
     public CreditoController(CreditoService service,
                              EntregaClienteEspecialService entregaClienteEspecialService,
                              OrdenService ordenService,
-                             OrdenRepository ordenRepository) {
+                             OrdenRepository ordenRepository,
+                             TrabajadorRepository trabajadorRepository) {
         this.service = service;
         this.entregaClienteEspecialService = entregaClienteEspecialService;
         this.ordenService = ordenService;
         this.ordenRepository = ordenRepository;
+        this.trabajadorRepository = trabajadorRepository;
     }
 
     /** 💳 Crear crédito para una orden específica */
@@ -156,6 +161,7 @@ public class CreditoController {
     public Object listar(
             @RequestParam(required = false) Long clienteId,
             @RequestParam(required = false) Long sedeId,
+            @RequestParam(required = false) Long trabajadorId,
             @RequestParam(required = false) String estado,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fechaDesde,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate fechaHasta,
@@ -173,9 +179,20 @@ public class CreditoController {
                 throw new IllegalArgumentException("Estado inválido: " + estado + ". Valores válidos: ABIERTO, CERRADO, VENCIDO, ANULADO");
             }
         }
+
+        // Si llega trabajadorId y no llega sedeId, filtrar por la sede asignada al trabajador.
+        Long sedeIdEfectiva = sedeId;
+        if (sedeIdEfectiva == null && trabajadorId != null) {
+            Trabajador trabajador = trabajadorRepository.findById(trabajadorId)
+                    .orElseThrow(() -> new IllegalArgumentException("Trabajador no encontrado con ID: " + trabajadorId));
+            if (trabajador.getSede() == null || trabajador.getSede().getId() == null) {
+                throw new IllegalArgumentException("El trabajador no tiene sede asignada");
+            }
+            sedeIdEfectiva = trabajador.getSede().getId();
+        }
         
         // Si no hay filtros nuevos, usar método original (compatibilidad)
-        if (clienteId == null && sedeId == null && estadoEnum == null && 
+        if (clienteId == null && sedeIdEfectiva == null && estadoEnum == null && trabajadorId == null &&
             fechaDesde == null && fechaHasta == null && page == null && size == null && 
             sortBy == null && sortOrder == null) {
             return service.listar().stream()
@@ -185,7 +202,7 @@ public class CreditoController {
         
         // Usar método con filtros
         Object resultado = service.listarConFiltros(
-            clienteId, sedeId, estadoEnum, fechaDesde, fechaHasta, page, size, sortBy, sortOrder
+            clienteId, sedeIdEfectiva, estadoEnum, fechaDesde, fechaHasta, page, size, sortBy, sortOrder
         );
         
         // Si es lista paginada, convertir los créditos a DTOs

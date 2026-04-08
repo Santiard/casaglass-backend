@@ -111,6 +111,21 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     );
 
     /**
+     * 💰 ÓRDENES A CONTADO DISPONIBLES PARA ENTREGA (SIN FILTRO DE FECHA)
+     * Trae todas las órdenes de la sede que aún no están incluidas en entrega.
+     */
+    @Query("SELECT o FROM Orden o WHERE " +
+           "o.cliente.id != 499 AND " +
+           "o.sede.id = :sedeId AND " +
+           "o.credito = false AND " +
+           "o.venta = true AND " +
+           "o.incluidaEntrega = false AND " +
+           "o.estado = 'ACTIVA'")
+    List<Orden> findOrdenesContadoDisponiblesParaEntregaSinFecha(
+        @Param("sedeId") Long sedeId
+    );
+
+    /**
      * 🏦 ÓRDENES A CRÉDITO CON ABONOS EN EL PERÍODO
      * - De la sede especificada
      * - Venta a crédito (credito = true)

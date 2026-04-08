@@ -11,6 +11,7 @@ import com.casaglass.casaglass_backend.dto.CorteInventarioCompletoDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Optional;
 
@@ -239,28 +240,25 @@ public class CorteService {
 
         // Actualizar inventario por sede solo si se enviaron cantidades
         if (dto.getCantidadInsula() != null || dto.getCantidadCentro() != null || dto.getCantidadPatios() != null) {
-            Sede sedeInsula = sedeService.obtenerPorNombre("insula")
-                    .orElseThrow(() -> new RuntimeException("No se encontró la sede Insula"));
-            Sede sedeCentro = sedeService.obtenerPorNombre("centro")
-                    .orElseThrow(() -> new RuntimeException("No se encontró la sede Centro"));
-            Sede sedePatios = sedeService.obtenerPorNombre("patios")
-                    .orElseThrow(() -> new RuntimeException("No se encontró la sede Patios"));
+            Sede sedeInsula = obtenerSedePorAlias("insula").orElse(null);
+            Sede sedeCentro = obtenerSedePorAlias("centro").orElse(null);
+            Sede sedePatios = obtenerSedePorAlias("patios").orElse(null);
 
-            if (dto.getCantidadInsula() != null) {
+            if (dto.getCantidadInsula() != null && sedeInsula != null) {
                 inventarioCorteService.actualizarStock(corteActualizado.getId(), sedeInsula.getId(), dto.getCantidadInsula());
             }
-            if (dto.getCantidadCentro() != null) {
+            if (dto.getCantidadCentro() != null && sedeCentro != null) {
                 inventarioCorteService.actualizarStock(corteActualizado.getId(), sedeCentro.getId(), dto.getCantidadCentro());
             }
-            if (dto.getCantidadPatios() != null) {
+            if (dto.getCantidadPatios() != null && sedePatios != null) {
                 inventarioCorteService.actualizarStock(corteActualizado.getId(), sedePatios.getId(), dto.getCantidadPatios());
             }
         }
 
         // Construir respuesta consolidada para refrescar el frontend
-        Sede sedeInsula = sedeService.obtenerPorNombre("insula").orElse(null);
-        Sede sedeCentro = sedeService.obtenerPorNombre("centro").orElse(null);
-        Sede sedePatios = sedeService.obtenerPorNombre("patios").orElse(null);
+        Sede sedeInsula = obtenerSedePorAlias("insula").orElse(null);
+        Sede sedeCentro = obtenerSedePorAlias("centro").orElse(null);
+        Sede sedePatios = obtenerSedePorAlias("patios").orElse(null);
 
         Double cantidadInsula = sedeInsula != null
                 ? inventarioCorteService.obtenerPorCorteYSede(corteActualizado.getId(), sedeInsula.getId()).map(InventarioCorte::getCantidad).orElse(0.0)
@@ -287,6 +285,29 @@ public class CorteService {
                 corteActualizado.getPrecio2(),
                 corteActualizado.getPrecio3()
         );
+    }
+
+    private Optional<Sede> obtenerSedePorAlias(String alias) {
+        if (alias == null || alias.isBlank()) {
+            return Optional.empty();
+        }
+
+        Optional<Sede> exacta = sedeService.obtenerPorNombre(alias);
+        if (exacta.isPresent()) {
+            return exacta;
+        }
+
+        String aliasNorm = normalizar(alias);
+        return sedeService.listar().stream()
+                .filter(s -> s.getNombre() != null)
+                .filter(s -> normalizar(s.getNombre()).contains(aliasNorm))
+                .findFirst();
+    }
+
+    private String normalizar(String valor) {
+        String sinAcentos = Normalizer.normalize(valor, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return sinAcentos.toLowerCase().trim();
     }
 
     @Transactional

@@ -1902,16 +1902,30 @@ public class OrdenService {
             return nombreLimpio;
         }
 
-        // Si llega como "Corte de X CMS", anteponer el nombre base del producto.
-        if (nombreLimpio.toLowerCase().startsWith("corte de ")) {
-            String nombreProducto = producto.getNombre().trim();
-            int idx = nombreProducto.indexOf(" Corte de ");
-            String baseNombre = idx != -1 ? nombreProducto.substring(0, idx).trim() : nombreProducto;
-            if (!baseNombre.isBlank()) {
-                return baseNombre + " " + nombreLimpio;
-            }
+        String nombreProducto = producto.getNombre().trim();
+        String nombreProductoLower = nombreProducto.toLowerCase();
+        int idxBase = nombreProductoLower.indexOf(" corte de ");
+        String baseNombre = idxBase != -1 ? nombreProducto.substring(0, idxBase).trim() : nombreProducto;
+
+        boolean esCorte = producto instanceof Corte || esProductoCorte(producto.getId());
+
+        // Si NO es corte, siempre usar el nombre base del producto para evitar contaminar
+        // perfiles enteros con etiquetas de corte cuando se edita varias veces.
+        if (!esCorte) {
+            return baseNombre.isBlank() ? nombreProducto : baseNombre;
         }
 
+        String nombreLower = nombreLimpio.toLowerCase();
+        int idxUltimoCorte = nombreLower.lastIndexOf("corte de ");
+
+        // Para cortes, conservar SOLO la ultima etiqueta "Corte de ..." para evitar
+        // acumulaciones tipo "... Corte de 400 CMS Corte de 150 CMS".
+        if (idxUltimoCorte != -1) {
+            String corteSegmento = nombreLimpio.substring(idxUltimoCorte).trim();
+            return baseNombre.isBlank() ? corteSegmento : baseNombre + " " + corteSegmento;
+        }
+
+        // Si no trae texto de corte, respetar lo enviado.
         return nombreLimpio;
     }
 

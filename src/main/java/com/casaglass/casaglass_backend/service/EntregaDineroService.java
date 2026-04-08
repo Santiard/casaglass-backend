@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -47,6 +48,9 @@ public class EntregaDineroService {
 
     @Autowired
     private AbonoRepository abonoRepository;
+
+    @Autowired
+    private AbonoService abonoService;
 
     @Autowired
     private CreditoRepository creditoRepository;
@@ -237,6 +241,26 @@ public class EntregaDineroService {
             entrega.setEstado(EntregaDinero.EstadoEntrega.PENDIENTE);
         }
 
+        // Si no llegan IDs desde frontend, resolver automáticamente pendientes desde
+        // la última entrega de la sede hasta la fecha de esta entrega.
+        boolean sinOrdenes = ordenIds == null || ordenIds.isEmpty();
+        boolean sinAbonos = abonoIds == null || abonoIds.isEmpty();
+        boolean sinReembolsos = reembolsoIds == null || reembolsoIds.isEmpty();
+        if (sinOrdenes && sinAbonos && sinReembolsos) {
+            LocalDate[] rango = resolverRangoDesdeUltimaEntrega(entrega.getSede().getId(), entrega.getFechaEntrega());
+            LocalDate fechaDesde = rango[0];
+            LocalDate fechaHasta = rango[1];
+
+            List<Orden> ordenesDisponibles = entregaDetalleService
+                .obtenerOrdenesContadoDisponibles(entrega.getSede().getId(), fechaDesde, fechaHasta);
+            List<Abono> abonosDisponibles = abonoService
+                .obtenerAbonosDisponiblesParaEntrega(entrega.getSede().getId(), fechaDesde, fechaHasta);
+
+            ordenIds = ordenesDisponibles.stream().map(Orden::getId).toList();
+            abonoIds = abonosDisponibles.stream().map(Abono::getId).toList();
+            reembolsoIds = new ArrayList<>();
+        }
+
         // Validar órdenes
         if (ordenIds != null && !ordenIds.isEmpty()) {
             for (Long ordenId : ordenIds) {
@@ -351,6 +375,32 @@ public class EntregaDineroService {
         return entregaDineroRepository.save(entregaGuardada);
     }
 
+    @Transactional(readOnly = true)
+    public LocalDate[] resolverRangoDesdeUltimaEntrega(Long sedeId, LocalDate fechaHastaSolicitada) {
+        if (sedeId == null) {
+            throw new IllegalArgumentException("La sede es obligatoria para calcular el rango automático");
+        }
+
+        LocalDate fechaHasta = fechaHastaSolicitada != null ? fechaHastaSolicitada : LocalDate.now();
+        EntregaDinero ultimaEntrega = entregaDineroRepository.findFirstBySedeIdOrderByFechaEntregaDesc(sedeId);
+
+        LocalDate fechaDesde;
+        if (ultimaEntrega != null && ultimaEntrega.getFechaEntrega() != null) {
+            // Importante: usar la misma fecha de la última entrega (no +1 día)
+            // para no perder movimientos de la tarde cuando hubo una entrega en la mañana.
+            fechaDesde = ultimaEntrega.getFechaEntrega();
+        } else {
+            // Primera entrega de la sede: incluir histórico sin depender de un día puntual.
+            fechaDesde = LocalDate.of(2000, 1, 1);
+        }
+
+        if (fechaDesde.isAfter(fechaHasta)) {
+            fechaDesde = fechaHasta;
+        }
+
+        return new LocalDate[]{fechaDesde, fechaHasta};
+    }
+
     @Transactional
     public EntregaDinero actualizarEntrega(Long id, EntregaDinero entregaActualizada) {
         return entregaDineroRepository.findById(id)
@@ -450,9 +500,76 @@ public class EntregaDineroService {
      * @return ResumenMesDTO con totales de ventas y créditos activos del mes
      */
     @Transactional(readOnly = true)
+    public ResumenMesDTO calcularResumenMes(EntregaDinero entrega) {
+        if (entrega == null || entrega.getFechaEntrega() == null) {
+            return null;
+        }
+        
+        LocalDate fechaEntrega = entrega.getFechaEntrega();
+        
+        // Calcular primer y último día del mes
+        LocalDate inicioMes = fechaEntrega.withDayOfMonth(1);
+        LocalDate finMes = fechaEntrega.withDayOfMonth(fechaEntrega.lengthOfMonth());
+        
+        // 1. Calcular total de ventas del mes (órdenes con venta=true del mes activas)
+        List<Orden> ordenesDelMes = ordenRepository.findByFechaBetween(inicioMes, finMes);
+        Double totalVentasDelMes = ordenesDelMes.stream()
+                .filter(orden -> orden.isVenta() && orden.getEstado() == Orden.EstadoOrden.ACTIVA)
+                .mapToDouble(orden -> orden.getTotal() != null ? orden.getTotal() : 0.0)
+                .sum();
+        
+        // 2. Calcular total de deudas (créditos activos iniciados en el mes)
+        List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
+        Double totalDeudasDelMes = creditosActivos.stream()
+                .filter(credito -> credito.getFechaInicio() != null && 
+                        !credito.getFechaInicio().isBefore(inicioMes) && 
+                        !credito.getFechaInicio().isAfter(finMes))
+                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+                .sum();
+        
+        // 3. Calcular total de abonos del mes
+        List<Abono> abonos = abonoRepository.findByFechaBetween(inicioMes, finMes);
+        Double totalAbonasDelMes = abonos.stream()
+            .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
+                .sum();
+        
+        // 4. Total entregado del mes (solo de la misma sede de la entrega)
+           List<EntregaDinero> entregasDelMes = entrega.getSede() != null
+               ? entregaDineroRepository.findBySedeIdAndFechaEntregaBetween(entrega.getSede().getId(), inicioMes, finMes)
+               : entregaDineroRepository.findByFechaEntregaBetween(inicioMes, finMes);
+        Double totalEntregadoDelMes = entregasDelMes.stream()
+                .mapToDouble(ent -> ent.getMonto() != null ? ent.getMonto() : 0.0)
+                .sum();
+        
+        // 5. Generar nombre del mes en formato ISO "2026-04"
+        String mesISO = String.format("%04d-%02d", fechaEntrega.getYear(), fechaEntrega.getMonthValue());
+        
+        // 6. Generar nombre del mes en formato "febrero 2026"
+        String mesNombre = fechaEntrega.getMonth().getDisplayName(TextStyle.FULL, new Locale("es", "ES"))
+                + " " + fechaEntrega.getYear();
+        
+        // 7. Información de sede y trabajador
+        String sedeNombre = entrega.getSede() != null ? entrega.getSede().getNombre() : "N/A";
+        String trabajadorNombre = entrega.getEmpleado() != null ? entrega.getEmpleado().getNombre() : "N/A";
+        
+        // Crear y retornar el resumen
+        ResumenMesDTO resumen = new ResumenMesDTO();
+        resumen.setTotalVentasDelMes(totalVentasDelMes);
+        resumen.setTotalDeudasDelMes(totalDeudasDelMes);
+        resumen.setTotalAbonasDelMes(totalAbonasDelMes);
+        resumen.setTotalEntregadoDelMes(totalEntregadoDelMes);
+        resumen.setTotalEstaEntrega(entrega.getMonto() != null ? entrega.getMonto() : 0.0);
+        resumen.setMes(mesISO);
+        resumen.setSede(sedeNombre);
+        resumen.setTrabajador(trabajadorNombre);
+        resumen.setMesNombre(mesNombre);
+        
+        return resumen;
+    }
+    
     public ResumenMesDTO calcularResumenMes(LocalDate fechaEntrega) {
         if (fechaEntrega == null) {
-            return new ResumenMesDTO(0.0, 0.0, "");
+            return null;
         }
         
         // Calcular primer y último día del mes
@@ -461,24 +578,46 @@ public class EntregaDineroService {
         
         // 1. Calcular total de ventas del mes (órdenes con venta=true del mes)
         List<Orden> ordenesDelMes = ordenRepository.findByFechaBetween(inicioMes, finMes);
-        Double totalVentasMes = ordenesDelMes.stream()
+        Double totalVentasDelMes = ordenesDelMes.stream()
                 .filter(orden -> orden.isVenta() && orden.getEstado() == Orden.EstadoOrden.ACTIVA)
                 .mapToDouble(orden -> orden.getTotal() != null ? orden.getTotal() : 0.0)
                 .sum();
         
         // 2. Calcular total de créditos activos del mes
         List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
-        Double totalCreditosActivosMes = creditosActivos.stream()
-                .filter(credito -> credito.getFechaInicio() != null && 
-                        !credito.getFechaInicio().isBefore(inicioMes) && 
-                        !credito.getFechaInicio().isAfter(finMes))
+               List<Credito> creditosDelMes = creditoRepository.findByFechaInicioBetween(inicioMes, finMes);
+               Double totalDeudasDelMes = creditosDelMes.stream()
+                   .filter(credito -> credito.getEstado() == Credito.EstadoCredito.ABIERTO)
                 .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
                 .sum();
         
-        // 3. Generar nombre del mes
+        // 3. Calcular total de abonos del mes
+        List<Abono> abonos = abonoRepository.findByFechaBetween(inicioMes, finMes);
+        Double totalAbonasDelMes = abonos.stream()
+            .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
+                .sum();
+        
+        // 4. Total entregado del mes
+               List<EntregaDinero> entregasDelMes = entregaDineroRepository.findByFechaEntregaBetween(inicioMes, finMes);
+        Double totalEntregadoDelMes = entregasDelMes.stream()
+                .mapToDouble(ent -> ent.getMonto() != null ? ent.getMonto() : 0.0)
+                .sum();
+        
+        // 5. Generar nombre del mes en formato ISO "2026-04"
+        String mesISO = String.format("%04d-%02d", fechaEntrega.getYear(), fechaEntrega.getMonthValue());
+        
+        // 6. Generar nombre del mes en formato "febrero 2026"
         String mesNombre = fechaEntrega.getMonth().getDisplayName(TextStyle.FULL, new Locale("es", "ES"))
                 + " " + fechaEntrega.getYear();
         
-        return new ResumenMesDTO(totalVentasMes, totalCreditosActivosMes, mesNombre);
+        ResumenMesDTO resumen = new ResumenMesDTO();
+        resumen.setTotalVentasDelMes(totalVentasDelMes);
+        resumen.setTotalDeudasDelMes(totalDeudasDelMes);
+        resumen.setTotalAbonasDelMes(totalAbonasDelMes);
+        resumen.setTotalEntregadoDelMes(totalEntregadoDelMes);
+        resumen.setMes(mesISO);
+        resumen.setMesNombre(mesNombre);
+        
+        return resumen;
     }
 }

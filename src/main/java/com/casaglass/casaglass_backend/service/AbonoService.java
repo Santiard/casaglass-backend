@@ -417,10 +417,11 @@ public class AbonoService {
     
     /**
      * 📋 OBTIENE ABONOS DISPONIBLES PARA ENTREGA
-     * Solo abonos de órdenes a crédito que no han sido incluidos en entregas
+     * Solo abonos de órdenes a crédito que no han sido incluidos en entregas.
+     * Nota: ya no se filtra por fecha para no perder abonos pendientes históricos.
      */
     public List<Abono> obtenerAbonosDisponiblesParaEntrega(Long sedeId, LocalDate fechaDesde, LocalDate fechaHasta) {
-        return abonoRepo.findAbonosDisponiblesParaEntrega(sedeId, fechaDesde, fechaHasta);
+        return abonoRepo.findAbonosDisponiblesParaEntregaSinFecha(sedeId);
     }
 
     /**

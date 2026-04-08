@@ -22,6 +22,10 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
     List<Abono> findByOrdenId(Long ordenId);
 
     /**
+     * Encuentra todos los abonos en un rango de fechas
+     */
+    List<Abono> findByFechaBetween(LocalDate fechaDesde, LocalDate fechaHasta);
+    /**
      * Encuentra abonos de una orden específica en un rango de fechas
      * Usado para cálculos de entregas de dinero
      */
@@ -66,6 +70,23 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
         @Param("sedeId") Long sedeId,
         @Param("fechaDesde") LocalDate fechaDesde,
         @Param("fechaHasta") LocalDate fechaHasta
+    );
+
+    /**
+     * 💰 ABONOS DISPONIBLES PARA ENTREGA (SIN FILTRO DE FECHA)
+     * Trae todos los abonos pendientes de la sede que no estén incluidos en otra entrega.
+     */
+    @Query("SELECT DISTINCT a FROM Abono a " +
+           "JOIN a.orden o " +
+           "LEFT JOIN EntregaDetalle ed ON ed.abono.id = a.id WHERE " +
+           "a.cliente.id != 499 AND " +
+           "a.sede.id = :sedeId AND " +
+           "o.credito = true AND " +
+           "o.venta = true AND " +
+           "o.estado = 'ACTIVA' AND " +
+           "ed.id IS NULL")
+    List<Abono> findAbonosDisponiblesParaEntregaSinFecha(
+        @Param("sedeId") Long sedeId
     );
 
     /**

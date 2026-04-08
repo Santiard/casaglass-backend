@@ -328,12 +328,12 @@ public class EntregaDetalleService {
     public List<Orden> obtenerOrdenesContadoDisponibles(Long sedeId, java.time.LocalDate fechaDesde, java.time.LocalDate fechaHasta) {
         // Buscar órdenes que cumplan:
         // 1. De la sede especificada
-        // 2. En el rango de fechas
-        // 3. credito = false (venta a contado)
-        // 4. incluidaEntrega = false (no incluida en otra entrega)
-        // 5. estado = ACTIVA
-        
-        return ordenRepository.findOrdenesContadoDisponiblesParaEntrega(sedeId, fechaDesde, fechaHasta);
+        // 2. credito = false (venta a contado)
+        // 3. incluidaEntrega = false (no incluida en otra entrega)
+        // 4. estado = ACTIVA
+        // Nota: ya no se filtra por fecha para evitar perder órdenes confirmadas tarde.
+
+        return ordenRepository.findOrdenesContadoDisponiblesParaEntregaSinFecha(sedeId);
     }
 
     /**

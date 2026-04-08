@@ -33,6 +33,10 @@ public interface CreditoRepository extends JpaRepository<Credito, Long> {
     List<Credito> findByOrdenSedeIdAndEstado(Long sedeId, Credito.EstadoCredito estado);
 
     /**
+     * Encuentra créditos por rango de fecha de inicio
+     */
+    List<Credito> findByFechaInicioBetween(LocalDate fechaDesde, LocalDate fechaHasta);
+    /**
      * 🔍 BÚSQUEDA AVANZADA DE CRÉDITOS CON MÚLTIPLES FILTROS
      * Todos los parámetros son opcionales (nullable)
      * Nota: fechaDesde y fechaHasta se aplican a fechaInicio del crédito

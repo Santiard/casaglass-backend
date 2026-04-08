@@ -16,7 +16,9 @@ public class EntregaDineroResponseDTO {
     
     private Long id;
     private SedeSimpleDTO sede;
+    private String sedeNombre;
     private TrabajadorSimpleDTO empleado;
+    private String empleadoNombre;
     private LocalDate fechaEntrega;
     private Double monto;
     private Double montoEfectivo;
@@ -41,7 +43,9 @@ public class EntregaDineroResponseDTO {
         try {
             this.id = entrega.getId();
             this.sede = entrega.getSede() != null ? new SedeSimpleDTO(entrega.getSede()) : null;
+            this.sedeNombre = entrega.getSede() != null ? entrega.getSede().getNombre() : null;
             this.empleado = entrega.getEmpleado() != null ? new TrabajadorSimpleDTO(entrega.getEmpleado()) : null;
+            this.empleadoNombre = entrega.getEmpleado() != null ? entrega.getEmpleado().getNombre() : null;
             this.fechaEntrega = entrega.getFechaEntrega();
             this.monto = entrega.getMonto();
             this.montoEfectivo = entrega.getMontoEfectivo();
@@ -77,7 +81,9 @@ public class EntregaDineroResponseDTO {
             // Si ocurre una excepción durante la construcción, inicializar con valores por defecto
             this.id = entrega != null ? entrega.getId() : null;
             this.sede = null;
+            this.sedeNombre = null;
             this.empleado = null;
+            this.empleadoNombre = null;
             this.fechaEntrega = entrega != null ? entrega.getFechaEntrega() : null;
             this.monto = entrega != null ? entrega.getMonto() : null;
             this.montoEfectivo = entrega != null ? entrega.getMontoEfectivo() : null;
@@ -93,7 +99,9 @@ public class EntregaDineroResponseDTO {
             // Cualquier otra excepción: inicializar con valores por defecto
             this.id = entrega != null ? entrega.getId() : null;
             this.sede = null;
+            this.sedeNombre = null;
             this.empleado = null;
+            this.empleadoNombre = null;
             this.fechaEntrega = entrega != null ? entrega.getFechaEntrega() : null;
             this.monto = entrega != null ? entrega.getMonto() : null;
             this.montoEfectivo = entrega != null ? entrega.getMontoEfectivo() : null;
