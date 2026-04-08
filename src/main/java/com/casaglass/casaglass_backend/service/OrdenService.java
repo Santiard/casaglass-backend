@@ -1912,6 +1912,11 @@ public class OrdenService {
         // Si NO es corte, siempre usar el nombre base del producto para evitar contaminar
         // perfiles enteros con etiquetas de corte cuando se edita varias veces.
         if (!esCorte) {
+            int idxUltimoCorte = nombreLimpio.toLowerCase().lastIndexOf("corte de ");
+            if (idxUltimoCorte != -1) {
+                String corteSegmento = nombreLimpio.substring(idxUltimoCorte).trim();
+                return baseNombre.isBlank() ? corteSegmento : baseNombre + " " + corteSegmento;
+            }
             return baseNombre.isBlank() ? nombreProducto : baseNombre;
         }
 
@@ -1934,6 +1939,12 @@ public class OrdenService {
             return;
         }
 
+        Set<Long> cortesYaEnItems = orden.getItems().stream()
+            .filter(item -> item != null && item.getProducto() != null && item.getProducto().getId() != null)
+            .map(item -> item.getProducto().getId())
+            .filter(this::esProductoCorte)
+            .collect(Collectors.toSet());
+
         Map<Long, Deque<Corte>> cortesPorProductoBase = new HashMap<>();
         for (CorteCreacionDTO corteCreado : cortesCreados) {
             if (corteCreado == null || corteCreado.getCorteId() == null || corteCreado.getProductoBase() == null) {
@@ -1943,21 +1954,69 @@ public class OrdenService {
             if (corte == null) {
                 continue;
             }
+
+            // Si la orden ya tiene una línea apuntando a este corte (ej. reutilizarCorteSolicitadoId),
+            // no volver a reasignarlo porque podría terminar reemplazando una línea de entero.
+            if (cortesYaEnItems.contains(corte.getId())) {
+                continue;
+            }
+
             cortesPorProductoBase
                 .computeIfAbsent(corteCreado.getProductoBase(), key -> new ArrayDeque<>())
                 .addLast(corte);
         }
 
-        for (OrdenItem item : orden.getItems()) {
-            if (item == null || item.getProducto() == null || item.getProducto().getId() == null) {
+        // Reemplazar primero las líneas que explícitamente parecen corte
+        // (evita que una línea de entero se convierta por error cuando hay ambos en la misma orden).
+        for (Map.Entry<Long, Deque<Corte>> entry : cortesPorProductoBase.entrySet()) {
+            Long productoBaseId = entry.getKey();
+            Deque<Corte> cortesPendientes = entry.getValue();
+            if (cortesPendientes == null || cortesPendientes.isEmpty()) {
                 continue;
             }
-            Deque<Corte> cortesPendientes = cortesPorProductoBase.get(item.getProducto().getId());
-            if (cortesPendientes != null && !cortesPendientes.isEmpty()) {
+
+            List<OrdenItem> itemsMismoProducto = orden.getItems().stream()
+                .filter(item -> item != null && item.getProducto() != null && item.getProducto().getId() != null)
+                .filter(item -> productoBaseId.equals(item.getProducto().getId()))
+                .collect(Collectors.toList());
+
+            Set<Long> itemsAsignados = new HashSet<>();
+
+            for (OrdenItem item : itemsMismoProducto) {
+                if (cortesPendientes.isEmpty()) {
+                    break;
+                }
+                String nombreItem = item.getNombre() != null ? item.getNombre().toLowerCase() : "";
+                boolean lineaPareceCorte = nombreItem.contains("corte de");
+                if (!lineaPareceCorte) {
+                    continue;
+                }
+
                 Corte corte = cortesPendientes.removeFirst();
                 item.setProducto(corte);
                 item.setNombre(corte.getNombre());
-            } else if (item.getNombre() == null || item.getNombre().isBlank()) {
+                if (item.getId() != null) {
+                    itemsAsignados.add(item.getId());
+                }
+            }
+
+            // Fallback: si aún quedan cortes por asignar, usar cualquier línea restante del mismo producto.
+            for (OrdenItem item : itemsMismoProducto) {
+                if (cortesPendientes.isEmpty()) {
+                    break;
+                }
+                if (item.getId() != null && itemsAsignados.contains(item.getId())) {
+                    continue;
+                }
+
+                Corte corte = cortesPendientes.removeFirst();
+                item.setProducto(corte);
+                item.setNombre(corte.getNombre());
+            }
+        }
+
+        for (OrdenItem item : orden.getItems()) {
+            if (item != null && item.getProducto() != null && (item.getNombre() == null || item.getNombre().isBlank())) {
                 item.setNombre(item.getProducto().getNombre());
             }
         }
@@ -2127,61 +2186,64 @@ public class OrdenService {
             log.info("[actualizarInventarioPorVenta] Orden sin items, se omite actualización. ordenId={}", orden.getId());
             return;
         }
-
-        // 🔪 Obtener IDs de productos que están siendo cortados (en cortes[])
-        Set<Long> productosEnCortes = new HashSet<>();
-        if (ventaDTO != null && ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-            for (OrdenVentaDTO.CorteSolicitadoDTO corte : ventaDTO.getCortes()) {
-                if (corte.getProductoId() != null) {
-                    productosEnCortes.add(corte.getProductoId());
-                }
-            }
-        }
         
         // Obtener la sede de la orden (donde se realiza la venta)
         Long sedeId = orden.getSede().getId();
-        log.info("[actualizarInventarioPorVenta] Inicio ordenId={} sedeId={} items={} productosEnCortes={}",
+        log.info("[actualizarInventarioPorVenta] Inicio ordenId={} sedeId={} items={}",
             orden.getId(),
             sedeId,
-            orden.getItems().size(),
-            productosEnCortes.size());
+            orden.getItems().size());
 
-        for (OrdenItem item : orden.getItems()) {
-            if (item.getProducto() != null && item.getCantidad() != null && item.getCantidad() > 0) {
-                Long productoId = item.getProducto().getId();
-                Double cantidadVendida = item.getCantidad();
-                
-                // ⚠️ SKIP: Si este producto está en cortes[], procesarCortes() ya maneja su inventario
-                if (productosEnCortes.contains(productoId)) {
-                    log.debug("[actualizarInventarioPorVenta] SKIP producto en cortes ordenId={} itemId={} productoId={} cantidad={}",
-                        orden.getId(), item.getId(), productoId, cantidadVendida);
+        // 1) Descontar inventario normal SOLO de las líneas que son producto entero.
+        Map<Long, Double> cantidadesProductosEnteros = new HashMap<>();
+        if (ventaDTO != null && ventaDTO.getItems() != null) {
+            for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
+                if (itemDTO == null || itemDTO.getProductoId() == null || itemDTO.getCantidad() == null || itemDTO.getCantidad() <= 0) {
                     continue;
                 }
 
-                boolean esCorte = esProductoCorte(productoId);
-
-                log.info("[actualizarInventarioPorVenta] Procesando item ordenId={} itemId={} productoId={} cantidad={} esCorte={}",
-                    orden.getId(),
-                    item.getId(),
-                    productoId,
-                    cantidadVendida,
-                    esCorte);
-
-                if (esCorte) {
-                    // Venta de CORTE: decrementar inventario de cortes en la sede
-                    try {
-                        inventarioCorteService.decrementarStock(productoId, sedeId, cantidadVendida);
-                        log.info("[actualizarInventarioPorVenta] Corte descontado ordenId={} productoId={} sedeId={} cantidad={}",
-                            orden.getId(), productoId, sedeId, cantidadVendida);
-                    } catch (IllegalArgumentException e) {
-                        log.error("[actualizarInventarioPorVenta] Error decrementando corte ordenId={} productoId={} sedeId={} cantidad={} causa={}",
-                            orden.getId(), productoId, sedeId, cantidadVendida, e.getMessage(), e);
-                        throw new IllegalArgumentException("❌ Stock de corte insuficiente para corte ID " + productoId + " en sede ID " + sedeId + ": " + e.getMessage());
-                    }
-                } else {
-                    // Producto normal: restar del inventario normal
-                    actualizarInventarioConcurrente(productoId, sedeId, cantidadVendida);
+                String nombreItem = itemDTO.getNombre() != null ? itemDTO.getNombre().toLowerCase() : "";
+                boolean pareceCorte = itemDTO.getReutilizarCorteSolicitadoId() != null || nombreItem.contains("corte de");
+                if (pareceCorte) {
+                    continue;
                 }
+
+                cantidadesProductosEnteros.merge(itemDTO.getProductoId(), itemDTO.getCantidad(), Double::sum);
+            }
+        }
+
+        for (Map.Entry<Long, Double> entry : cantidadesProductosEnteros.entrySet()) {
+            Long productoId = entry.getKey();
+            Double cantidad = entry.getValue();
+            if (cantidad == null || cantidad <= 0) {
+                continue;
+            }
+
+            log.info("[actualizarInventarioPorVenta] Descontando producto entero ordenId={} productoId={} sedeId={} cantidad={}",
+                orden.getId(), productoId, sedeId, cantidad);
+            actualizarInventarioConcurrente(productoId, sedeId, cantidad);
+        }
+
+        // 2) Descontar inventario de cortes vendidos (solo cuando el item final ya es un corte).
+        for (OrdenItem item : orden.getItems()) {
+            if (item == null || item.getProducto() == null || item.getCantidad() == null || item.getCantidad() <= 0) {
+                continue;
+            }
+
+            Long productoId = item.getProducto().getId();
+            if (!esProductoCorte(productoId)) {
+                continue;
+            }
+
+            Double cantidad = item.getCantidad();
+            try {
+                inventarioCorteService.decrementarStock(productoId, sedeId, cantidad);
+                log.info("[actualizarInventarioPorVenta] Corte descontado ordenId={} productoId={} sedeId={} cantidad={}",
+                    orden.getId(), productoId, sedeId, cantidad);
+            } catch (IllegalArgumentException e) {
+                log.error("[actualizarInventarioPorVenta] Error decrementando corte ordenId={} productoId={} sedeId={} cantidad={} causa={}",
+                    orden.getId(), productoId, sedeId, cantidad, e.getMessage(), e);
+                throw new IllegalArgumentException("❌ Stock de corte insuficiente para corte ID " + productoId + " en sede ID " + sedeId + ": " + e.getMessage());
             }
         }
     }
@@ -2490,8 +2552,8 @@ public class OrdenService {
                 } catch (Exception e) {
                     throw new RuntimeException("Error al decrementar inventario del corte que se está cortando: " + e.getMessage());
                 }
-            } else if (!orden.isVenta() && !esProductoCorte(productoOriginal.getId())) {
-                // Si es cotización y es un producto normal (no corte), decrementar el inventario normal
+            } else if (orden.isVenta() && !esProductoCorte(productoOriginal.getId())) {
+                // Si es venta y el origen es producto normal (no corte), descontar el inventario normal
                 Long sedeId = orden.getSede().getId();
                 Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
                 try {

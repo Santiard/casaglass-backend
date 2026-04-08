@@ -511,68 +511,53 @@ public class EntregaDineroService {
         LocalDate inicioMes = fechaEntrega.withDayOfMonth(1);
         LocalDate finMes = fechaEntrega.withDayOfMonth(fechaEntrega.lengthOfMonth());
         
-        // 1. Calcular total de ventas del mes (órdenes con venta=true del mes activas)
-        List<Orden> ordenesDelMes = ordenRepository.findByFechaBetween(inicioMes, finMes);
-        Double totalVentasDelMes = ordenesDelMes.stream()
-                .filter(orden -> orden.isVenta() && orden.getEstado() == Orden.EstadoOrden.ACTIVA)
-                .mapToDouble(orden -> orden.getTotal() != null ? orden.getTotal() : 0.0)
-                .sum();
-        
-        // 2. Calcular total de deudas (créditos activos iniciados en el mes)
-        List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
-        Double totalDeudasDelMes = creditosActivos.stream()
-                .filter(credito -> credito.getFechaInicio() != null && 
-                        !credito.getFechaInicio().isBefore(inicioMes) && 
-                        !credito.getFechaInicio().isAfter(finMes))
-                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
-                .sum();
-        
-        // 3. Calcular total de abonos del mes
-        List<Abono> abonos = abonoRepository.findByFechaBetween(inicioMes, finMes);
-        Double totalAbonasDelMes = abonos.stream()
-            .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
-                .sum();
-        
-        // 4. Total entregado del mes (solo de la misma sede de la entrega)
+        // 1. Total del mes (solo de la misma sede de la entrega)
            List<EntregaDinero> entregasDelMes = entrega.getSede() != null
                ? entregaDineroRepository.findBySedeIdAndFechaEntregaBetween(entrega.getSede().getId(), inicioMes, finMes)
                : entregaDineroRepository.findByFechaEntregaBetween(inicioMes, finMes);
-        Double totalEntregadoDelMes = entregasDelMes.stream()
+        Double totalDelMes = entregasDelMes.stream()
                 .mapToDouble(ent -> ent.getMonto() != null ? ent.getMonto() : 0.0)
                 .sum();
-        
-        // 5. Total deudas históricas (TODOS los créditos abiertos en este momento, sin importar fecha)
-        List<Credito> todasLasDeudasAbiertas = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
-        Double totalDeudasHistorico = todasLasDeudasAbiertas.stream()
+
+        // 2. Total deudas mensuales (créditos activos iniciados en el mes de la misma sede)
+        Double totalDeudasMensuales;
+        if (entrega.getSede() != null) {
+            List<Credito> creditosActivosSede = creditoRepository.findByOrdenSedeIdAndEstado(
+                entrega.getSede().getId(),
+                Credito.EstadoCredito.ABIERTO
+            );
+            totalDeudasMensuales = creditosActivosSede.stream()
+                .filter(credito -> credito.getFechaInicio() != null &&
+                    !credito.getFechaInicio().isBefore(inicioMes) &&
+                    !credito.getFechaInicio().isAfter(finMes))
                 .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
                 .sum();
-        
-        // 6. Total abonos histórico (TODOS los abonos de toda la base de datos)
-        List<Abono> todosLosAbonos = abonoRepository.findAll();
-        Double totalAbonosHistorico = todosLosAbonos.stream()
-                .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
+        } else {
+            List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
+            totalDeudasMensuales = creditosActivos.stream()
+                .filter(credito -> credito.getFechaInicio() != null &&
+                    !credito.getFechaInicio().isBefore(inicioMes) &&
+                    !credito.getFechaInicio().isAfter(finMes))
+                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
                 .sum();
-        
-        // 7. Generar nombre del mes en formato ISO "2026-04"
+        }
+
+        // 3. Generar nombre del mes en formato ISO "2026-04"
         String mesISO = String.format("%04d-%02d", fechaEntrega.getYear(), fechaEntrega.getMonthValue());
         
-        // 8. Generar nombre del mes en formato "febrero 2026"
+        // 4. Generar nombre del mes en formato "febrero 2026"
         String mesNombre = fechaEntrega.getMonth().getDisplayName(TextStyle.FULL, new Locale("es", "ES"))
                 + " " + fechaEntrega.getYear();
         
-        // 9. Información de sede y trabajador
+        // 5. Información de sede y trabajador
         String sedeNombre = entrega.getSede() != null ? entrega.getSede().getNombre() : "N/A";
         String trabajadorNombre = entrega.getEmpleado() != null ? entrega.getEmpleado().getNombre() : "N/A";
         
         // Crear y retornar el resumen
         ResumenMesDTO resumen = new ResumenMesDTO();
-        resumen.setTotalVentasDelMes(totalVentasDelMes);
-        resumen.setTotalDeudasDelMes(totalDeudasDelMes);
-        resumen.setTotalAbonasDelMes(totalAbonasDelMes);
-        resumen.setTotalEntregadoDelMes(totalEntregadoDelMes);
-        resumen.setTotalDeudasHistorico(totalDeudasHistorico);
-        resumen.setTotalAbonosHistorico(totalAbonosHistorico);
-        resumen.setTotalEstaEntrega(entrega.getMonto() != null ? entrega.getMonto() : 0.0);
+        resumen.setTotalDineroEntregado(entrega.getMonto() != null ? entrega.getMonto() : 0.0);
+        resumen.setTotalDelMes(totalDelMes);
+        resumen.setTotalDeudasMensuales(totalDeudasMensuales);
         resumen.setMes(mesISO);
         resumen.setSede(sedeNombre);
         resumen.setTrabajador(trabajadorNombre);
@@ -590,59 +575,32 @@ public class EntregaDineroService {
         LocalDate inicioMes = fechaEntrega.withDayOfMonth(1);
         LocalDate finMes = fechaEntrega.withDayOfMonth(fechaEntrega.lengthOfMonth());
         
-        // 1. Calcular total de ventas del mes (órdenes con venta=true del mes)
-        List<Orden> ordenesDelMes = ordenRepository.findByFechaBetween(inicioMes, finMes);
-        Double totalVentasDelMes = ordenesDelMes.stream()
-                .filter(orden -> orden.isVenta() && orden.getEstado() == Orden.EstadoOrden.ACTIVA)
-                .mapToDouble(orden -> orden.getTotal() != null ? orden.getTotal() : 0.0)
-                .sum();
-        
-        // 2. Calcular total de créditos activos del mes
-        List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
-               List<Credito> creditosDelMes = creditoRepository.findByFechaInicioBetween(inicioMes, finMes);
-               Double totalDeudasDelMes = creditosDelMes.stream()
-                   .filter(credito -> credito.getEstado() == Credito.EstadoCredito.ABIERTO)
-                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
-                .sum();
-        
-        // 3. Calcular total de abonos del mes
-        List<Abono> abonos = abonoRepository.findByFechaBetween(inicioMes, finMes);
-        Double totalAbonasDelMes = abonos.stream()
-            .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
-                .sum();
-        
-        // 4. Total entregado del mes
+        // 1. Total del mes (sin sede en este overload)
                List<EntregaDinero> entregasDelMes = entregaDineroRepository.findByFechaEntregaBetween(inicioMes, finMes);
-        Double totalEntregadoDelMes = entregasDelMes.stream()
+        Double totalDelMes = entregasDelMes.stream()
                 .mapToDouble(ent -> ent.getMonto() != null ? ent.getMonto() : 0.0)
                 .sum();
         
-        // 5. Total deudas históricas (TODOS los créditos abiertos en este momento, sin importar fecha)
-        List<Credito> todasLasDeudasAbiertas = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
-        Double totalDeudasHistorico = todasLasDeudasAbiertas.stream()
+        // 2. Total deudas mensuales (sin sede en este overload)
+        List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
+        Double totalDeudasMensuales = creditosActivos.stream()
+            .filter(credito -> credito.getFechaInicio() != null &&
+                !credito.getFechaInicio().isBefore(inicioMes) &&
+                !credito.getFechaInicio().isAfter(finMes))
                 .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
                 .sum();
-        
-        // 6. Total abonos histórico (TODOS los abonos de toda la base de datos)
-        List<Abono> todosLosAbonos = abonoRepository.findAll();
-        Double totalAbonosHistorico = todosLosAbonos.stream()
-                .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
-                .sum();
-        
-        // 7. Generar nombre del mes en formato ISO "2026-04"
+
+        // 3. Generar nombre del mes en formato ISO "2026-04"
         String mesISO = String.format("%04d-%02d", fechaEntrega.getYear(), fechaEntrega.getMonthValue());
         
-        // 8. Generar nombre del mes en formato "febrero 2026"
+        // 4. Generar nombre del mes en formato "febrero 2026"
         String mesNombre = fechaEntrega.getMonth().getDisplayName(TextStyle.FULL, new Locale("es", "ES"))
                 + " " + fechaEntrega.getYear();
         
         ResumenMesDTO resumen = new ResumenMesDTO();
-        resumen.setTotalVentasDelMes(totalVentasDelMes);
-        resumen.setTotalDeudasDelMes(totalDeudasDelMes);
-        resumen.setTotalAbonasDelMes(totalAbonasDelMes);
-        resumen.setTotalEntregadoDelMes(totalEntregadoDelMes);
-        resumen.setTotalDeudasHistorico(totalDeudasHistorico);
-        resumen.setTotalAbonosHistorico(totalAbonosHistorico);
+        resumen.setTotalDineroEntregado(0.0);
+        resumen.setTotalDelMes(totalDelMes);
+        resumen.setTotalDeudasMensuales(totalDeudasMensuales);
         resumen.setMes(mesISO);
         resumen.setMesNombre(mesNombre);
         
