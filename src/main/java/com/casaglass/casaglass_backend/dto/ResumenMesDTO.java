@@ -9,25 +9,52 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ResumenMesDTO {
     
+    // ========== MÉTRICAS DEL MES ACTUAL ==========
+    
     /**
-     * Total de ventas de todas las órdenes del mes
+     * 💰 DINERO INGRESADO EN EL MES
+     * Total de ventas de todas las órdenes del mes (con venta=true y estado=ACTIVA)
+     * Ejemplo: Órdenes normales creadas en abril
      */
     private Double totalVentasDelMes;
     
     /**
-     * Total de deudas/créditos activos del mes
+     * 📊 DEUDAS NUEVAS EN EL MES
+     * Total de créditos ABIERTOS que INICIARON en el mes
+     * (No incluye deudas de meses anteriores, solo las creadas en este mes)
      */
     private Double totalDeudasDelMes;
     
     /**
-     * Total de abonos registrados del mes
+     * 💵 DINERO ABONADO EN EL MES
+     * Total de todos los abonos (pagos a créditos) registrados en el mes
+     * Dinero que ingresó por pagos de clientes en este mes
      */
     private Double totalAbonasDelMes;
     
     /**
-     * Total entregado del mes (dinero entregado por esta entrega o todas del mes)
+     * 🏧 DINERO FÍSICAMENTE ENTREGADO EN EL MES
+     * Suma de TODAS las entregas de dinero creadas en el mes para esta sede
+     * (Dinero que salió de la caja/oficina en este mes)
      */
     private Double totalEntregadoDelMes;
+
+    // ========== HISTÓRICO ACUMULADO ==========
+    
+    /**
+     * 📈 DEUDAS TOTALES HISTÓRICAS (ABIERTO)
+     * Total de créditos que están ABIERTOS en este momento, sin importar cuándo se crearon
+     * Incluye: Deudas de abril + marzo + febrero + más atrás (TODO lo que sigue abierto)
+     * Útil para: Saber cuál es la deuda total pendiente del cliente/empresa
+     */
+    private Double totalDeudasHistorico;
+    
+    /**
+     * 💸 TOTAL ABONOS HISTÓRICO
+     * Suma de TODOS los abonos registrados desde el inicio del sistema
+     * (Dinero total que ha ingresado por pagos de clientes en toda la historia)
+     */
+    private Double totalAbonosHistorico;
 
     /**
      * Total de esta entrega puntual

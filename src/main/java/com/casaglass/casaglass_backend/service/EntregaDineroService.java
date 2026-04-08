@@ -541,14 +541,26 @@ public class EntregaDineroService {
                 .mapToDouble(ent -> ent.getMonto() != null ? ent.getMonto() : 0.0)
                 .sum();
         
-        // 5. Generar nombre del mes en formato ISO "2026-04"
+        // 5. Total deudas históricas (TODOS los créditos abiertos en este momento, sin importar fecha)
+        List<Credito> todasLasDeudasAbiertas = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
+        Double totalDeudasHistorico = todasLasDeudasAbiertas.stream()
+                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+                .sum();
+        
+        // 6. Total abonos histórico (TODOS los abonos de toda la base de datos)
+        List<Abono> todosLosAbonos = abonoRepository.findAll();
+        Double totalAbonosHistorico = todosLosAbonos.stream()
+                .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
+                .sum();
+        
+        // 7. Generar nombre del mes en formato ISO "2026-04"
         String mesISO = String.format("%04d-%02d", fechaEntrega.getYear(), fechaEntrega.getMonthValue());
         
-        // 6. Generar nombre del mes en formato "febrero 2026"
+        // 8. Generar nombre del mes en formato "febrero 2026"
         String mesNombre = fechaEntrega.getMonth().getDisplayName(TextStyle.FULL, new Locale("es", "ES"))
                 + " " + fechaEntrega.getYear();
         
-        // 7. Información de sede y trabajador
+        // 9. Información de sede y trabajador
         String sedeNombre = entrega.getSede() != null ? entrega.getSede().getNombre() : "N/A";
         String trabajadorNombre = entrega.getEmpleado() != null ? entrega.getEmpleado().getNombre() : "N/A";
         
@@ -558,6 +570,8 @@ public class EntregaDineroService {
         resumen.setTotalDeudasDelMes(totalDeudasDelMes);
         resumen.setTotalAbonasDelMes(totalAbonasDelMes);
         resumen.setTotalEntregadoDelMes(totalEntregadoDelMes);
+        resumen.setTotalDeudasHistorico(totalDeudasHistorico);
+        resumen.setTotalAbonosHistorico(totalAbonosHistorico);
         resumen.setTotalEstaEntrega(entrega.getMonto() != null ? entrega.getMonto() : 0.0);
         resumen.setMes(mesISO);
         resumen.setSede(sedeNombre);
@@ -603,10 +617,22 @@ public class EntregaDineroService {
                 .mapToDouble(ent -> ent.getMonto() != null ? ent.getMonto() : 0.0)
                 .sum();
         
-        // 5. Generar nombre del mes en formato ISO "2026-04"
+        // 5. Total deudas históricas (TODOS los créditos abiertos en este momento, sin importar fecha)
+        List<Credito> todasLasDeudasAbiertas = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
+        Double totalDeudasHistorico = todasLasDeudasAbiertas.stream()
+                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+                .sum();
+        
+        // 6. Total abonos histórico (TODOS los abonos de toda la base de datos)
+        List<Abono> todosLosAbonos = abonoRepository.findAll();
+        Double totalAbonosHistorico = todosLosAbonos.stream()
+                .mapToDouble(abono -> abono.getTotal() != null ? abono.getTotal() : 0.0)
+                .sum();
+        
+        // 7. Generar nombre del mes en formato ISO "2026-04"
         String mesISO = String.format("%04d-%02d", fechaEntrega.getYear(), fechaEntrega.getMonthValue());
         
-        // 6. Generar nombre del mes en formato "febrero 2026"
+        // 8. Generar nombre del mes en formato "febrero 2026"
         String mesNombre = fechaEntrega.getMonth().getDisplayName(TextStyle.FULL, new Locale("es", "ES"))
                 + " " + fechaEntrega.getYear();
         
@@ -615,6 +641,8 @@ public class EntregaDineroService {
         resumen.setTotalDeudasDelMes(totalDeudasDelMes);
         resumen.setTotalAbonasDelMes(totalAbonasDelMes);
         resumen.setTotalEntregadoDelMes(totalEntregadoDelMes);
+        resumen.setTotalDeudasHistorico(totalDeudasHistorico);
+        resumen.setTotalAbonosHistorico(totalAbonosHistorico);
         resumen.setMes(mesISO);
         resumen.setMesNombre(mesNombre);
         
