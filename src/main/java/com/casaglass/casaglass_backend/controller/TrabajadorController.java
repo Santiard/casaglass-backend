@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
 // CORS configurado globalmente en CorsConfig.java
 public class TrabajadorController {
 
+    private static final java.util.Set<Long> TRABAJADORES_MONITOREADOS_DASHBOARD = java.util.Set.of(12L, 13L, 14L, 15L);
+
     private final TrabajadorService service;
     private final TrabajadorDashboardService dashboardService;
 
@@ -38,11 +40,23 @@ public class TrabajadorController {
     public List<Trabajador> listar(@RequestParam(required = false) String q,
                                    @RequestParam(required = false) Rol rol,
                                    @RequestParam(required = false) Long sedeId) {
-        if (q != null && !q.isBlank()) return service.buscar(q.trim());
-        if (rol != null && sedeId != null) return service.listarPorRolYSede(rol, sedeId);
-        if (rol != null) return service.listarPorRol(rol);
-        if (sedeId != null) return service.listarPorSede(sedeId);
-        return service.listar();
+        List<Trabajador> base;
+        if (q != null && !q.isBlank()) {
+            base = service.buscar(q.trim());
+        } else if (rol != null && sedeId != null) {
+            base = service.listarPorRolYSede(rol, sedeId);
+        } else if (rol != null) {
+            base = service.listarPorRol(rol);
+        } else if (sedeId != null) {
+            base = service.listarPorSede(sedeId);
+        } else {
+            base = service.listar();
+        }
+
+        // Dashboard admin: solo trabajadores que sí venden directamente.
+        return base.stream()
+                .filter(t -> t != null && t.getId() != null && TRABAJADORES_MONITOREADOS_DASHBOARD.contains(t.getId()))
+                .collect(Collectors.toList());
     }
 
     // 🚀 Listado resumido para tabla: id, username, nombre, rol

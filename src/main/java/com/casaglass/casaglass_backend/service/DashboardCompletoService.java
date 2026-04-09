@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 @Service
 public class DashboardCompletoService {
 
+        private static final Set<Long> TRABAJADORES_MONITOREADOS_DASHBOARD = Set.of(12L, 13L, 14L, 15L);
+
     private final OrdenRepository ordenRepository;
     private final FacturaRepository facturaRepository;
     private final CreditoRepository creditoRepository;
@@ -83,17 +85,23 @@ public class DashboardCompletoService {
     }
 
     private DashboardCompletoDTO.ResumenGeneral obtenerResumenGeneral(LocalDate desde, LocalDate hasta) {
-        List<Orden> todasOrdenes = ordenRepository.findByFechaBetween(desde, hasta);
+        List<Orden> todasOrdenes = ordenRepository.findByFechaBetween(desde, hasta).stream()
+                .filter(this::esOrdenDeTrabajadorMonitoreado)
+                .collect(Collectors.toList());
         List<Orden> ventas = todasOrdenes.stream().filter(Orden::isVenta).collect(Collectors.toList());
         List<Orden> cotizaciones = todasOrdenes.stream().filter(o -> !o.isVenta()).collect(Collectors.toList());
 
         Double montoVentas = ventas.stream().mapToDouble(Orden::getTotal).sum();
         Double montoCotizaciones = cotizaciones.stream().mapToDouble(Orden::getTotal).sum();
 
-        List<Factura> facturas = facturaRepository.findByFechaBetween(desde, hasta);
+        List<Factura> facturas = facturaRepository.findByFechaBetween(desde, hasta).stream()
+                .filter(this::esFacturaDeTrabajadorMonitoreado)
+                .collect(Collectors.toList());
         Double montoFacturado = facturas.stream().mapToDouble(Factura::getTotal).sum();
 
-        List<Credito> creditosAbiertos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
+        List<Credito> creditosAbiertos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO).stream()
+                .filter(this::esCreditoDeTrabajadorMonitoreado)
+                .collect(Collectors.toList());
         Double montoCreditosPendiente = creditosAbiertos.stream()
                 .mapToDouble(c -> c.getSaldoPendiente() != null ? c.getSaldoPendiente() : 0.0)
                 .sum();
@@ -113,6 +121,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.VentaPorDia> obtenerVentasPorDia(LocalDate desde, LocalDate hasta) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
+                                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .collect(Collectors.toList());
 
@@ -132,6 +141,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.VentaPorSede> obtenerVentasPorSede(LocalDate desde, LocalDate hasta) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
+                                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .filter(o -> o.getSede() != null)
                 .collect(Collectors.toList());
@@ -153,6 +163,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.TopProducto> obtenerTopProductos(LocalDate desde, LocalDate hasta, int limite) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
+                                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .collect(Collectors.toList());
 
@@ -191,6 +202,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.TopCliente> obtenerTopClientes(LocalDate desde, LocalDate hasta, int limite) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
+                                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .filter(o -> o.getCliente() != null)
                 .collect(Collectors.toList());
@@ -218,7 +230,9 @@ public class DashboardCompletoService {
     }
 
     private DashboardCompletoDTO.ResumenCreditos obtenerResumenCreditos() {
-        List<Credito> todosCreditos = creditoRepository.findAll();
+        List<Credito> todosCreditos = creditoRepository.findAll().stream()
+                .filter(this::esCreditoDeTrabajadorMonitoreado)
+                .collect(Collectors.toList());
 
         long abiertos = todosCreditos.stream().filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO).count();
         long cerrados = todosCreditos.stream().filter(c -> c.getEstado() == Credito.EstadoCredito.CERRADO).count();
@@ -238,7 +252,9 @@ public class DashboardCompletoService {
     }
 
     private DashboardCompletoDTO.FacturacionPorEstado obtenerFacturacionPorEstado(LocalDate desde, LocalDate hasta) {
-        List<Factura> facturas = facturaRepository.findByFechaBetween(desde, hasta);
+        List<Factura> facturas = facturaRepository.findByFechaBetween(desde, hasta).stream()
+                .filter(this::esFacturaDeTrabajadorMonitoreado)
+                .collect(Collectors.toList());
 
         long pendientes = facturas.stream().filter(f -> f.getEstado() == Factura.EstadoFactura.PENDIENTE).count();
         long pagadas = facturas.stream().filter(f -> f.getEstado() == Factura.EstadoFactura.PAGADA).count();
@@ -259,6 +275,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.TicketPromedioSede> obtenerTicketPromedioPorSede(LocalDate desde, LocalDate hasta) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
+                                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .filter(o -> o.getSede() != null)
                 .collect(Collectors.toList());
@@ -278,5 +295,20 @@ public class DashboardCompletoService {
                 .sorted(Comparator.comparing(DashboardCompletoDTO.TicketPromedioSede::getTicketPromedio).reversed())
                 .collect(Collectors.toList());
     }
+
+        private boolean esOrdenDeTrabajadorMonitoreado(Orden orden) {
+                if (orden == null || orden.getTrabajador() == null || orden.getTrabajador().getId() == null) {
+                        return false;
+                }
+                return TRABAJADORES_MONITOREADOS_DASHBOARD.contains(orden.getTrabajador().getId());
+        }
+
+        private boolean esFacturaDeTrabajadorMonitoreado(Factura factura) {
+                return factura != null && factura.getOrden() != null && esOrdenDeTrabajadorMonitoreado(factura.getOrden());
+        }
+
+        private boolean esCreditoDeTrabajadorMonitoreado(Credito credito) {
+                return credito != null && credito.getOrden() != null && esOrdenDeTrabajadorMonitoreado(credito.getOrden());
+        }
 }
 

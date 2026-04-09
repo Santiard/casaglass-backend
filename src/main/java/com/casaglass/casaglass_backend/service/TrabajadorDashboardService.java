@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 @Service
 public class TrabajadorDashboardService {
 
+        private static final Set<Long> TRABAJADORES_MONITOREADOS_DASHBOARD = Set.of(12L, 13L, 14L, 15L);
+
     private final OrdenRepository ordenRepository;
     private final TrabajadorRepository trabajadorRepository;
 
@@ -29,6 +31,10 @@ public class TrabajadorDashboardService {
     public TrabajadorDashboardDTO obtenerDashboard(Long trabajadorId, LocalDate desde, LocalDate hasta) {
         if (desde == null) desde = LocalDate.now().minusDays(30);
         if (hasta == null) hasta = LocalDate.now();
+
+                if (trabajadorId == null || !TRABAJADORES_MONITOREADOS_DASHBOARD.contains(trabajadorId)) {
+                        throw new IllegalArgumentException("Trabajador no habilitado para dashboard de ventas: " + trabajadorId);
+                }
 
         Trabajador trabajador = trabajadorRepository.findById(trabajadorId)
                 .orElseThrow(() -> new IllegalArgumentException("Trabajador no encontrado"));

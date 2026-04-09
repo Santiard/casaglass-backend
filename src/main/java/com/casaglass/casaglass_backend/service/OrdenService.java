@@ -2264,11 +2264,11 @@ public class OrdenService {
                         throw new IllegalArgumentException("CM base es obligatorio para confirmar ventas CM en sede principal");
                     }
                     if (cmBase == 600) {
-                        actualizarInventarioConcurrente(itemDTO.getProductoId(), sedeId, 1.0);
+                        descontarInventarioCompat(itemDTO.getProductoId(), sedeId, 1.0);
                     }
                     continue;
                 }
-                actualizarInventarioConcurrente(itemDTO.getProductoId(), sedeId, itemDTO.getCantidad());
+                descontarInventarioCompat(itemDTO.getProductoId(), sedeId, itemDTO.getCantidad());
             }
             return;
         }
@@ -2293,11 +2293,11 @@ public class OrdenService {
                     throw new IllegalArgumentException("CM base es obligatorio para confirmar ventas CM en sede principal");
                 }
                 if (cmBase == 600) {
-                    actualizarInventarioConcurrente(item.getProducto().getId(), sedeId, 1.0);
+                    descontarInventarioCompat(item.getProducto().getId(), sedeId, 1.0);
                 }
                 continue;
             }
-            actualizarInventarioConcurrente(item.getProducto().getId(), sedeId, item.getCantidad());
+            descontarInventarioCompat(item.getProducto().getId(), sedeId, item.getCantidad());
         }
     }
 
@@ -2316,13 +2316,39 @@ public class OrdenService {
 
             if ("CM".equals(tipo)) {
                 if (cmBase != null && cmBase == 600) {
-                    restaurarInventarioProducto(item.getProducto().getId(), sedeId, 1.0);
+                    restaurarInventarioCompat(item.getProducto().getId(), sedeId, 1.0);
                 }
                 continue;
             }
 
-            restaurarInventarioProducto(item.getProducto().getId(), sedeId, item.getCantidad());
+            restaurarInventarioCompat(item.getProducto().getId(), sedeId, item.getCantidad());
         }
+    }
+
+    private void descontarInventarioCompat(Long productoId, Long sedeId, Double cantidad) {
+        if (productoId == null || sedeId == null || cantidad == null || cantidad <= 0) {
+            return;
+        }
+
+        if (esProductoCorte(productoId)) {
+            inventarioCorteService.decrementarStock(productoId, sedeId, cantidad);
+            return;
+        }
+
+        actualizarInventarioConcurrente(productoId, sedeId, cantidad);
+    }
+
+    private void restaurarInventarioCompat(Long productoId, Long sedeId, Double cantidad) {
+        if (productoId == null || sedeId == null || cantidad == null || cantidad <= 0) {
+            return;
+        }
+
+        if (esProductoCorte(productoId)) {
+            inventarioCorteService.incrementarStock(productoId, sedeId, cantidad);
+            return;
+        }
+
+        restaurarInventarioProducto(productoId, sedeId, cantidad);
     }
 
     private void restaurarInventarioProducto(Long productoId, Long sedeId, Double cantidad) {
