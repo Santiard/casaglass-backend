@@ -106,6 +106,10 @@ public class OrdenDetalleDTO {
         private String nombre;
         private String color;  // Color del producto (enum serializado como String)
         private String tipo;   // Tipo del producto (enum serializado como String)
+        private Double mm;
+        private Double grosorMm;
+        private String categoriaNombre;
+        private Boolean esVidrio;
         
         public ProductoItemDTO(Producto producto) {
             if (producto != null) {
@@ -117,6 +121,13 @@ public class OrdenDetalleDTO {
             // Convertir enums a String (pueden ser null)
             this.color = producto.getColor() != null ? producto.getColor().name() : null;
             this.tipo = producto.getTipo() != null ? producto.getTipo().name() : null;
+            this.categoriaNombre = producto.getCategoria() != null ? producto.getCategoria().getNombre() : null;
+            this.esVidrio = producto instanceof ProductoVidrio;
+
+            if (producto instanceof ProductoVidrio vidrio) {
+                this.mm = vidrio.getMm();
+                this.grosorMm = vidrio.getMm();
+            }
             }
         }
     }

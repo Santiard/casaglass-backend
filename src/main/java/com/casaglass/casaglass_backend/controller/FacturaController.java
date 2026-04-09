@@ -73,7 +73,7 @@ public class FacturaController {
     @GetMapping("/orden/{ordenId}")
     public ResponseEntity<?> obtenerFacturaPorOrden(@PathVariable Long ordenId) {
         return facturaService.obtenerPorOrden(ordenId)
-                .map(factura -> ResponseEntity.ok(factura))
+                .map(factura -> ResponseEntity.ok(new com.casaglass.casaglass_backend.dto.FacturaDetalleDTO(factura)))
                 .orElse(ResponseEntity.notFound().build());
     }
 

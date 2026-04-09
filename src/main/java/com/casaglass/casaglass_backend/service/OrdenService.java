@@ -1516,7 +1516,8 @@ public class OrdenService {
     @Transactional(readOnly = true)
     public List<OrdenCreditoDTO> listarOrdenesCreditoPorCliente(Long clienteId) {
         return repo.findByClienteId(clienteId).stream()
-                .filter(Orden::isCredito)  // Solo órdenes a crédito
+                // Solo órdenes confirmadas a crédito y con detalle de crédito creado
+                .filter(o -> o.isVenta() && o.isCredito() && o.getCreditoDetalle() != null)
                 .map(this::convertirAOrdenCreditoDTO)
                 .collect(Collectors.toList());
     }
@@ -1542,9 +1543,9 @@ public class OrdenService {
         // Obtener órdenes del cliente
         List<Orden> ordenes = repo.findByClienteId(clienteId);
         
-        // Filtrar solo órdenes a crédito
+        // Filtrar solo órdenes confirmadas a crédito y con detalle de crédito
         ordenes = ordenes.stream()
-                .filter(Orden::isCredito)
+            .filter(o -> o.isVenta() && o.isCredito() && o.getCreditoDetalle() != null)
                 .collect(Collectors.toList());
         
         // Aplicar filtro de fecha si se proporciona
@@ -2527,12 +2528,19 @@ public class OrdenService {
 
         List<OrdenVentaDTO.CorteSolicitadoDTO> cortesDTO = new ArrayList<>();
         for (OrdenCortePlan plan : planes) {
+            Double precioSolicitado = resolverPrecioPlanSolicitado(orden, plan);
+            Double precioSobrante = resolverPrecioPlanSobrante(orden, plan, precioSolicitado);
+
+            // Persistir normalización para evitar futuros fallos al reconfirmar la misma orden.
+            plan.setPrecioUnitarioSolicitado(precioSolicitado);
+            plan.setPrecioUnitarioSobrante(precioSobrante);
+
             OrdenVentaDTO.CorteSolicitadoDTO dto = new OrdenVentaDTO.CorteSolicitadoDTO();
             dto.setProductoId(plan.getProductoOrigen().getId());
             dto.setMedidaSolicitada(plan.getMedidaSolicitada());
             dto.setCantidad(plan.getCantidad());
-            dto.setPrecioUnitarioSolicitado(plan.getPrecioUnitarioSolicitado());
-            dto.setPrecioUnitarioSobrante(plan.getPrecioUnitarioSobrante());
+            dto.setPrecioUnitarioSolicitado(precioSolicitado);
+            dto.setPrecioUnitarioSobrante(precioSobrante);
             dto.setReutilizarCorteId(plan.getReutilizarCorteId());
             dto.setMedidaSobrante(plan.getMedidaSobrante());
 
@@ -2558,6 +2566,99 @@ public class OrdenService {
             }
             ordenCortePlanRepository.save(plan);
         }
+    }
+
+    private Double resolverPrecioPlanSolicitado(Orden orden, OrdenCortePlan plan) {
+        if (plan.getPrecioUnitarioSolicitado() != null && plan.getPrecioUnitarioSolicitado() > 0) {
+            return plan.getPrecioUnitarioSolicitado();
+        }
+
+        // 1) Intentar tomar el precio de una línea de la orden que coincida por producto y medida.
+        if (orden.getItems() != null) {
+            for (OrdenItem item : orden.getItems()) {
+                if (item == null || item.getProducto() == null || item.getProducto().getId() == null) {
+                    continue;
+                }
+                if (!item.getProducto().getId().equals(plan.getProductoOrigen().getId())) {
+                    continue;
+                }
+                if (item.getPrecioUnitario() == null || item.getPrecioUnitario() <= 0) {
+                    continue;
+                }
+                String nombre = item.getNombre() != null ? item.getNombre().toLowerCase() : "";
+                String patronMedida = "corte de " + plan.getMedidaSolicitada() + " cms";
+                if (nombre.contains(patronMedida)) {
+                    return item.getPrecioUnitario();
+                }
+            }
+
+            // 2) Fallback: cualquier línea del mismo producto con precio válido.
+            for (OrdenItem item : orden.getItems()) {
+                if (item == null || item.getProducto() == null || item.getProducto().getId() == null) {
+                    continue;
+                }
+                if (item.getProducto().getId().equals(plan.getProductoOrigen().getId())
+                    && item.getPrecioUnitario() != null
+                    && item.getPrecioUnitario() > 0) {
+                    return item.getPrecioUnitario();
+                }
+            }
+        }
+
+        // 3) Fallback final: precio del producto origen según la sede de la orden.
+        Double precioProducto = obtenerPrecioProductoPorSede(plan.getProductoOrigen(), orden.getSede() != null ? orden.getSede().getId() : null);
+        if (precioProducto != null && precioProducto > 0) {
+            return precioProducto;
+        }
+
+        throw new IllegalArgumentException(
+            "No se pudo resolver el precio del corte solicitado para la orden " + orden.getId() +
+            ", producto " + plan.getProductoOrigen().getId() + " y medida " + plan.getMedidaSolicitada() + " CMS"
+        );
+    }
+
+    private Double resolverPrecioPlanSobrante(Orden orden, OrdenCortePlan plan, Double precioSolicitadoResuelto) {
+        if (plan.getPrecioUnitarioSobrante() != null && plan.getPrecioUnitarioSobrante() > 0) {
+            return plan.getPrecioUnitarioSobrante();
+        }
+
+        if (precioSolicitadoResuelto != null && precioSolicitadoResuelto > 0) {
+            return precioSolicitadoResuelto;
+        }
+
+        Double precioProducto = obtenerPrecioProductoPorSede(plan.getProductoOrigen(), orden.getSede() != null ? orden.getSede().getId() : null);
+        if (precioProducto != null && precioProducto > 0) {
+            return precioProducto;
+        }
+
+        throw new IllegalArgumentException(
+            "No se pudo resolver el precio del corte sobrante para la orden " + orden.getId() +
+            ", producto " + plan.getProductoOrigen().getId()
+        );
+    }
+
+    private Double obtenerPrecioProductoPorSede(Producto producto, Long sedeId) {
+        if (producto == null) {
+            return null;
+        }
+
+        Long sedeRef = sedeId != null ? sedeId : 1L;
+        if (sedeRef == 2L && producto.getPrecio2() != null && producto.getPrecio2() > 0) {
+            return producto.getPrecio2();
+        }
+        if (sedeRef == 3L && producto.getPrecio3() != null && producto.getPrecio3() > 0) {
+            return producto.getPrecio3();
+        }
+        if (producto.getPrecio1() != null && producto.getPrecio1() > 0) {
+            return producto.getPrecio1();
+        }
+        if (producto.getPrecio2() != null && producto.getPrecio2() > 0) {
+            return producto.getPrecio2();
+        }
+        if (producto.getPrecio3() != null && producto.getPrecio3() > 0) {
+            return producto.getPrecio3();
+        }
+        return null;
     }
 
     /**
