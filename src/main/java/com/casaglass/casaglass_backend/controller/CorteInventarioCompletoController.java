@@ -23,8 +23,12 @@ public class CorteInventarioCompletoController {
      * Obtiene todos los cortes con su información completa de inventario
      */
     @GetMapping
-    public ResponseEntity<List<CorteInventarioCompletoDTO>> obtenerInventarioCompleto() {
-        List<CorteInventarioCompletoDTO> inventario = corteInventarioCompletoService.obtenerInventarioCompleto();
+    public ResponseEntity<List<CorteInventarioCompletoDTO>> obtenerInventarioCompleto(
+            @RequestParam(required = false) Long sedeId) {
+        // Para selector de cortes, el listado base muestra solo elementos con stock.
+        List<CorteInventarioCompletoDTO> inventario = sedeId != null
+                ? corteInventarioCompletoService.obtenerInventarioCompletoPorSede(sedeId)
+                : corteInventarioCompletoService.obtenerInventarioCompleto();
         return ResponseEntity.ok(inventario);
     }
 
@@ -58,13 +62,15 @@ public class CorteInventarioCompletoController {
      */
     @GetMapping("/buscar")
     public ResponseEntity<List<CorteInventarioCompletoDTO>> buscarInventario(
-            @RequestParam("q") String query) {
+            @RequestParam("q") String query,
+            @RequestParam(required = false) Long sedeId) {
         if (query == null || query.trim().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
         
-        List<CorteInventarioCompletoDTO> inventario = 
-            corteInventarioCompletoService.buscarInventarioCompleto(query.trim());
+        List<CorteInventarioCompletoDTO> inventario = sedeId != null
+            ? corteInventarioCompletoService.buscarInventarioCompletoPorSede(query.trim(), sedeId)
+            : corteInventarioCompletoService.buscarInventarioCompleto(query.trim());
         return ResponseEntity.ok(inventario);
     }
 

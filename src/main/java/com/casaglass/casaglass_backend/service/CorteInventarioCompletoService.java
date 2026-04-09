@@ -3,7 +3,6 @@ package com.casaglass.casaglass_backend.service;
 import com.casaglass.casaglass_backend.dto.CorteInventarioCompletoDTO;
 import com.casaglass.casaglass_backend.model.Corte;
 import com.casaglass.casaglass_backend.model.InventarioCorte;
-import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.model.TipoProducto;
 import com.casaglass.casaglass_backend.model.ColorProducto;
 import com.casaglass.casaglass_backend.repository.CorteRepository;
@@ -68,19 +67,20 @@ public class CorteInventarioCompletoService {
     }
 
     public List<CorteInventarioCompletoDTO> obtenerInventarioCompleto() {
-        // Log removido para producción
-        
-        // Obtener todos los cortes con sus categorías
-        List<Corte> cortes = corteRepository.findAll();
-        // Log removido para producción
-        
-        // Obtener todos los inventarios de cortes
-        List<InventarioCorte> todosLosInventarios = inventarioCorteRepository.findAll();
-        // Log removido para producción
-        
-        // Debug: mostrar algunos inventarios
-        // Log removido para producción
-        
+        // Para listados de selección, solo retornar cortes que tengan stock disponible.
+        List<InventarioCorte> todosLosInventarios = inventarioCorteRepository.findAllWithStock();
+
+        List<Long> cortesIds = todosLosInventarios.stream()
+            .map(inv -> inv.getCorte().getId())
+            .distinct()
+            .collect(Collectors.toList());
+
+        if (cortesIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Corte> cortes = corteRepository.findByIdIn(cortesIds);
+
         // Obtener inventarios agrupados por corte y sede
         Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
             todosLosInventarios.stream()
@@ -92,16 +92,11 @@ public class CorteInventarioCompletoService {
                         Double::sum // En caso de duplicados, sumar
                     )
                 ));
-        
-        // Log removido para producción
 
         // Convertir a DTOs
-        List<CorteInventarioCompletoDTO> resultado = cortes.stream()
+        return cortes.stream()
             .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
             .collect(Collectors.toList());
-        
-        // Log removido para producción
-        return resultado;
     }
 
     public List<CorteInventarioCompletoDTO> obtenerInventarioCompletoPorCategoria(Long categoriaId) {
@@ -129,11 +124,18 @@ public class CorteInventarioCompletoService {
     public List<CorteInventarioCompletoDTO> buscarInventarioCompleto(String query) {
         // Búsqueda por nombre o código
         List<Corte> cortes = corteRepository.findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(query, query);
-        
-        // Obtener inventarios para esos cortes
+
+        if (cortes.isEmpty()) {
+            return List.of();
+        }
+
+        // Obtener inventarios para esos cortes con stock disponible
         List<Long> cortesIds = cortes.stream().map(Corte::getId).collect(Collectors.toList());
-        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = 
-            inventarioCorteRepository.findByCorteIdIn(cortesIds).stream()
+        List<InventarioCorte> inventariosConStock = inventarioCorteRepository.findByCorteIdIn(cortesIds).stream()
+            .filter(inv -> inv.getCantidad() != null && inv.getCantidad() > 0)
+            .collect(Collectors.toList());
+
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = inventariosConStock.stream()
                 .collect(Collectors.groupingBy(
                     inv -> inv.getCorte().getId(),
                     Collectors.toMap(
@@ -144,6 +146,35 @@ public class CorteInventarioCompletoService {
                 ));
 
         return cortes.stream()
+            .filter(corte -> inventariosPorCorteYSede.containsKey(corte.getId()))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .collect(Collectors.toList());
+    }
+
+    public List<CorteInventarioCompletoDTO> buscarInventarioCompletoPorSede(String query, Long sedeId) {
+        List<Corte> cortes = corteRepository.findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(query, query);
+        if (cortes.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> cortesIds = cortes.stream().map(Corte::getId).collect(Collectors.toList());
+        List<InventarioCorte> inventariosSede = inventarioCorteRepository.findBySedeIdAndCorteIdInWithStock(sedeId, cortesIds);
+        if (inventariosSede.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Map<Long, Double>> inventariosPorCorteYSede = inventariosSede.stream()
+            .collect(Collectors.groupingBy(
+                inv -> inv.getCorte().getId(),
+                Collectors.toMap(
+                    inv -> inv.getSede().getId(),
+                    InventarioCorte::getCantidad,
+                    Double::sum
+                )
+            ));
+
+        return cortes.stream()
+            .filter(corte -> inventariosPorCorteYSede.containsKey(corte.getId()))
             .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
             .collect(Collectors.toList());
     }
@@ -231,8 +262,8 @@ public class CorteInventarioCompletoService {
     }
 
     public List<CorteInventarioCompletoDTO> obtenerInventarioCompletoPorSede(Long sedeId) {
-        // Obtener inventarios de cortes para una sede específica
-        List<InventarioCorte> inventariosSede = inventarioCorteRepository.findBySedeId(sedeId);
+        // Obtener inventarios de cortes para una sede específica con stock disponible
+        List<InventarioCorte> inventariosSede = inventarioCorteRepository.findBySedeIdWithStock(sedeId);
         
         // Obtener los cortes únicos
         List<Long> cortesIds = inventariosSede.stream()

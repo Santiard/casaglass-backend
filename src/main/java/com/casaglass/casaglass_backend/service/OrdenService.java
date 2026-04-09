@@ -8,6 +8,8 @@ import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.Corte;
+import com.casaglass.casaglass_backend.model.EntregaDetalle;
+import com.casaglass.casaglass_backend.model.EntregaDinero;
 import com.casaglass.casaglass_backend.model.OrdenCortePlan;
 import com.casaglass.casaglass_backend.model.OrdenCortePlanSede;
 import com.casaglass.casaglass_backend.model.Credito;
@@ -27,6 +29,7 @@ import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
 import com.casaglass.casaglass_backend.repository.CorteRepository;
+import com.casaglass.casaglass_backend.repository.EntregaDetalleRepository;
 import com.casaglass.casaglass_backend.repository.OrdenCortePlanRepository;
 import com.casaglass.casaglass_backend.repository.BusinessSettingsRepository;
 import com.casaglass.casaglass_backend.model.BusinessSettings;
@@ -66,8 +69,15 @@ public class OrdenService {
     private final InventarioCorteService inventarioCorteService;
     private final FacturaRepository facturaRepository;
     private final CorteRepository corteRepository;
+    private final EntregaDetalleRepository entregaDetalleRepository;
     private final OrdenCortePlanRepository ordenCortePlanRepository;
     private final BusinessSettingsRepository businessSettingsRepository;
+
+    private static final List<EntregaDinero.EstadoEntrega> ESTADOS_ENTREGA_BLOQUEO_EDICION = List.of(
+        EntregaDinero.EstadoEntrega.PENDIENTE,
+        EntregaDinero.EstadoEntrega.ENTREGADA,
+        EntregaDinero.EstadoEntrega.VERIFICADA
+    );
 
     public OrdenService(OrdenRepository repo, 
                        ClienteRepository clienteRepository,
@@ -81,6 +91,7 @@ public class OrdenService {
                        InventarioCorteService inventarioCorteService,
                        FacturaRepository facturaRepository,
                        CorteRepository corteRepository,
+                       EntregaDetalleRepository entregaDetalleRepository,
                        OrdenCortePlanRepository ordenCortePlanRepository,
                        BusinessSettingsRepository businessSettingsRepository) { 
         this.repo = repo; 
@@ -95,8 +106,44 @@ public class OrdenService {
         this.inventarioCorteService = inventarioCorteService;
         this.facturaRepository = facturaRepository;
         this.corteRepository = corteRepository;
+        this.entregaDetalleRepository = entregaDetalleRepository;
         this.ordenCortePlanRepository = ordenCortePlanRepository;
         this.businessSettingsRepository = businessSettingsRepository;
+    }
+
+    public record OrdenEntregaEstadoInfo(
+        boolean estaEnEntregaDinero,
+        Long entregaDineroId,
+        String estadoEntrega,
+        boolean puedeEditar
+    ) {}
+
+    @Transactional(readOnly = true)
+    public OrdenEntregaEstadoInfo obtenerEstadoEntregaOrden(Long ordenId) {
+        Optional<EntregaDetalle> detalleOpt = entregaDetalleRepository
+            .findFirstByOrdenIdAndEntregaEstadoInOrderByIdDesc(ordenId, ESTADOS_ENTREGA_BLOQUEO_EDICION);
+
+        if (detalleOpt.isEmpty()) {
+            return new OrdenEntregaEstadoInfo(false, null, "NINGUNA", true);
+        }
+
+        EntregaDetalle detalle = detalleOpt.get();
+        Long entregaId = detalle.getEntrega() != null ? detalle.getEntrega().getId() : null;
+        EntregaDinero.EstadoEntrega estado = detalle.getEntrega() != null ? detalle.getEntrega().getEstado() : null;
+
+        String estadoEntrega = "EN_ENTREGA";
+        if (estado == EntregaDinero.EstadoEntrega.ENTREGADA || estado == EntregaDinero.EstadoEntrega.VERIFICADA) {
+            estadoEntrega = "CERRADA";
+        }
+
+        return new OrdenEntregaEstadoInfo(true, entregaId, estadoEntrega, false);
+    }
+
+    private void validarOrdenEditablePorEntrega(Long ordenId) {
+        OrdenEntregaEstadoInfo estadoEntrega = obtenerEstadoEntregaOrden(ordenId);
+        if (estadoEntrega.estaEnEntregaDinero()) {
+            throw new IllegalStateException("La orden ya fue incluida en una entrega de dinero y no puede editarse.");
+        }
     }
 
     @Transactional
@@ -205,6 +252,7 @@ public class OrdenService {
             item.setOrden(orden);
             // Si se envía reutilizarCorteSolicitadoId, el item vende ese CORTE específico
             if (itemDTO.getReutilizarCorteSolicitadoId() != null) {
+                validarCorteEnSede(itemDTO.getReutilizarCorteSolicitadoId(), ventaDTO.getSedeId(), "reutilizarCorteSolicitadoId");
                 Corte corteReutilizado = corteRepository.findById(itemDTO.getReutilizarCorteSolicitadoId())
                     .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + itemDTO.getReutilizarCorteSolicitadoId()));
                 item.setProducto(corteReutilizado);
@@ -356,6 +404,7 @@ public class OrdenService {
             OrdenItem item = new OrdenItem();
             item.setOrden(orden);
             if (itemDTO.getReutilizarCorteSolicitadoId() != null) {
+                validarCorteEnSede(itemDTO.getReutilizarCorteSolicitadoId(), ventaDTO.getSedeId(), "reutilizarCorteSolicitadoId");
                 Corte corteReutilizado = corteRepository.findById(itemDTO.getReutilizarCorteSolicitadoId())
                     .orElseThrow(() -> new RuntimeException("Corte no encontrado con ID: " + itemDTO.getReutilizarCorteSolicitadoId()));
                 item.setProducto(corteReutilizado);
@@ -461,6 +510,8 @@ public class OrdenService {
         // 📝 BUSCAR ORDEN EXISTENTE
         Orden ordenExistente = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+
+        validarOrdenEditablePorEntrega(ordenExistente.getId());
 
         // 🔄 RESTAURAR INVENTARIO SOLO SI LA ORDEN PREVIA ERA VENTA
         // Evita tocar inventario cuando se está editando una cotización.
@@ -579,6 +630,8 @@ public class OrdenService {
         // 📝 BUSCAR ORDEN EXISTENTE
         Orden ordenExistente = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+
+        validarOrdenEditablePorEntrega(ordenExistente.getId());
 
         // 🔄 RESTAURAR INVENTARIO SOLO SI LA ORDEN PREVIA ERA VENTA
         // Evita tocar inventario cuando se está editando una cotización.
@@ -1577,6 +1630,16 @@ public class OrdenService {
         }
         dto.setFacturada(tieneFactura);
         dto.setNumeroFactura(numeroFactura != null ? numeroFactura : "-");
+
+        OrdenEntregaEstadoInfo estadoEntrega = obtenerEstadoEntregaOrden(orden.getId());
+        dto.setEstaEnEntregaDinero(estadoEntrega.estaEnEntregaDinero());
+        dto.setEntregaDineroId(estadoEntrega.entregaDineroId());
+        dto.setEstadoEntrega(estadoEntrega.estadoEntrega());
+
+        boolean puedeEditar = !dto.isFacturada()
+            && orden.getEstado() != Orden.EstadoOrden.ANULADA
+            && estadoEntrega.puedeEditar();
+        dto.setPuedeEditar(puedeEditar);
         
         // 👤 CLIENTE COMPLETO (todos los campos para facturación)
         if (orden.getCliente() != null) {
@@ -1671,6 +1734,8 @@ public class OrdenService {
         // 1️⃣ Buscar orden existente
         Orden orden = repo.findById(ordenId)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+
+        validarOrdenEditablePorEntrega(orden.getId());
 
         // 🔄 GUARDAR ESTADO ANTERIOR DE VENTA para detectar conversión cotización → venta
         boolean eraVentaAntes = orden.isVenta();
@@ -2440,6 +2505,19 @@ public class OrdenService {
         return corteRepository.existsById(productoId);
     }
 
+    private void validarCorteEnSede(Long corteId, Long sedeId, String campo) {
+        if (corteId == null || sedeId == null) {
+            return;
+        }
+
+        boolean existeEnSede = inventarioCorteService.obtenerPorCorteYSede(corteId, sedeId).isPresent();
+        if (!existeEnSede) {
+            throw new IllegalArgumentException(
+                "El corte ID " + corteId + " enviado en " + campo + " no pertenece a la sede de la operación (sedeId=" + sedeId + ")."
+            );
+        }
+    }
+
     /**
      * Anula una orden y restaura el inventario
      */
@@ -2541,11 +2619,22 @@ public class OrdenService {
             // 1. Obtener producto original
             Producto productoOriginal = productoRepository.findById(corteDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + corteDTO.getProductoId()));
+
+            Long sedeId = orden.getSede().getId();
+
+            // Validación defensiva: si el producto base es un corte, debe pertenecer a la sede de la operación.
+            if (esProductoCorte(productoOriginal.getId())) {
+                validarCorteEnSede(productoOriginal.getId(), sedeId, "productoId");
+            }
+
+            // Validación defensiva: corte sobrante reutilizado debe pertenecer a la sede de la operación.
+            if (corteDTO.getReutilizarCorteId() != null) {
+                validarCorteEnSede(corteDTO.getReutilizarCorteId(), sedeId, "reutilizarCorteId");
+            }
             
             // 1.5 🔪 SI SE ESTÁ CORTANDO UN CORTE EXISTENTE, DECREMENTAR SU INVENTARIO
             // ⚠️ SOLO SI ES VENTA (venta=true). Si es cotización (venta=false), se maneja después.
             if (orden.isVenta() && esProductoCorte(productoOriginal.getId())) {
-                Long sedeId = orden.getSede().getId();
                 Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
                 try {
                     inventarioCorteService.decrementarStock(productoOriginal.getId(), sedeId, cantidad);
@@ -2554,7 +2643,6 @@ public class OrdenService {
                 }
             } else if (orden.isVenta() && !esProductoCorte(productoOriginal.getId())) {
                 // Si es venta y el origen es producto normal (no corte), descontar el inventario normal
-                Long sedeId = orden.getSede().getId();
                 Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
                 try {
                     actualizarInventarioConcurrente(productoOriginal.getId(), sedeId, cantidad);
@@ -2606,7 +2694,6 @@ public class OrdenService {
             // Cuando se hace un corte, ambos cortes se agregan al inventario
             // Luego, cuando se procesa la venta, se decrementa el solicitado
             
-            Long sedeId = orden.getSede().getId();
             Double cantidad = corteDTO.getCantidad() != null ? corteDTO.getCantidad() : 1.0;
 
             // ✅ Flujo consistente con producto entero:
@@ -2662,7 +2749,7 @@ public class OrdenService {
 
         if (categoriaId != null && color != null) {
             var existenteOpt = corteRepository
-                .findExistingByCodigoAndSpecs(codigoBase, medida.doubleValue(), categoriaId, color);
+                .findExistingByCodigoAndSpecsAndSedeWithStock(codigoBase, medida.doubleValue(), categoriaId, color, sedeId);
             if (existenteOpt.isPresent()) {
                 Corte corteExistente = existenteOpt.get();
                 boolean requiereActualizacion = false;
@@ -2843,6 +2930,8 @@ public class OrdenService {
         // 1️⃣ BUSCAR ORDEN EXISTENTE
         Orden orden = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+
+        validarOrdenEditablePorEntrega(orden.getId());
         
         // 2️⃣ VALIDAR QUE LA ORDEN ESTÉ ACTIVA
         if (orden.getEstado() == Orden.EstadoOrden.ANULADA) {
@@ -2920,6 +3009,8 @@ public class OrdenService {
         // 1️⃣ BUSCAR ORDEN EXISTENTE
         Orden orden = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+
+        validarOrdenEditablePorEntrega(orden.getId());
         
         // 2️⃣ VALIDAR QUE LA ORDEN ESTÉ ACTIVA
         if (orden.getEstado() == Orden.EstadoOrden.ANULADA) {

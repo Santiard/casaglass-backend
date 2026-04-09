@@ -2,7 +2,10 @@ package com.casaglass.casaglass_backend.repository;
 
 import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Corte;
+import com.casaglass.casaglass_backend.model.ColorProducto;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -111,4 +114,32 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
      */
     @Query("SELECT p FROM Producto p WHERE TYPE(p) != Corte AND p.posicion IS NOT NULL AND p.posicion != ''")
     List<Producto> encontrarProductosConPosicion();
+
+    @Query(
+        value = "SELECT p.id AS id, p.codigo AS codigo, p.nombre AS nombre, " +
+                "c.id AS categoriaId, c.nombre AS categoriaNombre, p.color AS color, " +
+                "COALESCE((SELECT i.cantidad FROM Inventario i WHERE i.producto.id = p.id AND i.sede.id = :sedeOrigenId), 0.0) AS cantidadSedeOrigen, " +
+                "COALESCE((SELECT SUM(it.cantidad) FROM Inventario it WHERE it.producto.id = p.id), 0.0) AS cantidadTotal, " +
+                "p.precio1 AS precio1, p.precio2 AS precio2, p.precio3 AS precio3 " +
+                "FROM Producto p " +
+                "LEFT JOIN p.categoria c " +
+                "WHERE TYPE(p) != Corte " +
+                "AND (:q IS NULL OR LOWER(p.codigo) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%'))) " +
+                "AND (:categoriaId IS NULL OR c.id = :categoriaId) " +
+                "AND (:color IS NULL OR p.color = :color)",
+        countQuery = "SELECT COUNT(p) " +
+                "FROM Producto p " +
+                "LEFT JOIN p.categoria c " +
+                "WHERE TYPE(p) != Corte " +
+                "AND (:q IS NULL OR LOWER(p.codigo) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%'))) " +
+                "AND (:categoriaId IS NULL OR c.id = :categoriaId) " +
+                "AND (:color IS NULL OR p.color = :color)"
+    )
+    Page<CatalogoProductoTrasladoProjection> buscarCatalogoParaTraslado(
+        @Param("sedeOrigenId") Long sedeOrigenId,
+        @Param("q") String q,
+        @Param("categoriaId") Long categoriaId,
+        @Param("color") ColorProducto color,
+        Pageable pageable
+    );
 }

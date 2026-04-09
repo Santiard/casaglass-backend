@@ -86,6 +86,11 @@ public class OrdenController {
                 "orden", ordenActualizada,
                 "numero", ordenActualizada.getNumero()
             ));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "code", "ORDER_ALREADY_IN_DELIVERY"
+            ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
@@ -290,7 +295,18 @@ public class OrdenController {
     @GetMapping("/{id}")
     public ResponseEntity<OrdenResponseDTO> obtener(@PathVariable Long id) {
         return service.obtenerPorId(id)
-            .map(orden -> ResponseEntity.ok(new OrdenResponseDTO(orden)))
+            .map(orden -> {
+                OrdenResponseDTO dto = new OrdenResponseDTO(orden);
+                OrdenService.OrdenEntregaEstadoInfo estadoEntrega = service.obtenerEstadoEntregaOrden(orden.getId());
+                dto.setEstaEnEntregaDinero(estadoEntrega.estaEnEntregaDinero());
+                dto.setEntregaDineroId(estadoEntrega.entregaDineroId());
+                dto.setEstadoEntrega(estadoEntrega.estadoEntrega());
+
+                boolean puedeEditar = "ACTIVA".equals(dto.getEstado())
+                    && !dto.isEstaEnEntregaDinero();
+                dto.setPuedeEditar(puedeEditar);
+                return ResponseEntity.ok(dto);
+            })
             .orElse(ResponseEntity.notFound().build());
     }
 
@@ -318,7 +334,13 @@ public class OrdenController {
                         if (orden.getItems() != null) {
                             orden.getItems().size(); // Forzar carga de items
                         }
-                        return ResponseEntity.ok(new OrdenDetalleDTO(orden));
+                        OrdenDetalleDTO dto = new OrdenDetalleDTO(orden);
+                        OrdenService.OrdenEntregaEstadoInfo estadoEntrega = service.obtenerEstadoEntregaOrden(orden.getId());
+                        dto.setEstaEnEntregaDinero(estadoEntrega.estaEnEntregaDinero());
+                        dto.setEntregaDineroId(estadoEntrega.entregaDineroId());
+                        dto.setEstadoEntrega(estadoEntrega.estadoEntrega());
+                        dto.setPuedeEditar("ACTIVA".equals(dto.getEstado()) && !dto.isEstaEnEntregaDinero());
+                        return ResponseEntity.ok(dto);
                     })
                     .orElse(ResponseEntity.notFound().build());
         } catch (org.hibernate.LazyInitializationException e) {
@@ -519,6 +541,11 @@ public class OrdenController {
                 "mensaje", "Retención de fuente actualizada exitosamente",
                 "orden", ordenActualizada
             ));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "code", "ORDER_ALREADY_IN_DELIVERY"
+            ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
@@ -557,6 +584,11 @@ public class OrdenController {
             return ResponseEntity.ok(Map.of(
                 "mensaje", "Retención ICA actualizada exitosamente",
                 "orden", ordenActualizada
+            ));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "code", "ORDER_ALREADY_IN_DELIVERY"
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -764,6 +796,13 @@ public class OrdenController {
             OrdenTablaDTO ordenActualizada = service.actualizarOrden(id, ordenDTO);
             log.info("[PUT /api/ordenes/tabla/{}] OK actualización completada", id);
             return ResponseEntity.ok(ordenActualizada);
+        } catch (IllegalStateException e) {
+            log.warn("[PUT /api/ordenes/tabla/{}] Bloqueada por entrega de dinero: {}", id, e.getMessage());
+            return ResponseEntity.status(409)
+                    .body(Map.of(
+                        "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                        "code", "ORDER_ALREADY_IN_DELIVERY"
+                    ));
         } catch (IllegalArgumentException e) {
             log.error("[PUT /api/ordenes/tabla/{}] Error de validación: {}", id, e.getMessage(), e);
             e.printStackTrace();

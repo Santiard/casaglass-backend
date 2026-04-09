@@ -25,6 +25,10 @@ public class OrdenResponseDTO {
     private Double total;
     private boolean incluidaEntrega;
     private String estado;
+    private boolean estaEnEntregaDinero;
+    private Long entregaDineroId;
+    private boolean puedeEditar = true;
+    private String estadoEntrega = "NINGUNA";
     
     // Solo incluimos el crédito si existe (SIN referencias circulares)
     private CreditoSimpleDTO creditoDetalle;

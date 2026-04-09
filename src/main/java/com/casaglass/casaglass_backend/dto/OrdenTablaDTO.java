@@ -33,6 +33,10 @@ public class OrdenTablaDTO {
     private Orden.EstadoOrden estado;
     private boolean facturada;  // Indica si la orden tiene una factura asociada
     private String numeroFactura; // Número de la factura asociada (null si no tiene)
+    private boolean estaEnEntregaDinero; // true si existe relación con una entrega vigente
+    private Long entregaDineroId; // Id de la entrega vigente asociada (si aplica)
+    private boolean puedeEditar = true; // false cuando hay bloqueo por reglas de negocio
+    private String estadoEntrega = "NINGUNA"; // NINGUNA, EN_ENTREGA, CERRADA
     private Double subtotal; // Subtotal de la orden (base imponible SIN IVA)
     private Double iva; // Valor del IVA calculado
     private Double total; // Total facturado (subtotal facturado, sin restar retención)

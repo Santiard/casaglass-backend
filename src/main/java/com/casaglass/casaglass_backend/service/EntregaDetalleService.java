@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.EntregaDetalle;
+import com.casaglass.casaglass_backend.model.EntregaDinero;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.Abono;
 import com.casaglass.casaglass_backend.repository.EntregaDetalleRepository;
@@ -14,6 +15,12 @@ import java.util.Optional;
 
 @Service
 public class EntregaDetalleService {
+
+    private static final List<EntregaDinero.EstadoEntrega> ESTADOS_ENTREGA_BLOQUEO_EDICION = List.of(
+        EntregaDinero.EstadoEntrega.PENDIENTE,
+        EntregaDinero.EstadoEntrega.ENTREGADA,
+        EntregaDinero.EstadoEntrega.VERIFICADA
+    );
 
     @Autowired
     private EntregaDetalleRepository entregaDetalleRepository;
@@ -109,12 +116,14 @@ public class EntregaDetalleService {
         Orden orden = ordenRepository.findById(detalle.getOrden().getId())
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
-        // ✅ VALIDACIÓN 1: Verificar que la orden no esté ya incluida en OTRA entrega
-        if (orden.isIncluidaEntrega()) {
-            // Verificar si está en esta entrega o en otra
-            if (detalle.getEntrega() == null || 
+        // ✅ VALIDACIÓN 1: Verificar relación real orden↔entrega vigente (más robusto que incluidaEntrega)
+        boolean ordenEnEntregaVigente = entregaDetalleRepository
+            .existsByOrdenIdAndEntregaEstadoIn(orden.getId(), ESTADOS_ENTREGA_BLOQUEO_EDICION);
+        if (ordenEnEntregaVigente) {
+            // Verificar si está en esta misma entrega o en otra
+            if (detalle.getEntrega() == null ||
                 !entregaDetalleRepository.existsByEntregaIdAndOrdenId(detalle.getEntrega().getId(), orden.getId())) {
-                throw new RuntimeException("La orden ya está incluida en otra entrega");
+                throw new RuntimeException("La orden ya está incluida en otra entrega de dinero vigente");
             }
         }
 
@@ -279,8 +288,10 @@ public class EntregaDetalleService {
         
         Orden ordenObj = orden.get();
         
-        // ✅ VALIDACIÓN 1: No debe estar incluida en otra entrega
-        if (ordenObj.isIncluidaEntrega()) {
+        // ✅ VALIDACIÓN 1: No debe estar ligada a una entrega vigente
+        boolean ordenEnEntregaVigente = entregaDetalleRepository
+            .existsByOrdenIdAndEntregaEstadoIn(ordenObj.getId(), ESTADOS_ENTREGA_BLOQUEO_EDICION);
+        if (ordenEnEntregaVigente) {
             return false;
         }
         

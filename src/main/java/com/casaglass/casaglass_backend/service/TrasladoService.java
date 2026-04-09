@@ -1,14 +1,21 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.dto.CatalogoProductoTrasladoDTO;
+import com.casaglass.casaglass_backend.dto.CatalogoProductosTrasladoResponseDTO;
 import com.casaglass.casaglass_backend.dto.TrasladoDetalleBatchDTO;
 import com.casaglass.casaglass_backend.exception.InventarioInsuficienteException;
 import com.casaglass.casaglass_backend.model.*;
+import com.casaglass.casaglass_backend.repository.CatalogoProductoTrasladoProjection;
 import com.casaglass.casaglass_backend.repository.TrasladoDetalleRepository;
 import com.casaglass.casaglass_backend.repository.TrasladoRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
+import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import com.casaglass.casaglass_backend.service.InventarioService;
 import jakarta.persistence.EntityManager;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +30,7 @@ public class TrasladoService {
     private final TrasladoDetalleRepository detalleRepo;
     private final SedeRepository sedeRepository;
     private final ProductoRepository productoRepository;
+    private final TrabajadorRepository trabajadorRepository;
     private final InventarioService inventarioService;
     private final EntityManager em;
 
@@ -30,14 +38,98 @@ public class TrasladoService {
                            TrasladoDetalleRepository detalleRepo,
                            SedeRepository sedeRepository,
                            ProductoRepository productoRepository,
+                           TrabajadorRepository trabajadorRepository,
                            InventarioService inventarioService,
                            EntityManager em) {
         this.repo = repo;
         this.detalleRepo = detalleRepo;
         this.sedeRepository = sedeRepository;
         this.productoRepository = productoRepository;
+        this.trabajadorRepository = trabajadorRepository;
         this.inventarioService = inventarioService;
         this.em = em;
+    }
+
+    @Transactional(readOnly = true)
+    public CatalogoProductosTrasladoResponseDTO obtenerCatalogoParaTraslado(
+            Long sedeOrigenId,
+            String q,
+            Long categoriaId,
+            String color,
+            Integer page,
+            Integer size,
+            Long trabajadorId) {
+
+        if (sedeOrigenId == null || sedeOrigenId <= 0) {
+            throw new IllegalArgumentException("El parámetro sedeOrigenId es obligatorio");
+        }
+
+        if (!sedeRepository.existsById(sedeOrigenId)) {
+            throw new NoSuchElementException("Sede no encontrada con ID: " + sedeOrigenId);
+        }
+
+        if (trabajadorId != null) {
+            Trabajador trabajador = trabajadorRepository.findById(trabajadorId)
+                    .orElseThrow(() -> new NoSuchElementException("Trabajador no encontrado con ID: " + trabajadorId));
+
+            if (trabajador.getRol() == Rol.VENDEDOR) {
+                Long sedeTrabajadorId = trabajador.getSede() != null ? trabajador.getSede().getId() : null;
+                if (sedeTrabajadorId == null || !sedeTrabajadorId.equals(sedeOrigenId)) {
+                    throw new SecurityException("El vendedor no tiene permiso para consultar esta sede");
+                }
+            }
+        }
+
+        int pageValue = (page != null && page > 0) ? page : 1;
+        int sizeValue = (size != null && size > 0) ? Math.min(size, 200) : 50;
+
+        Pageable pageable = PageRequest.of(pageValue - 1, sizeValue);
+
+        String qNormalizado = (q != null && !q.trim().isEmpty()) ? q.trim() : null;
+        ColorProducto colorEnum = null;
+        if (color != null && !color.trim().isEmpty()) {
+            try {
+                colorEnum = ColorProducto.valueOf(color.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Color inválido: " + color);
+            }
+        }
+
+        Page<CatalogoProductoTrasladoProjection> resultado = productoRepository.buscarCatalogoParaTraslado(
+                sedeOrigenId,
+                qNormalizado,
+                categoriaId,
+                colorEnum,
+                pageable
+        );
+
+        List<CatalogoProductoTrasladoDTO> items = resultado.getContent().stream()
+                .map(p -> new CatalogoProductoTrasladoDTO(
+                        p.getId(),
+                        p.getCodigo(),
+                        p.getNombre(),
+                        p.getCategoriaId(),
+                        p.getCategoriaNombre(),
+                        p.getColor() != null ? p.getColor().name() : null,
+                        p.getCantidadSedeOrigen() != null ? p.getCantidadSedeOrigen() : 0.0,
+                        p.getCantidadTotal() != null ? p.getCantidadTotal() : 0.0,
+                        p.getPrecio1(),
+                        p.getPrecio2(),
+                        p.getPrecio3(),
+                        true
+                ))
+                .toList();
+
+        return new CatalogoProductosTrasladoResponseDTO(
+                sedeOrigenId,
+                items,
+                resultado.getTotalElements(),
+                resultado.getTotalPages(),
+                pageValue,
+                sizeValue,
+                resultado.hasNext(),
+                resultado.hasPrevious()
+        );
     }
 
     /* ---------------- Consultas ---------------- */

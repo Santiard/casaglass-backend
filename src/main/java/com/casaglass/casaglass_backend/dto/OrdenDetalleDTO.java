@@ -31,6 +31,10 @@ public class OrdenDetalleDTO {
     private Double retencionIca; // Valor monetario de la retención ICA
     private Double total; // Total facturado (subtotal facturado, sin restar retención)
     private String estado; // Estado de la orden: ACTIVA, ENTREGADA, ANULADA
+    private boolean estaEnEntregaDinero; // true si existe relación con una entrega vigente
+    private Long entregaDineroId; // Id de la entrega vigente asociada (si aplica)
+    private boolean puedeEditar = true; // false cuando hay bloqueo por reglas de negocio
+    private String estadoEntrega = "NINGUNA"; // NINGUNA, EN_ENTREGA, CERRADA
     private SedeSimpleDTO sede; // Sede donde se realizó la orden
     private ClienteDetalleDTO cliente;
     private TrabajadorSimpleDTO trabajador; // Trabajador que realizó la venta

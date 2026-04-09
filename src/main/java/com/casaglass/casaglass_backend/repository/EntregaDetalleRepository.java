@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.repository;
 
 import com.casaglass.casaglass_backend.model.EntregaDetalle;
+import com.casaglass.casaglass_backend.model.EntregaDinero;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -36,6 +37,10 @@ public interface EntregaDetalleRepository extends JpaRepository<EntregaDetalle, 
     Long countByOrdenId(@Param("ordenId") Long ordenId);
 
     boolean existsByEntregaIdAndOrdenId(Long entregaId, Long ordenId);
+
+    boolean existsByOrdenIdAndEntregaEstadoIn(Long ordenId, List<EntregaDinero.EstadoEntrega> estados);
+
+    Optional<EntregaDetalle> findFirstByOrdenIdAndEntregaEstadoInOrderByIdDesc(Long ordenId, List<EntregaDinero.EstadoEntrega> estados);
 
     long countByEntregaId(Long entregaId);
 

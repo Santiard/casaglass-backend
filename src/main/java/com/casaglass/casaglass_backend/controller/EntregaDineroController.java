@@ -273,6 +273,18 @@ public class EntregaDineroController {
                 "error", e.getMessage(),
                 "tipo", "VALIDACION"
             ));
+        } catch (RuntimeException e) {
+            String mensaje = e.getMessage() != null ? e.getMessage() : "Error de negocio";
+            if (mensaje.toLowerCase().contains("ya está incluida en otra entrega")) {
+                return ResponseEntity.status(409).body(Map.of(
+                    "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                    "code", "ORDER_ALREADY_IN_DELIVERY"
+                ));
+            }
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", mensaje,
+                "tipo", "VALIDACION"
+            ));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Error interno del servidor: " + e.getMessage(),

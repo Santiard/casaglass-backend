@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.controller;
 
+import com.casaglass.casaglass_backend.dto.CatalogoProductosTrasladoResponseDTO;
 import com.casaglass.casaglass_backend.dto.TrasladoResponseDTO;
 import com.casaglass.casaglass_backend.exception.InventarioInsuficienteException;
 import com.casaglass.casaglass_backend.model.Traslado;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("/api/traslados")
@@ -66,6 +68,37 @@ public class TrasladoController {
         return service.obtener(id)
                 .map(traslado -> ResponseEntity.ok(new TrasladoResponseDTO(traslado)))
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/catalogo-productos")
+    public ResponseEntity<?> obtenerCatalogoProductos(
+            @RequestParam(required = false) Long sedeOrigenId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) Long categoriaId,
+            @RequestParam(required = false) String color,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) Long trabajadorId) {
+        try {
+            CatalogoProductosTrasladoResponseDTO response = service.obtenerCatalogoParaTraslado(
+                    sedeOrigenId,
+                    q,
+                    categoriaId,
+                    color,
+                    page,
+                    size,
+                    trabajadorId
+            );
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error interno del servidor");
+        }
     }
 
     @PutMapping("/{id}")
