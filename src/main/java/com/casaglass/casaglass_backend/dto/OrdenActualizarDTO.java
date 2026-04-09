@@ -46,6 +46,8 @@ public class OrdenActualizarDTO {
         private Long id; // null = nuevo item, valor = actualizar existente
         private Long productoId;
         private String nombre; // opcional: nombre del detalle (ej: "Corte de 200 CMS")
+        private String tipoUnidad; // OPCIONAL - UNID, PERFIL, MT, CM (sede 1)
+        private Integer cmBase; // OPCIONAL - base del corte para CM, ej: 600 o 300 (sede 1)
         private Double cantidad;
         private Double precioUnitario;
         private Double totalLinea;

@@ -54,6 +54,8 @@ public class OrdenVentaDTO {
         private Double cantidad; // OBLIGATORIO - cantidad a vender (min: 1)
         private Double precioUnitario; // OBLIGATORIO - precio unitario
         private String nombre; // OPCIONAL - nombre de detalle (ej: "HORIZONTAL Corte de 25 CMS")
+        private String tipoUnidad; // OPCIONAL - UNID, PERFIL, MT, CM (sede 1)
+        private Integer cmBase; // OPCIONAL - base del corte para CM, ej: 600 o 300 (sede 1)
         // Opcional: si se reutiliza un corte solicitado existente para vender
         private Long reutilizarCorteSolicitadoId;
         

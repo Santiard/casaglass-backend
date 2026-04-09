@@ -100,6 +100,8 @@ public class OrdenTablaDTO {
         private Long id;
         private Long productoId;  // ← ID del producto para referencia directa
         private String nombre;
+        private String tipoUnidad; // UNID, PERFIL, MT, CM
+        private Integer cmBase; // Base para CM(base)
         private ProductoTablaDTO producto;
         private Double cantidad;
         private Double precioUnitario;

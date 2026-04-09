@@ -128,22 +128,86 @@ public class OrdenDetalleDTO {
         private Long id;
         private Long productoId;  // ← ID del producto para referencia directa
         private String nombre;
+        private String tipoUnidad; // UNID, PERFIL, MT, CM
+        private Integer cmBase; // Base para CM(base)
         private ProductoItemDTO producto;
         private Double cantidad;
         private Double precioUnitario;
         private Double totalLinea;
+
+        private static final String META_SEPARATOR = " ##META:";
         
         public ItemDetalleDTO(OrdenItem item) {
             this.id = item.getId();
             this.productoId = item.getProducto() != null ? item.getProducto().getId() : null;  // ← Mapear productoId
             this.nombre = item.getNombre() != null && !item.getNombre().isBlank()
-                ? item.getNombre()
+                ? extraerNombreVisible(item.getNombre())
                 : (item.getProducto() != null ? item.getProducto().getNombre() : null);
+            this.tipoUnidad = extraerTipoUnidad(item.getNombre());
+            this.cmBase = extraerCmBase(item.getNombre());
             this.producto = item.getProducto() != null ? new ProductoItemDTO(item.getProducto()) : null;
             // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
             this.cantidad = item.getCantidad();
             this.precioUnitario = item.getPrecioUnitario();
             this.totalLinea = item.getTotalLinea();
+        }
+
+        private static String extraerNombreVisible(String nombreCompleto) {
+            if (nombreCompleto == null) {
+                return null;
+            }
+            int idx = nombreCompleto.indexOf(META_SEPARATOR);
+            if (idx == -1) {
+                return nombreCompleto;
+            }
+            return nombreCompleto.substring(0, idx).trim();
+        }
+
+        private static String extraerTipoUnidad(String nombreCompleto) {
+            String meta = extraerMeta(nombreCompleto);
+            if (meta == null) {
+                return null;
+            }
+            for (String parte : meta.split(";")) {
+                String valor = parte.trim();
+                if (valor.startsWith("TIPO=")) {
+                    return valor.substring("TIPO=".length()).trim();
+                }
+            }
+            return null;
+        }
+
+        private static Integer extraerCmBase(String nombreCompleto) {
+            String meta = extraerMeta(nombreCompleto);
+            if (meta == null) {
+                return null;
+            }
+            for (String parte : meta.split(";")) {
+                String valor = parte.trim();
+                if (valor.startsWith("CMBASE=")) {
+                    String numero = valor.substring("CMBASE=".length()).trim();
+                    if (numero.isEmpty()) {
+                        return null;
+                    }
+                    try {
+                        return Integer.parseInt(numero);
+                    } catch (NumberFormatException ignored) {
+                        return null;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private static String extraerMeta(String nombreCompleto) {
+            if (nombreCompleto == null) {
+                return null;
+            }
+            int idx = nombreCompleto.indexOf(META_SEPARATOR);
+            if (idx == -1) {
+                return null;
+            }
+            return nombreCompleto.substring(idx + META_SEPARATOR.length()).trim();
         }
     }
     

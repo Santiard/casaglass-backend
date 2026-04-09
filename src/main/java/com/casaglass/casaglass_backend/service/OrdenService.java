@@ -79,6 +79,10 @@ public class OrdenService {
         EntregaDinero.EstadoEntrega.VERIFICADA
     );
 
+    private static final Long SEDE_SIN_CONTROL_CORTES_ID = 1L;
+    private static final String META_SEPARATOR = " ##META:";
+    private static final Set<String> TIPOS_UNIDAD_VALIDOS = Set.of("UNID", "PERFIL", "MT", "CM");
+
     public OrdenService(OrdenRepository repo, 
                        ClienteRepository clienteRepository,
                        SedeRepository sedeRepository,
@@ -144,6 +148,10 @@ public class OrdenService {
         if (estadoEntrega.estaEnEntregaDinero()) {
             throw new IllegalStateException("La orden ya fue incluida en una entrega de dinero y no puede editarse.");
         }
+    }
+
+    private boolean esSedeSinControlCortes(Long sedeId) {
+        return sedeId != null && SEDE_SIN_CONTROL_CORTES_ID.equals(sedeId);
     }
 
     @Transactional
@@ -260,7 +268,7 @@ public class OrdenService {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
             }
-            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre()));
+            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre(), itemDTO.getTipoUnidad(), itemDTO.getCmBase()));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -296,11 +304,16 @@ public class OrdenService {
         
         // 💾 GUARDAR ORDEN
         Orden ordenGuardada = repo.save(orden);
+
+        boolean usaFlujoSinCortes = esSedeSinControlCortes(ventaDTO.getSedeId());
+        if (usaFlujoSinCortes) {
+            validarItemsSedeSinControlCortes(ventaDTO.getItems(), ventaDTO.isVenta());
+        }
         
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
         // Si es cotización, se guarda plan sin tocar inventario real.
         List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
-        if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+        if (!usaFlujoSinCortes && ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             if (ventaDTO.isVenta()) {
                 cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
                 aplicarCortesAItems(ordenGuardada, cortesCreados);
@@ -310,14 +323,18 @@ public class OrdenService {
         }
 
         if (ventaDTO.isVenta()) {
-            // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
-            // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
-            // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
-            incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
+            if (usaFlujoSinCortes) {
+                actualizarInventarioPorVentaSedeSinCortes(ordenGuardada, ventaDTO);
+            } else {
+                // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
+                // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
+                // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
+                incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
 
-            // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
-            // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
-            actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
+                // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
+                // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
+                actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
+            }
         }
 
         // 📤 DEVOLVER RESPUESTA CON ORDEN Y CORTES CREADOS
@@ -412,7 +429,7 @@ public class OrdenService {
                 item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
             }
-            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre()));
+            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre(), itemDTO.getTipoUnidad(), itemDTO.getCmBase()));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -448,6 +465,11 @@ public class OrdenService {
         
         // 💾 GUARDAR ORDEN PRIMERO
         Orden ordenGuardada = repo.save(orden);
+
+        boolean usaFlujoSinCortes = esSedeSinControlCortes(ventaDTO.getSedeId());
+        if (usaFlujoSinCortes) {
+            validarItemsSedeSinControlCortes(ventaDTO.getItems(), ventaDTO.isVenta());
+        }
         
         // 💳 CREAR CRÉDITO SI ES NECESARIO (en la misma transacción)
         if (ventaDTO.isCredito()) {
@@ -471,7 +493,7 @@ public class OrdenService {
         // 🔪 PROCESAR CORTES SI EXISTEN (ANTES de actualizar inventario)
         // Si es cotización, se guarda plan sin tocar inventario real.
         List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
-        if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+        if (!usaFlujoSinCortes && ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             // ...existing code...
             if (ventaDTO.isVenta()) {
                 cortesCreados = procesarCortes(ordenGuardada, ventaDTO.getCortes());
@@ -482,14 +504,18 @@ public class OrdenService {
         }
         
         if (ventaDTO.isVenta()) {
-            // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
-            // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
-            // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
-            incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
-            
-            // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
-            // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
-            actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
+            if (usaFlujoSinCortes) {
+                actualizarInventarioPorVentaSedeSinCortes(ordenGuardada, ventaDTO);
+            } else {
+                // ✅ INCREMENTAR INVENTARIO DE CORTES REUTILIZADOS (porque se están cortando de nuevo)
+                // Lógica: Si se reutiliza un corte solicitado, su inventario debe incrementarse primero
+                // porque se está haciendo el corte (inventario pasa a 1), y luego se vende (vuelve a 0)
+                incrementarInventarioCortesReutilizados(ordenGuardada, ventaDTO);
+                
+                // 📦 ACTUALIZAR INVENTARIO (decrementar por venta)
+                // ⚠️ Excluir productos que están en cortes[] porque procesarCortes() ya maneja su inventario
+                actualizarInventarioPorVenta(ordenGuardada, ventaDTO);
+            }
         }
         
         // 📤 DEVOLVER RESPUESTA CON ORDEN Y CORTES CREADOS
@@ -510,6 +536,11 @@ public class OrdenService {
         // 📝 BUSCAR ORDEN EXISTENTE
         Orden ordenExistente = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+
+        boolean usaFlujoSinCortes = esSedeSinControlCortes(ventaDTO.getSedeId());
+        if (usaFlujoSinCortes) {
+            validarItemsSedeSinControlCortes(ventaDTO.getItems(), ventaDTO.isVenta());
+        }
 
         validarOrdenEditablePorEntrega(ordenExistente.getId());
 
@@ -560,7 +591,7 @@ public class OrdenService {
             item.setOrden(ordenExistente);
             item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre()));
+            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre(), itemDTO.getTipoUnidad(), itemDTO.getCmBase()));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -600,16 +631,22 @@ public class OrdenService {
 
         if (ordenActualizada.isVenta()) {
             // Si se confirman ventas desde una cotización, ejecutar primero plan pendiente.
-            if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-                List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
-                aplicarCortesAItems(ordenActualizada, cortesCreados);
-            } else {
-                ejecutarPlanCortesSiExiste(ordenActualizada);
+            if (!usaFlujoSinCortes) {
+                if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+                    List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
+                    aplicarCortesAItems(ordenActualizada, cortesCreados);
+                } else {
+                    ejecutarPlanCortesSiExiste(ordenActualizada);
+                }
             }
 
             // 📦 ACTUALIZAR INVENTARIO CON LOS NUEVOS ITEMS
-            actualizarInventarioPorVenta(ordenActualizada);
-        } else if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+            if (usaFlujoSinCortes) {
+                actualizarInventarioPorVentaSedeSinCortes(ordenActualizada, ventaDTO);
+            } else {
+                actualizarInventarioPorVenta(ordenActualizada);
+            }
+        } else if (!usaFlujoSinCortes && ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             guardarPlanCortesCotizacion(ordenActualizada, ventaDTO.getCortes());
         }
         
@@ -630,6 +667,11 @@ public class OrdenService {
         // 📝 BUSCAR ORDEN EXISTENTE
         Orden ordenExistente = repo.findById(ordenId)
             .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada con ID: " + ordenId));
+
+        boolean usaFlujoSinCortes = esSedeSinControlCortes(ventaDTO.getSedeId());
+        if (usaFlujoSinCortes) {
+            validarItemsSedeSinControlCortes(ventaDTO.getItems(), ventaDTO.isVenta());
+        }
 
         validarOrdenEditablePorEntrega(ordenExistente.getId());
 
@@ -680,7 +722,7 @@ public class OrdenService {
             item.setOrden(ordenExistente);
             item.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre()));
+            item.setNombre(resolverNombreDetalleDesdePayload(item.getProducto(), itemDTO.getNombre(), itemDTO.getTipoUnidad(), itemDTO.getCmBase()));
             item.setCantidad(itemDTO.getCantidad());
             item.setPrecioUnitario(itemDTO.getPrecioUnitario());
             
@@ -750,16 +792,22 @@ public class OrdenService {
         
         if (ordenActualizada.isVenta()) {
             // Si se confirman ventas desde una cotización, ejecutar primero plan pendiente.
-            if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
-                List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
-                aplicarCortesAItems(ordenActualizada, cortesCreados);
-            } else {
-                ejecutarPlanCortesSiExiste(ordenActualizada);
+            if (!usaFlujoSinCortes) {
+                if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+                    List<CorteCreacionDTO> cortesCreados = procesarCortes(ordenActualizada, ventaDTO.getCortes());
+                    aplicarCortesAItems(ordenActualizada, cortesCreados);
+                } else {
+                    ejecutarPlanCortesSiExiste(ordenActualizada);
+                }
             }
 
             // 📦 ACTUALIZAR INVENTARIO CON LOS NUEVOS ITEMS
-            actualizarInventarioPorVenta(ordenActualizada);
-        } else if (ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
+            if (usaFlujoSinCortes) {
+                actualizarInventarioPorVentaSedeSinCortes(ordenActualizada, ventaDTO);
+            } else {
+                actualizarInventarioPorVenta(ordenActualizada);
+            }
+        } else if (!usaFlujoSinCortes && ventaDTO.getCortes() != null && !ventaDTO.getCortes().isEmpty()) {
             guardarPlanCortesCotizacion(ordenActualizada, ventaDTO.getCortes());
         }
         
@@ -1697,6 +1745,8 @@ public class OrdenService {
         itemDTO.setId(item.getId());
         itemDTO.setProductoId(item.getProducto() != null ? item.getProducto().getId() : null);  // ← Mapear productoId
         itemDTO.setNombre(resolverNombreDetalle(item));
+        itemDTO.setTipoUnidad(extraerTipoUnidad(item.getNombre()));
+        itemDTO.setCmBase(extraerCmBase(item.getNombre()));
         itemDTO.setCantidad(item.getCantidad());
         itemDTO.setPrecioUnitario(item.getPrecioUnitario());
         itemDTO.setTotalLinea(item.getTotalLinea());
@@ -1764,6 +1814,18 @@ public class OrdenService {
             orden.setSede(entityManager.getReference(Sede.class, dto.getSedeId()));
         }
 
+        Long sedeEfectivaId = orden.getSede() != null ? orden.getSede().getId() : null;
+        boolean usaFlujoSinCortes = esSedeSinControlCortes(sedeEfectivaId);
+        if (usaFlujoSinCortes) {
+            validarItemsSedeSinControlCortesTabla(dto.getItems(), dto.isVenta());
+            
+            // 🚨 VALIDACIÓN CRÍTICA: Si se está confirmando cotización a venta SIN actualizar items,
+            // validar que todos los items persistidos tengan cmBase completado
+            if (!eraVentaAntes && dto.isVenta()) {
+                validarItemsPersistidosSedeSinControlCortes(orden, dto.isVenta());
+            }
+        }
+
         // 4️⃣ Manejar items: eliminar, actualizar, crear
         if (dto.getItems() != null) {
             actualizarItemsDeOrden(orden, dto.getItems());
@@ -1810,9 +1872,15 @@ public class OrdenService {
         // 📦 MANEJO DE INVENTARIO: Descontar stock si se confirmó una cotización
         // Si cambió de cotización (venta=false) a venta (venta=true), descontar inventario
         if (!eraVentaAntes && ordenActualizada.isVenta()) {
-            ejecutarPlanCortesSiExiste(ordenActualizada);
+            if (usaFlujoSinCortes) {
+                // ✅ SEDE 1: Usar flujo sin cortes (cmBase=600 descuenta 1, <600 no descuenta)
+                actualizarInventarioPorVentaSedeSinCortes(ordenActualizada, null);
+            } else {
+                // ✅ SEDES 2+: Usar flujo normal con cortes
+                ejecutarPlanCortesSiExiste(ordenActualizada);
+                actualizarInventarioPorVenta(ordenActualizada);
+            }
             log.info("[actualizarOrden] Aplicando descuento de inventario por conversión a venta ordenId={}", ordenActualizada.getId());
-            actualizarInventarioPorVenta(ordenActualizada);
         } else if (eraVentaAntes && !ordenActualizada.isVenta()) {
             log.info("[actualizarOrden] Restaurando inventario por conversión a cotización ordenId={}", ordenActualizada.getId());
             restaurarInventarioPorAnulacion(ordenActualizada);
@@ -1923,7 +1991,7 @@ public class OrdenService {
                 nuevoItem.setOrden(orden);
                 nuevoItem.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                nuevoItem.setNombre(resolverNombreDetalleDesdePayload(nuevoItem.getProducto(), itemDTO.getNombre()));
+                nuevoItem.setNombre(resolverNombreDetalleDesdePayload(nuevoItem.getProducto(), itemDTO.getNombre(), itemDTO.getTipoUnidad(), itemDTO.getCmBase()));
                 nuevoItem.setCantidad(itemDTO.getCantidad());
                 nuevoItem.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 nuevoItem.setTotalLinea(itemDTO.getTotalLinea());
@@ -1939,7 +2007,23 @@ public class OrdenService {
 
                 itemExistente.setProducto(productoRepository.findById(itemDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + itemDTO.getProductoId())));
-                itemExistente.setNombre(resolverNombreDetalleDesdePayload(itemExistente.getProducto(), itemDTO.getNombre()));
+
+                // Si el frontend no envía estos campos (botón Confirmar),
+                // conservar la metadata ya persistida para no perder el detalle de corte.
+                String nombrePayload = itemDTO.getNombre() != null ? itemDTO.getNombre() : itemExistente.getNombre();
+                String tipoUnidadPayload = itemDTO.getTipoUnidad() != null
+                    ? itemDTO.getTipoUnidad()
+                    : extraerTipoUnidad(itemExistente.getNombre());
+                Integer cmBasePayload = itemDTO.getCmBase() != null
+                    ? itemDTO.getCmBase()
+                    : extraerCmBase(itemExistente.getNombre());
+
+                itemExistente.setNombre(resolverNombreDetalleDesdePayload(
+                    itemExistente.getProducto(),
+                    nombrePayload,
+                    tipoUnidadPayload,
+                    cmBasePayload
+                ));
                 itemExistente.setCantidad(itemDTO.getCantidad());
                 itemExistente.setPrecioUnitario(itemDTO.getPrecioUnitario());
                 itemExistente.setTotalLinea(itemDTO.getTotalLinea());
@@ -1952,19 +2036,21 @@ public class OrdenService {
             return null;
         }
         if (item.getNombre() != null && !item.getNombre().isBlank()) {
-            return item.getNombre();
+            return extraerNombreVisible(item.getNombre());
         }
         return item.getProducto() != null ? item.getProducto().getNombre() : null;
     }
 
-    private String resolverNombreDetalleDesdePayload(Producto producto, String nombrePayload) {
-        if (nombrePayload == null || nombrePayload.isBlank()) {
-            return producto != null ? producto.getNombre() : null;
+    private String resolverNombreDetalleDesdePayload(Producto producto, String nombrePayload, String tipoUnidad, Integer cmBase) {
+        String nombreLimpioBase = extraerNombreVisible(nombrePayload);
+        if (nombreLimpioBase == null || nombreLimpioBase.isBlank()) {
+            String nombreFallback = producto != null ? producto.getNombre() : null;
+            return construirNombreConMeta(nombreFallback, tipoUnidad, cmBase);
         }
 
-        String nombreLimpio = nombrePayload.trim();
+        String nombreLimpio = nombreLimpioBase.trim();
         if (producto == null || producto.getNombre() == null || producto.getNombre().isBlank()) {
-            return nombreLimpio;
+            return construirNombreConMeta(nombreLimpio, tipoUnidad, cmBase);
         }
 
         String nombreProducto = producto.getNombre().trim();
@@ -1980,9 +2066,11 @@ public class OrdenService {
             int idxUltimoCorte = nombreLimpio.toLowerCase().lastIndexOf("corte de ");
             if (idxUltimoCorte != -1) {
                 String corteSegmento = nombreLimpio.substring(idxUltimoCorte).trim();
-                return baseNombre.isBlank() ? corteSegmento : baseNombre + " " + corteSegmento;
+                String nombreFinal = baseNombre.isBlank() ? corteSegmento : baseNombre + " " + corteSegmento;
+                return construirNombreConMeta(nombreFinal, tipoUnidad, cmBase);
             }
-            return baseNombre.isBlank() ? nombreProducto : baseNombre;
+            String nombreFinal = baseNombre.isBlank() ? nombreProducto : baseNombre;
+            return construirNombreConMeta(nombreFinal, tipoUnidad, cmBase);
         }
 
         String nombreLower = nombreLimpio.toLowerCase();
@@ -1992,11 +2080,259 @@ public class OrdenService {
         // acumulaciones tipo "... Corte de 400 CMS Corte de 150 CMS".
         if (idxUltimoCorte != -1) {
             String corteSegmento = nombreLimpio.substring(idxUltimoCorte).trim();
-            return baseNombre.isBlank() ? corteSegmento : baseNombre + " " + corteSegmento;
+            String nombreFinal = baseNombre.isBlank() ? corteSegmento : baseNombre + " " + corteSegmento;
+            return construirNombreConMeta(nombreFinal, tipoUnidad, cmBase);
         }
 
         // Si no trae texto de corte, respetar lo enviado.
-        return nombreLimpio;
+        return construirNombreConMeta(nombreLimpio, tipoUnidad, cmBase);
+    }
+
+    private String construirNombreConMeta(String nombreVisible, String tipoUnidad, Integer cmBase) {
+        String tipoNormalizado = normalizarTipoUnidad(tipoUnidad);
+        if (tipoNormalizado == null) {
+            return nombreVisible;
+        }
+
+        StringBuilder meta = new StringBuilder("TIPO=").append(tipoNormalizado);
+        if ("CM".equals(tipoNormalizado) && cmBase != null) {
+            meta.append(";CMBASE=").append(cmBase);
+        }
+
+        return (nombreVisible != null ? nombreVisible.trim() : "") + META_SEPARATOR + meta;
+    }
+
+    private String extraerNombreVisible(String nombreCompleto) {
+        if (nombreCompleto == null) {
+            return null;
+        }
+        int idx = nombreCompleto.indexOf(META_SEPARATOR);
+        if (idx == -1) {
+            return nombreCompleto;
+        }
+        return nombreCompleto.substring(0, idx).trim();
+    }
+
+    private String extraerMeta(String nombreCompleto) {
+        if (nombreCompleto == null) {
+            return null;
+        }
+        int idx = nombreCompleto.indexOf(META_SEPARATOR);
+        if (idx == -1) {
+            return null;
+        }
+        return nombreCompleto.substring(idx + META_SEPARATOR.length()).trim();
+    }
+
+    private String extraerTipoUnidad(String nombreCompleto) {
+        String meta = extraerMeta(nombreCompleto);
+        if (meta == null || meta.isBlank()) {
+            return null;
+        }
+        for (String parte : meta.split(";")) {
+            String p = parte.trim();
+            if (p.startsWith("TIPO=")) {
+                return normalizarTipoUnidad(p.substring("TIPO=".length()));
+            }
+        }
+        return null;
+    }
+
+    private Integer extraerCmBase(String nombreCompleto) {
+        String meta = extraerMeta(nombreCompleto);
+        if (meta == null || meta.isBlank()) {
+            return null;
+        }
+        for (String parte : meta.split(";")) {
+            String p = parte.trim();
+            if (p.startsWith("CMBASE=")) {
+                String raw = p.substring("CMBASE=".length()).trim();
+                if (raw.isEmpty()) {
+                    return null;
+                }
+                try {
+                    return Integer.parseInt(raw);
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    private String normalizarTipoUnidad(String tipoUnidad) {
+        if (tipoUnidad == null || tipoUnidad.isBlank()) {
+            return null;
+        }
+        String t = tipoUnidad.trim().toUpperCase();
+        return TIPOS_UNIDAD_VALIDOS.contains(t) ? t : null;
+    }
+
+    private void validarItemsSedeSinControlCortes(List<OrdenVentaDTO.OrdenItemVentaDTO> items, boolean ventaConfirmada) {
+        if (items == null) {
+            return;
+        }
+        for (OrdenVentaDTO.OrdenItemVentaDTO item : items) {
+            String tipo = normalizarTipoUnidad(item.getTipoUnidad());
+            if (item.getTipoUnidad() != null && tipo == null) {
+                throw new IllegalArgumentException("Tipo de unidad inválido: " + item.getTipoUnidad());
+            }
+            if (!"CM".equals(tipo)) {
+                continue;
+            }
+
+            Integer cmBase = item.getCmBase();
+            if (cmBase != null && cmBase <= 0) {
+                throw new IllegalArgumentException("CM base inválido, debe ser mayor a 0");
+            }
+            if (ventaConfirmada && cmBase == null) {
+                throw new IllegalArgumentException("CM base es obligatorio para confirmar ventas CM en sede principal");
+            }
+        }
+    }
+
+    private void validarItemsSedeSinControlCortesTabla(List<OrdenActualizarDTO.OrdenItemActualizarDTO> items, boolean ventaConfirmada) {
+        if (items == null) {
+            return;
+        }
+        for (OrdenActualizarDTO.OrdenItemActualizarDTO item : items) {
+            if (item == null || item.isEliminar()) {
+                continue;
+            }
+            String tipo = normalizarTipoUnidad(item.getTipoUnidad());
+            if (item.getTipoUnidad() != null && tipo == null) {
+                throw new IllegalArgumentException("Tipo de unidad inválido: " + item.getTipoUnidad());
+            }
+            if (!"CM".equals(tipo)) {
+                continue;
+            }
+
+            Integer cmBase = item.getCmBase();
+            if (cmBase != null && cmBase <= 0) {
+                throw new IllegalArgumentException("CM base inválido, debe ser mayor a 0");
+            }
+            if (ventaConfirmada && cmBase == null) {
+                throw new IllegalArgumentException("CM base es obligatorio para confirmar ventas CM en sede principal");
+            }
+        }
+    }
+
+    /**
+     * ✅ Valida items persistidos de una orden para sede 1.
+     * Se usa cuando se confirma una cotización (venta=false → venta=true)
+     * SIN enviar items en el payload. Verifica que todos los items CM tengan cmBase.
+     */
+    private void validarItemsPersistidosSedeSinControlCortes(Orden orden, boolean ventaConfirmada) {
+        if (orden.getItems() == null || orden.getItems().isEmpty()) {
+            return;
+        }
+        for (OrdenItem item : orden.getItems()) {
+            if (item == null) {
+                continue;
+            }
+            String tipo = extraerTipoUnidad(item.getNombre());
+            Integer cmBase = extraerCmBase(item.getNombre());
+            
+            if (!"CM".equals(tipo)) {
+                continue;
+            }
+            
+            // Validar cmBase para tipo CM
+            if (cmBase != null && cmBase <= 0) {
+                throw new IllegalArgumentException("CM base inválido en item persistido, debe ser mayor a 0");
+            }
+            if (ventaConfirmada && cmBase == null) {
+                throw new IllegalArgumentException("No se puede confirmar venta: el item \"" + 
+                    extraerNombreVisible(item.getNombre()) + "\" tipo CM no tiene cmBase (origen del corte) completado. " +
+                    "Por favor actualiza el item con el cmBase antes de confirmar.");
+            }
+        }
+    }
+
+    private void actualizarInventarioPorVentaSedeSinCortes(Orden orden, OrdenVentaDTO ventaDTO) {
+        if (ventaDTO != null && ventaDTO.getItems() != null) {
+            Long sedeId = orden.getSede().getId();
+            for (OrdenVentaDTO.OrdenItemVentaDTO itemDTO : ventaDTO.getItems()) {
+                if (itemDTO == null || itemDTO.getProductoId() == null || itemDTO.getCantidad() == null || itemDTO.getCantidad() <= 0) {
+                    continue;
+                }
+                String tipo = normalizarTipoUnidad(itemDTO.getTipoUnidad());
+                Integer cmBase = itemDTO.getCmBase();
+                if ("CM".equals(tipo)) {
+                    if (cmBase == null) {
+                        throw new IllegalArgumentException("CM base es obligatorio para confirmar ventas CM en sede principal");
+                    }
+                    if (cmBase == 600) {
+                        actualizarInventarioConcurrente(itemDTO.getProductoId(), sedeId, 1.0);
+                    }
+                    continue;
+                }
+                actualizarInventarioConcurrente(itemDTO.getProductoId(), sedeId, itemDTO.getCantidad());
+            }
+            return;
+        }
+
+        // Fallback para flujos sin DTO (por ejemplo edición desde tabla)
+        actualizarInventarioPorVentaSedeSinCortesDesdeItemsPersistidos(orden);
+    }
+
+    private void actualizarInventarioPorVentaSedeSinCortesDesdeItemsPersistidos(Orden orden) {
+        if (orden.getItems() == null || orden.getItems().isEmpty()) {
+            return;
+        }
+        Long sedeId = orden.getSede().getId();
+        for (OrdenItem item : orden.getItems()) {
+            if (item == null || item.getProducto() == null || item.getCantidad() == null || item.getCantidad() <= 0) {
+                continue;
+            }
+            String tipo = extraerTipoUnidad(item.getNombre());
+            Integer cmBase = extraerCmBase(item.getNombre());
+            if ("CM".equals(tipo)) {
+                if (cmBase == null) {
+                    throw new IllegalArgumentException("CM base es obligatorio para confirmar ventas CM en sede principal");
+                }
+                if (cmBase == 600) {
+                    actualizarInventarioConcurrente(item.getProducto().getId(), sedeId, 1.0);
+                }
+                continue;
+            }
+            actualizarInventarioConcurrente(item.getProducto().getId(), sedeId, item.getCantidad());
+        }
+    }
+
+    private void restaurarInventarioPorAnulacionSedeSinCortes(Orden orden) {
+        if (orden.getItems() == null || orden.getItems().isEmpty()) {
+            return;
+        }
+
+        Long sedeId = orden.getSede().getId();
+        for (OrdenItem item : orden.getItems()) {
+            if (item == null || item.getProducto() == null || item.getCantidad() == null || item.getCantidad() <= 0) {
+                continue;
+            }
+            String tipo = extraerTipoUnidad(item.getNombre());
+            Integer cmBase = extraerCmBase(item.getNombre());
+
+            if ("CM".equals(tipo)) {
+                if (cmBase != null && cmBase == 600) {
+                    restaurarInventarioProducto(item.getProducto().getId(), sedeId, 1.0);
+                }
+                continue;
+            }
+
+            restaurarInventarioProducto(item.getProducto().getId(), sedeId, item.getCantidad());
+        }
+    }
+
+    private void restaurarInventarioProducto(Long productoId, Long sedeId, Double cantidad) {
+        Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
+        if (inventarioOpt.isPresent()) {
+            Inventario inventario = inventarioOpt.get();
+            double cantidadActual = inventario.getCantidad();
+            inventarioService.actualizarInventarioVenta(productoId, sedeId, cantidadActual + cantidad);
+        } else {
+            inventarioService.actualizarInventarioVenta(productoId, sedeId, cantidad);
+        }
     }
 
     private void aplicarCortesAItems(Orden orden, List<CorteCreacionDTO> cortesCreados) {
@@ -2251,6 +2587,11 @@ public class OrdenService {
             log.info("[actualizarInventarioPorVenta] Orden sin items, se omite actualización. ordenId={}", orden.getId());
             return;
         }
+
+        if (esSedeSinControlCortes(orden.getSede() != null ? orden.getSede().getId() : null)) {
+            actualizarInventarioPorVentaSedeSinCortes(orden, ventaDTO);
+            return;
+        }
         
         // Obtener la sede de la orden (donde se realiza la venta)
         Long sedeId = orden.getSede().getId();
@@ -2418,6 +2759,11 @@ public class OrdenService {
      */
     private void restaurarInventarioPorAnulacion(Orden orden) {
         if (orden.getItems() == null || orden.getItems().isEmpty()) {
+            return;
+        }
+
+        if (esSedeSinControlCortes(orden.getSede() != null ? orden.getSede().getId() : null)) {
+            restaurarInventarioPorAnulacionSedeSinCortes(orden);
             return;
         }
 
