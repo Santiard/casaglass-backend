@@ -2743,6 +2743,20 @@ public class OrdenService {
 
                 cantidadesProductosEnteros.merge(itemDTO.getProductoId(), itemDTO.getCantidad(), Double::sum);
             }
+        } else {
+            // Fallback para flujos como PUT /tabla/{id}: no hay ventaDTO, usar items persistidos.
+            for (OrdenItem item : orden.getItems()) {
+                if (item == null || item.getProducto() == null || item.getProducto().getId() == null || item.getCantidad() == null || item.getCantidad() <= 0) {
+                    continue;
+                }
+
+                Long productoId = item.getProducto().getId();
+                if (esProductoCorte(productoId)) {
+                    continue;
+                }
+
+                cantidadesProductosEnteros.merge(productoId, item.getCantidad(), Double::sum);
+            }
         }
 
         for (Map.Entry<Long, Double> entry : cantidadesProductosEnteros.entrySet()) {
@@ -3222,7 +3236,7 @@ public class OrdenService {
 
         if (categoriaId != null && color != null) {
             var existentes = corteRepository
-                .findExistingByCodigoAndSpecsAndSedeWithStock(codigoBase, medida.doubleValue(), categoriaId, color, sedeId);
+                .findExistingByCodigoAndSpecsPrioritizedBySede(codigoBase, medida.doubleValue(), categoriaId, color, sedeId);
             if (existentes != null && !existentes.isEmpty()) {
                 // Si hay duplicados legacy, tomar el más reciente de forma determinística.
                 Corte corteExistente = existentes.get(0);

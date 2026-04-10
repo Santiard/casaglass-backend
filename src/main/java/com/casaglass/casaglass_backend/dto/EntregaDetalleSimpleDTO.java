@@ -40,6 +40,15 @@ public class EntregaDetalleSimpleDTO {
     // Método de pago: descripcion para órdenes a contado, metodoPago para abonos
     private String descripcion; // Para órdenes a contado (ventaCredito = false): descripcion de la orden
     private String metodoPago; // Para abonos (ventaCredito = true y abonoId != null): metodoPago del abono
+
+    // Montos estructurados por medio de pago
+    private Double montoEfectivo;
+    private Double montoTransferencia;
+    private Double montoCheque;
+    private Double montoDeposito;
+
+    // Medio calculado para consumo del frontend: EFECTIVO, TRANSFERENCIA, CHEQUE, DEPÓSITO o MIXTO
+    private String medioPago;
     
     // ✅ TIPO DE MOVIMIENTO: "INGRESO" o "EGRESO"
     private String tipoMovimiento; // INGRESO: órdenes y abonos normales | EGRESO: reembolsos/devoluciones
@@ -134,6 +143,40 @@ public class EntregaDetalleSimpleDTO {
             return null;
         }
     }
+
+    private Double normalizarMonto(Double monto) {
+        return monto != null ? monto : 0.0;
+    }
+
+    private String calcularMedioPago(Double montoEfectivo, Double montoTransferencia, Double montoCheque, Double montoDeposito) {
+        int mediosConValor = 0;
+        String medioUnico = null;
+
+        if (normalizarMonto(montoEfectivo) > 0) {
+            mediosConValor++;
+            medioUnico = "EFECTIVO";
+        }
+        if (normalizarMonto(montoTransferencia) > 0) {
+            mediosConValor++;
+            medioUnico = "TRANSFERENCIA";
+        }
+        if (normalizarMonto(montoCheque) > 0) {
+            mediosConValor++;
+            medioUnico = "CHEQUE";
+        }
+        if (normalizarMonto(montoDeposito) > 0) {
+            mediosConValor++;
+            medioUnico = "DEPÓSITO";
+        }
+
+        if (mediosConValor == 0) {
+            return null;
+        }
+        if (mediosConValor > 1) {
+            return "MIXTO";
+        }
+        return medioUnico;
+    }
     
     // Constructor desde entidad (SIN referencia a entrega para evitar ciclos)
     // Sin cálculo de abonos (para compatibilidad)
@@ -187,6 +230,31 @@ public class EntregaDetalleSimpleDTO {
             this.ventaCredito = detalle.getVentaCredito();
             this.clienteNombre = detalle.getClienteNombre();
             this.observaciones = detalle.getObservaciones();
+
+            // Montos estructurados por medio de pago
+            if (detalle.getVentaCredito() != null && !detalle.getVentaCredito() && detalle.getOrden() != null) {
+                this.montoEfectivo = normalizarMonto(detalle.getOrden().getMontoEfectivo());
+                this.montoTransferencia = normalizarMonto(detalle.getOrden().getMontoTransferencia());
+                this.montoCheque = normalizarMonto(detalle.getOrden().getMontoCheque());
+                this.montoDeposito = 0.0;
+            } else if (abono != null) {
+                this.montoEfectivo = normalizarMonto(abono.getMontoEfectivo());
+                this.montoTransferencia = normalizarMonto(abono.getMontoTransferencia());
+                this.montoCheque = normalizarMonto(abono.getMontoCheque());
+                this.montoDeposito = 0.0;
+            } else {
+                this.montoEfectivo = 0.0;
+                this.montoTransferencia = 0.0;
+                this.montoCheque = 0.0;
+                this.montoDeposito = 0.0;
+            }
+
+            this.medioPago = calcularMedioPago(
+                this.montoEfectivo,
+                this.montoTransferencia,
+                this.montoCheque,
+                this.montoDeposito
+            );
             
             // ✅ MAPEAR TIPO DE MOVIMIENTO
             // Si el campo tipoMovimiento está establecido, usarlo
@@ -363,6 +431,11 @@ public class EntregaDetalleSimpleDTO {
             this.tipoMovimiento = "INGRESO";
             this.descripcion = null;
             this.metodoPago = null;
+            this.montoEfectivo = 0.0;
+            this.montoTransferencia = 0.0;
+            this.montoCheque = 0.0;
+            this.montoDeposito = 0.0;
+            this.medioPago = null;
         } catch (Exception e) {
             // Cualquier otra excepción: inicializar con valores por defecto
             this.id = detalle != null ? detalle.getId() : null;
@@ -380,6 +453,16 @@ public class EntregaDetalleSimpleDTO {
             this.tipoMovimiento = "INGRESO";
             this.descripcion = null;
             this.metodoPago = null;
+            this.montoEfectivo = 0.0;
+            this.montoTransferencia = 0.0;
+            this.montoCheque = 0.0;
+            this.montoDeposito = 0.0;
+            this.medioPago = null;
+            this.montoEfectivo = 0.0;
+            this.montoTransferencia = 0.0;
+            this.montoCheque = 0.0;
+            this.montoDeposito = 0.0;
+            this.medioPago = null;
         }
     }
 }

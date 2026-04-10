@@ -68,4 +68,14 @@ public interface CorteRepository extends JpaRepository<Corte, Long> {
                                                               @Param("categoriaId") Long categoriaId,
                                                               @Param("color") com.casaglass.casaglass_backend.model.ColorProducto color,
                                                               @Param("sedeId") Long sedeId);
+
+    @Query("SELECT DISTINCT c FROM Corte c " +
+            "LEFT JOIN InventarioCorte ic ON ic.corte.id = c.id AND ic.sede.id = :sedeId " +
+            "WHERE c.codigo = :codigo AND c.largoCm = :largo AND c.categoria.id = :categoriaId AND c.color = :color " +
+            "ORDER BY CASE WHEN ic.id IS NULL THEN 1 ELSE 0 END, c.id DESC")
+    List<Corte> findExistingByCodigoAndSpecsPrioritizedBySede(@Param("codigo") String codigo,
+                                                              @Param("largo") Double largo,
+                                                              @Param("categoriaId") Long categoriaId,
+                                                              @Param("color") com.casaglass.casaglass_backend.model.ColorProducto color,
+                                                              @Param("sedeId") Long sedeId);
 }
