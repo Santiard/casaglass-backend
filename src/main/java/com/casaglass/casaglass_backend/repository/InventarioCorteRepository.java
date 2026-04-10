@@ -14,7 +14,7 @@ public interface InventarioCorteRepository extends JpaRepository<InventarioCorte
 
     List<InventarioCorte> findBySedeId(Long sedeId);
 
-    Optional<InventarioCorte> findByCorteIdAndSedeId(Long corteId, Long sedeId);
+    List<InventarioCorte> findByCorteIdAndSedeId(Long corteId, Long sedeId);
 
     @Query("SELECT ic FROM InventarioCorte ic WHERE ic.cantidad > 0")
     List<InventarioCorte> findAllWithStock();

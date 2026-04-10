@@ -40,7 +40,8 @@ public class InventarioCorteService {
     }
 
     public Optional<InventarioCorte> obtenerPorCorteYSede(Long corteId, Long sedeId) {
-        return repository.findByCorteIdAndSedeId(corteId, sedeId);
+        List<InventarioCorte> resultados = repository.findByCorteIdAndSedeId(corteId, sedeId);
+        return resultados != null && !resultados.isEmpty() ? Optional.of(resultados.get(0)) : Optional.empty();
     }
 
     @Transactional
@@ -58,12 +59,12 @@ public class InventarioCorteService {
         }
 
         // Verificar si ya existe inventario para este corte en esta sede
-        Optional<InventarioCorte> existente = repository.findByCorteIdAndSedeId(
+        List<InventarioCorte> existentes = repository.findByCorteIdAndSedeId(
                 inventarioCorte.getCorte().getId(), 
                 inventarioCorte.getSede().getId()
         );
 
-        if (existente.isPresent() && inventarioCorte.getId() == null) {
+        if (existentes != null && !existentes.isEmpty() && inventarioCorte.getId() == null) {
             throw new IllegalArgumentException("Ya existe inventario para este corte en esta sede");
         }
 
@@ -140,10 +141,10 @@ public class InventarioCorteService {
 
     @Transactional
     public InventarioCorte actualizarStock(Long corteId, Long sedeId, Double nuevaCantidad) {
-        Optional<InventarioCorte> inventarioOpt = repository.findByCorteIdAndSedeId(corteId, sedeId);
+        List<InventarioCorte> resultados = repository.findByCorteIdAndSedeId(corteId, sedeId);
         
-        if (inventarioOpt.isPresent()) {
-            InventarioCorte inventario = inventarioOpt.get();
+        if (resultados != null && !resultados.isEmpty()) {
+            InventarioCorte inventario = resultados.get(0); // Take first if duplicates exist
             inventario.setCantidad(nuevaCantidad);
             return repository.save(inventario);
         } else {
@@ -158,10 +159,10 @@ public class InventarioCorteService {
 
     @Transactional
     public InventarioCorte incrementarStock(Long corteId, Long sedeId, Double cantidad) {
-        Optional<InventarioCorte> inventarioOpt = repository.findByCorteIdAndSedeId(corteId, sedeId);
+        List<InventarioCorte> resultados = repository.findByCorteIdAndSedeId(corteId, sedeId);
         
-        if (inventarioOpt.isPresent()) {
-            InventarioCorte inventario = inventarioOpt.get();
+        if (resultados != null && !resultados.isEmpty()) {
+            InventarioCorte inventario = resultados.get(0); // Take first if duplicates exist
             Double anterior = inventario.getCantidad();
             inventario.setCantidad(inventario.getCantidad() + cantidad);
             log.info("[InventarioCorteService.incrementarStock] UPDATE corteId={} sedeId={} anterior={} delta={} nuevo={}",
@@ -176,10 +177,10 @@ public class InventarioCorteService {
 
     @Transactional
     public InventarioCorte decrementarStock(Long corteId, Long sedeId, Double cantidad) {
-        Optional<InventarioCorte> inventarioOpt = repository.findByCorteIdAndSedeId(corteId, sedeId);
+        List<InventarioCorte> resultados = repository.findByCorteIdAndSedeId(corteId, sedeId);
         
-        if (inventarioOpt.isPresent()) {
-            InventarioCorte inventario = inventarioOpt.get();
+        if (resultados != null && !resultados.isEmpty()) {
+            InventarioCorte inventario = resultados.get(0); // Take first if duplicates exist
             Double anterior = inventario.getCantidad();
             double nuevaCantidad = inventario.getCantidad() - cantidad;
             // ✅ Permitir valores negativos (ventas anticipadas, como en productos normales)

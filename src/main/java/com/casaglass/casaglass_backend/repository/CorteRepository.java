@@ -53,18 +53,19 @@ public interface CorteRepository extends JpaRepository<Corte, Long> {
 
     // 🆕 Buscar corte existente por código base (sin sufijo), largo exacto, categoría y color
     // ✅ El código siempre es el del producto base (ej: "392"), no incluye la medida
-    @Query("SELECT c FROM Corte c WHERE c.codigo = :codigo AND c.largoCm = :largo AND c.categoria.id = :categoriaId AND c.color = :color")
-    Optional<Corte> findExistingByCodigoAndSpecs(@Param("codigo") String codigo,
+    @Query("SELECT DISTINCT c FROM Corte c WHERE c.codigo = :codigo AND c.largoCm = :largo AND c.categoria.id = :categoriaId AND c.color = :color ORDER BY c.id DESC")
+    List<Corte> findExistingByCodigoAndSpecs(@Param("codigo") String codigo,
                                                 @Param("largo") Double largo,
                                                 @Param("categoriaId") Long categoriaId,
                                                 @Param("color") com.casaglass.casaglass_backend.model.ColorProducto color);
 
-    @Query("SELECT c FROM Corte c JOIN InventarioCorte ic ON ic.corte.id = c.id " +
+    @Query("SELECT DISTINCT c FROM Corte c JOIN InventarioCorte ic ON ic.corte.id = c.id " +
             "WHERE c.codigo = :codigo AND c.largoCm = :largo AND c.categoria.id = :categoriaId AND c.color = :color " +
-            "AND ic.sede.id = :sedeId AND ic.cantidad > 0")
-    Optional<Corte> findExistingByCodigoAndSpecsAndSedeWithStock(@Param("codigo") String codigo,
-                                                                           @Param("largo") Double largo,
-                                                                           @Param("categoriaId") Long categoriaId,
-                                                                           @Param("color") com.casaglass.casaglass_backend.model.ColorProducto color,
-                                                                           @Param("sedeId") Long sedeId);
+            "AND ic.sede.id = :sedeId AND ic.cantidad > 0 " +
+            "ORDER BY c.id DESC")
+    List<Corte> findExistingByCodigoAndSpecsAndSedeWithStock(@Param("codigo") String codigo,
+                                                              @Param("largo") Double largo,
+                                                              @Param("categoriaId") Long categoriaId,
+                                                              @Param("color") com.casaglass.casaglass_backend.model.ColorProducto color,
+                                                              @Param("sedeId") Long sedeId);
 }

@@ -3221,10 +3221,11 @@ public class OrdenService {
         var color = productoOriginal.getColor();
 
         if (categoriaId != null && color != null) {
-            var existenteOpt = corteRepository
+            var existentes = corteRepository
                 .findExistingByCodigoAndSpecsAndSedeWithStock(codigoBase, medida.doubleValue(), categoriaId, color, sedeId);
-            if (existenteOpt.isPresent()) {
-                Corte corteExistente = existenteOpt.get();
+            if (existentes != null && !existentes.isEmpty()) {
+                // Si hay duplicados legacy, tomar el más reciente de forma determinística.
+                Corte corteExistente = existentes.get(0);
                 boolean requiereActualizacion = false;
 
                 // Asegurarse de que el nombre esté correcto (no concatenado)
