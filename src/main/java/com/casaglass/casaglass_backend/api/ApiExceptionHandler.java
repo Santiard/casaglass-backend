@@ -90,6 +90,16 @@ public class ApiExceptionHandler {
     }
 
     /**
+     * Validaciones de negocio / parámetros manuales -> 400
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        String message = ex.getMessage() != null ? ex.getMessage() : "Parámetros inválidos.";
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(body(HttpStatus.BAD_REQUEST, message, "BAD_REQUEST"));
+    }
+
+    /**
      * Borrado de recurso inexistente -> 404
      */
     @ExceptionHandler(EmptyResultDataAccessException.class)

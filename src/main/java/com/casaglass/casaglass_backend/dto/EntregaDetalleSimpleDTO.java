@@ -21,6 +21,7 @@ public class EntregaDetalleSimpleDTO {
     private String observacionReembolso; // Motivo del reembolso (si aplica)
     private Long numeroOrden;
     private LocalDate fechaOrden;
+    private LocalDate fechaAbono;
     private Double montoOrden;
     
     // Desglose de montos de la orden
@@ -198,6 +199,7 @@ public class EntregaDetalleSimpleDTO {
             
             this.numeroOrden = detalle.getNumeroOrden();
             this.fechaOrden = detalle.getFechaOrden();
+            this.fechaAbono = abono != null ? abono.getFecha() : null;
             
             // ✅ MONTO: Usar fuente correcta según el tipo
             if (reembolso != null) {
@@ -297,6 +299,7 @@ public class EntregaDetalleSimpleDTO {
             this.observacionReembolso = null;
             this.numeroOrden = detalle != null ? detalle.getNumeroOrden() : null;
             this.fechaOrden = detalle != null ? detalle.getFechaOrden() : null;
+            this.fechaAbono = null;
             this.montoOrden = detalle != null ? detalle.getMontoOrden() : null;
             this.ventaCredito = detalle != null ? detalle.getVentaCredito() : null;
             this.clienteNombre = detalle != null ? detalle.getClienteNombre() : null;
@@ -314,6 +317,7 @@ public class EntregaDetalleSimpleDTO {
             this.observacionReembolso = null;
             this.numeroOrden = detalle != null ? detalle.getNumeroOrden() : null;
             this.fechaOrden = detalle != null ? detalle.getFechaOrden() : null;
+            this.fechaAbono = null;
             this.montoOrden = detalle != null ? detalle.getMontoOrden() : null;
             this.ventaCredito = detalle != null ? detalle.getVentaCredito() : null;
             this.clienteNombre = detalle != null ? detalle.getClienteNombre() : null;
@@ -344,6 +348,7 @@ public class EntregaDetalleSimpleDTO {
             
             this.numeroOrden = detalle.getNumeroOrden();
             this.fechaOrden = detalle.getFechaOrden();
+            this.fechaAbono = abono != null ? abono.getFecha() : null;
             
             // ✅ MONTO: Usar fuente correcta según el tipo
             if (reembolso != null) {
@@ -423,6 +428,7 @@ public class EntregaDetalleSimpleDTO {
             this.observacionReembolso = null;
             this.numeroOrden = detalle != null ? detalle.getNumeroOrden() : null;
             this.fechaOrden = detalle != null ? detalle.getFechaOrden() : null;
+            this.fechaAbono = null;
             this.montoOrden = detalle != null ? detalle.getMontoOrden() : null;
             this.ventaCredito = detalle != null ? detalle.getVentaCredito() : null;
             this.clienteNombre = detalle != null ? detalle.getClienteNombre() : null;
@@ -445,6 +451,7 @@ public class EntregaDetalleSimpleDTO {
             this.observacionReembolso = null;
             this.numeroOrden = detalle != null ? detalle.getNumeroOrden() : null;
             this.fechaOrden = detalle != null ? detalle.getFechaOrden() : null;
+            this.fechaAbono = null;
             this.montoOrden = detalle != null ? detalle.getMontoOrden() : null;
             this.ventaCredito = detalle != null ? detalle.getVentaCredito() : null;
             this.clienteNombre = detalle != null ? detalle.getClienteNombre() : null;

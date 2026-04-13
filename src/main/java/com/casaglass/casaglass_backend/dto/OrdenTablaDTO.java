@@ -25,6 +25,7 @@ public class OrdenTablaDTO {
     private String descripcion; // Descripción/observaciones adicionales
     private boolean venta;
     private boolean credito;
+    private String estadoPago; // PAGADO, NO PAGADO, ABONADO
     private boolean tieneRetencionFuente; // Indica si la orden tiene retención de fuente
     private Double retencionFuente; // Valor monetario de la retención en la fuente
     private boolean tieneRetencionIca; // Indica si la orden tiene retención ICA

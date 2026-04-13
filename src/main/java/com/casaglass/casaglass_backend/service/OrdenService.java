@@ -1343,6 +1343,7 @@ public class OrdenService {
             Boolean venta,
             Boolean credito,
             Boolean facturada,
+            String estadoPago,
             Integer page,
             Integer size,
             String sortBy,
@@ -1367,7 +1368,7 @@ public class OrdenService {
         
         // Buscar órdenes con filtros
         List<Orden> ordenes = repo.buscarConFiltros(
-            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, facturada
+            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, estadoPago, facturada
         );
         
         // Aplicar ordenamiento
@@ -1656,6 +1657,7 @@ public class OrdenService {
         dto.setDescripcion(orden.getDescripcion());
         dto.setVenta(orden.isVenta());
         dto.setCredito(orden.isCredito());
+        dto.setEstadoPago(calcularEstadoPagoOrden(orden));
         dto.setTieneRetencionFuente(orden.isTieneRetencionFuente());
         dto.setRetencionFuente(orden.getRetencionFuente() != null ? orden.getRetencionFuente() : 0.0);
         dto.setTieneRetencionIca(orden.isTieneRetencionIca());
@@ -1735,6 +1737,34 @@ public class OrdenService {
         }
         
         return dto;
+    }
+
+    private String calcularEstadoPagoOrden(Orden orden) {
+        if (orden == null || !orden.isVenta()) {
+            return "NO PAGADO";
+        }
+
+        // Venta de contado: se considera pagada al confirmar la venta.
+        if (!orden.isCredito()) {
+            return "PAGADO";
+        }
+
+        // Venta a crédito: evaluar saldo/abonos del crédito.
+        if (orden.getCreditoDetalle() == null) {
+            return "NO PAGADO";
+        }
+
+        Double saldoPendiente = orden.getCreditoDetalle().getSaldoPendiente();
+        if (saldoPendiente != null && saldoPendiente <= 0.01) {
+            return "PAGADO";
+        }
+
+        Double totalAbonado = orden.getCreditoDetalle().getTotalAbonado();
+        if (totalAbonado != null && totalAbonado > 0.01) {
+            return "ABONADO";
+        }
+
+        return "NO PAGADO";
     }
 
     /**
@@ -3097,10 +3127,36 @@ public class OrdenService {
     private List<CorteCreacionDTO> procesarCortes(Orden orden, List<OrdenVentaDTO.CorteSolicitadoDTO> cortes) {
         List<CorteCreacionDTO> cortesCreados = new ArrayList<>();
         
+        // 🆕 VALIDAR LISTA DE CORTES
+        if (cortes == null || cortes.isEmpty()) {
+            log.info("ℹ️ [Orden: {}] No hay cortes para procesar", orden.getId());
+            return cortesCreados;
+        }
+        
         for (OrdenVentaDTO.CorteSolicitadoDTO corteDTO : cortes) {
             // Validaciones básicas del DTO
             if (corteDTO == null || corteDTO.getProductoId() == null || corteDTO.getMedidaSolicitada() == null) {
+                log.warn("⚠️ [Orden: {}] Corte inválido omitido: productoId={}, medidaSolicitada={}", 
+                    orden.getId(), corteDTO != null ? corteDTO.getProductoId() : "null",
+                    corteDTO != null ? corteDTO.getMedidaSolicitada() : "null");
                 continue;
+            }
+            
+            // 🆕 VALIDAR MEDIDA SOLICITADA > 0
+            if (corteDTO.getMedidaSolicitada() <= 0) {
+                log.warn("⚠️ [Orden: {}] Omitiendo corte con medidaSolicitada inválida: {} cm para producto {}", 
+                    orden.getId(), corteDTO.getMedidaSolicitada(), corteDTO.getProductoId());
+                continue;
+            }
+            
+            // 🆕 VALIDAR PRECIO SOLICITADO > 0
+            if (corteDTO.getPrecioUnitarioSolicitado() == null || corteDTO.getPrecioUnitarioSolicitado() <= 0) {
+                log.error("❌ [Orden: {}] RECHAZO: Corte {} con precio solicitado inválido: {}", 
+                    orden.getId(), corteDTO.getProductoId(), corteDTO.getPrecioUnitarioSolicitado());
+                throw new IllegalArgumentException(
+                    "Precio unitario del corte (solicitado) debe ser > 0. Producto: " + corteDTO.getProductoId() + 
+                    ", Recibido: " + corteDTO.getPrecioUnitarioSolicitado()
+                );
             }
             
             // 1. Obtener producto original
@@ -3156,25 +3212,48 @@ public class OrdenService {
             cortesCreados.add(corteCreado);
             
             // 3. Determinar corte sobrante (reutilizar si llega ID, de lo contrario crear)
-            Corte corteSobrante;
+            // 🆕 IMPORTANTE: SOLO CREAR SOBRANTE SI SU MEDIDA Y PRECIO SON VÁLIDOS
+            Corte corteSobrante = null;
+            boolean crearSobrante = true;
+            
             if (corteDTO.getReutilizarCorteId() != null) {
+                // Reutilizar corte sobrante existente
                 corteSobrante = corteRepository.findById(corteDTO.getReutilizarCorteId())
                     .orElseThrow(() -> new RuntimeException("Corte sobrante no encontrado con ID: " + corteDTO.getReutilizarCorteId()));
                 if (actualizarPrecioCortePorSede(corteSobrante, corteDTO.getPrecioUnitarioSobrante(), orden.getSede().getId())) {
                     corteService.guardar(corteSobrante);
                 }
+                log.info("✅ [Orden: {}] Reutilizando corte sobrante existente ID: {}", orden.getId(), corteDTO.getReutilizarCorteId());
             } else {
-                // Usar medidaSobrante del DTO, o calcular si no viene (600cm por defecto)
+                // 🆕 CALCULAR Y VALIDAR MEDIDA SOBRANTE
                 Integer medidaSobrante = corteDTO.getMedidaSobrante() != null 
                     ? corteDTO.getMedidaSobrante() 
                     : (600 - corteDTO.getMedidaSolicitada());
-                corteSobrante = crearCorteIndividual(
-                    productoOriginal,
-                    medidaSobrante,
-                    corteDTO.getPrecioUnitarioSobrante(),
-                    orden.getSede().getId(),
-                    "SOBRANTE" // Solo para logging interno, no se incluye en el nombre
-                );
+                    
+                if (medidaSobrante <= 0) {
+                    log.info("ℹ️ [Orden: {}] NO se crea corte sobrante para producto {} (medida {} ≤ 0)", 
+                        orden.getId(), corteDTO.getProductoId(), medidaSobrante);
+                    crearSobrante = false;
+                } else if (corteDTO.getPrecioUnitarioSobrante() == null || corteDTO.getPrecioUnitarioSobrante() <= 0) {
+                    // 🆕 SI LA MEDIDA ES VÁLIDA PERO EL PRECIO NO, RECHAZAR
+                    log.error("❌ [Orden: {}] RECHAZO: Corte {} con precio sobrante inválido: {}", 
+                        orden.getId(), corteDTO.getProductoId(), corteDTO.getPrecioUnitarioSobrante());
+                    throw new IllegalArgumentException(
+                        "Precio unitario del corte sobrante debe ser > 0. Producto: " + corteDTO.getProductoId() + 
+                        ", Medida sobrante: " + medidaSobrante + " cm, Recibido: " + corteDTO.getPrecioUnitarioSobrante()
+                    );
+                } else {
+                    // Medida y precio válidos: crear corte sobrante
+                    corteSobrante = crearCorteIndividual(
+                        productoOriginal,
+                        medidaSobrante,
+                        corteDTO.getPrecioUnitarioSobrante(),
+                        orden.getSede().getId(),
+                        "SOBRANTE" // Solo para logging interno, no se incluye en el nombre
+                    );
+                    log.info("✅ [Orden: {}] Creado corte sobrante: {} cm, precio ${}", 
+                        orden.getId(), medidaSobrante, corteDTO.getPrecioUnitarioSobrante());
+                }
             }
             
             // 4. INCREMENTAR INVENTARIO DE AMBOS CORTES (simula el corte)
@@ -3188,31 +3267,41 @@ public class OrdenService {
             // 2) Al procesar la venta, se descuenta.
             // 3) Al anular, se vuelve a sumar.
             inventarioCorteService.incrementarStock(corteSolicitado.getId(), sedeId, cantidad);
+            log.debug("📦 [Orden: {}] Incrementado inventario corte solicitado ID {} en {} unidades", 
+                orden.getId(), corteSolicitado.getId(), cantidad);
             
-            // Si ambos cortes son el mismo (ej: corte por la mitad), solo uno debe quedar en inventario
-            if (corteSolicitado.getId().equals(corteSobrante.getId())) {
-                // Solo incrementar stock si la cantidad es 2.0 (caso típico de corte por la mitad)
-                if (cantidad == 2.0) {
-                    inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, 1.0);
-                }
-            } else {
-                if (corteDTO.getCantidadesPorSede() != null && !corteDTO.getCantidadesPorSede().isEmpty()) {
-                    for (OrdenVentaDTO.CorteSolicitadoDTO.CantidadPorSedeDTO cantidadSede : corteDTO.getCantidadesPorSede()) {
-                        if (cantidadSede.getSedeId() == null || cantidadSede.getCantidad() == null || cantidadSede.getCantidad() <= 0) {
-                            continue; // Saltar sedes con cantidad 0 o sin ID
-                        }
-                        Long sedeIdSobrante = cantidadSede.getSedeId();
-                        Double cantidadSobrante = cantidadSede.getCantidad();
-                        // Incrementar stock del corte sobrante
-                        inventarioCorteService.incrementarStock(
-                            corteSobrante.getId(),
-                            sedeIdSobrante,
-                            cantidadSobrante
-                        );
+            // 🆕 SOLO PROCESAR SOBRANTE SI FUE CREADO/REUTILIZADO EXITOSAMENTE
+            if (crearSobrante && corteSobrante != null) {
+                // Si ambos cortes son el mismo (ej: corte por la mitad), solo uno debe quedar en inventario
+                if (corteSolicitado.getId().equals(corteSobrante.getId())) {
+                    // Solo incrementar stock si la cantidad es 2.0 (caso típico de corte por la mitad)
+                    if (cantidad == 2.0) {
+                        inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, 1.0);
+                        log.debug("📦 [Orden: {}] Cortes solicitado y sobrante idénticos: incrementado sobrante en 1 unidad", orden.getId());
                     }
                 } else {
-                    // Si no hay cantidadesPorSede específicas, incrementar en la sede de la orden
-                    inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, cantidad);
+                    if (corteDTO.getCantidadesPorSede() != null && !corteDTO.getCantidadesPorSede().isEmpty()) {
+                        for (OrdenVentaDTO.CorteSolicitadoDTO.CantidadPorSedeDTO cantidadSede : corteDTO.getCantidadesPorSede()) {
+                            if (cantidadSede.getSedeId() == null || cantidadSede.getCantidad() == null || cantidadSede.getCantidad() <= 0) {
+                                continue; // Saltar sedes con cantidad 0 o sin ID
+                            }
+                            Long sedeIdSobrante = cantidadSede.getSedeId();
+                            Double cantidadSobrante = cantidadSede.getCantidad();
+                            // Incrementar stock del corte sobrante
+                            inventarioCorteService.incrementarStock(
+                                corteSobrante.getId(),
+                                sedeIdSobrante,
+                                cantidadSobrante
+                            );
+                            log.debug("📦 [Orden: {}] Incrementado inventario corte sobrante ID {} (sede {}) en {} unidades", 
+                                orden.getId(), corteSobrante.getId(), sedeIdSobrante, cantidadSobrante);
+                        }
+                    } else {
+                        // Si no hay cantidadesPorSede específicas, incrementar en la sede de la orden
+                        inventarioCorteService.incrementarStock(corteSobrante.getId(), sedeId, cantidad);
+                        log.debug("📦 [Orden: {}] Incrementado inventario corte sobrante ID {} en {} unidades", 
+                            orden.getId(), corteSobrante.getId(), cantidad);
+                    }
                 }
             }
         }
@@ -3228,6 +3317,18 @@ public class OrdenService {
      * El nombre incluye la medida en CMS sin indicar si es SOBRANTE o SOLICITADO.
      */
     private Corte crearCorteIndividual(Producto productoOriginal, Integer medida, Double precio, Long sedeId, String tipo) {
+        // 🆕 VALIDAR MEDIDA Y PRECIO ANTES DE PROCESAR
+        if (medida == null || medida <= 0) {
+            throw new IllegalArgumentException(
+                "Medida del corte inválida: " + medida + " cm. Debe ser > 0 para sede " + sedeId
+            );
+        }
+        if (precio == null || precio <= 0) {
+            throw new IllegalArgumentException(
+                "Precio del corte inválido: " + precio + ". Debe ser > 0 para sede " + sedeId
+            );
+        }
+        
         // 0) Intentar reutilizar un corte existente por código base, largo, categoría y color
         // ✅ Código siempre es el del producto base (ej: "392"), NO incluye la medida
         String codigoBase = productoOriginal.getCodigo();

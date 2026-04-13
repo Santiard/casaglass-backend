@@ -161,6 +161,7 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
      */
     @Query("SELECT DISTINCT o FROM Orden o " +
            "LEFT JOIN o.factura f " +
+           "LEFT JOIN o.creditoDetalle c " +
            "WHERE (:clienteId IS NULL OR o.cliente.id = :clienteId) AND " +
            "(:sedeId IS NULL OR o.sede.id = :sedeId) AND " +
            "(:estado IS NULL OR o.estado = :estado) AND " +
@@ -168,6 +169,11 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
            "(:fechaHasta IS NULL OR o.fecha <= :fechaHasta) AND " +
            "(:venta IS NULL OR o.venta = :venta) AND " +
            "(:credito IS NULL OR o.credito = :credito) AND " +
+           "(:estadoPago IS NULL OR " +
+           "  (:estadoPago = 'PAGADO' AND ((o.venta = true AND o.credito = false) OR (o.venta = true AND o.credito = true AND COALESCE(c.saldoPendiente, 0) <= 0.01))) OR " +
+           "  (:estadoPago = 'ABONADO' AND (o.venta = true AND o.credito = true AND COALESCE(c.saldoPendiente, 0) > 0.01 AND COALESCE(c.totalAbonado, 0) > 0.01)) OR " +
+           "  (:estadoPago = 'NO PAGADO' AND ((o.venta = false) OR (o.venta = true AND o.credito = true AND (c.id IS NULL OR (COALESCE(c.saldoPendiente, 0) > 0.01 AND COALESCE(c.totalAbonado, 0) <= 0.01)))))" +
+           ") AND " +
            "(:facturada IS NULL OR (:facturada = true AND f.id IS NOT NULL) OR (:facturada = false AND f.id IS NULL)) " +
            "ORDER BY o.fecha DESC, o.numero DESC")
     List<Orden> buscarConFiltros(
@@ -178,6 +184,7 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
         @Param("fechaHasta") LocalDate fechaHasta,
         @Param("venta") Boolean venta,
         @Param("credito") Boolean credito,
+        @Param("estadoPago") String estadoPago,
         @Param("facturada") Boolean facturada
     );
 }
