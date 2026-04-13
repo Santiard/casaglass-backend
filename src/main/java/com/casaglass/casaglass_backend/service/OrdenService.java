@@ -1138,7 +1138,7 @@ public class OrdenService {
         
         // Buscar órdenes con filtros
         List<Orden> ordenes = repo.buscarConFiltros(
-            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, facturada
+            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, null, facturada
         );
         
         // Aplicar ordenamiento
