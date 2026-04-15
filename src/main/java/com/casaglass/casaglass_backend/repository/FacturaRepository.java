@@ -45,11 +45,16 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     List<Factura> findByEstadoAndFechaPagoNotNull(Factura.EstadoFactura estado);
 
     /**
-     * Obtener el siguiente número de factura
-     * Busca el número más alto y lo incrementa en 1
-     * Usa query nativa porque HQL no soporta REGEXP
+     * Obtener el siguiente consecutivo numérico para factura.
+     * Soporta números históricos (ej: 5851) y prefijados (ej: FAC5852).
      */
-    @Query(value = "SELECT COALESCE(MAX(CAST(numero_factura AS UNSIGNED)), 0) + 1 FROM facturas WHERE numero_factura REGEXP '^[0-9]+$'", nativeQuery = true)
+    @Query(value = "SELECT COALESCE(MAX(" +
+            "CASE " +
+            "WHEN numero_factura REGEXP '^FAC[0-9]+$' THEN CAST(SUBSTRING(numero_factura, 4) AS UNSIGNED) " +
+            "WHEN numero_factura REGEXP '^[0-9]+$' THEN CAST(numero_factura AS UNSIGNED) " +
+            "ELSE 0 END" +
+            "), 0) + 1 " +
+            "FROM facturas", nativeQuery = true)
     Long obtenerSiguienteNumero();
 
     /**

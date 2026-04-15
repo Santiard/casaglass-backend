@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 public class FacturaService {
 
     private static final Logger log = LoggerFactory.getLogger(FacturaService.class);
+    private static final String PREFIJO_FACTURA_AUTOMATICA = "FAC";
 
     private final FacturaRepository facturaRepo;
     private final OrdenRepository ordenRepository;
@@ -139,8 +140,7 @@ public class FacturaService {
         if (facturaDTO.getNumeroFactura() != null && !facturaDTO.getNumeroFactura().isEmpty()) {
             factura.setNumeroFactura(facturaDTO.getNumeroFactura());
         } else {
-            Long siguienteNumero = generarNumeroFactura();
-            factura.setNumeroFactura(String.valueOf(siguienteNumero));
+            factura.setNumeroFactura(generarNumeroFactura());
         }
 
         // Guardar factura
@@ -230,18 +230,20 @@ public class FacturaService {
     }
 
     /**
-     * Genera el siguiente número de factura de forma thread-safe
+     * Genera el siguiente número de factura de forma thread-safe.
+     * Formato automático: FAC + consecutivo (ej: FAC10, FAC5468).
      */
-    private Long generarNumeroFactura() {
+    private String generarNumeroFactura() {
         int maxIntentos = 5;
         int intento = 0;
 
         while (intento < maxIntentos) {
             try {
                 Long siguienteNumero = facturaRepo.obtenerSiguienteNumero();
+                String numeroGenerado = PREFIJO_FACTURA_AUTOMATICA + siguienteNumero;
 
-                if (!facturaRepo.findByNumeroFactura(String.valueOf(siguienteNumero)).isPresent()) {
-                    return siguienteNumero;
+                if (!facturaRepo.findByNumeroFactura(numeroGenerado).isPresent()) {
+                    return numeroGenerado;
                 }
 
                 intento++;
