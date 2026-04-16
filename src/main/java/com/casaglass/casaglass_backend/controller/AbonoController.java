@@ -192,11 +192,45 @@ public class AbonoController {
     public ResponseEntity<?> eliminar(@PathVariable Long creditoId, @PathVariable Long abonoId) {
         try {
             service.eliminar(creditoId, abonoId);
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "Abono eliminado correctamente",
+                    "abonoId", abonoId,
+                    "creditoId", creditoId));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage(),
+                    "tipo", "VALIDACION"));
+        }
+    }
+
+    /**
+     * 🗑️ ELIMINAR ABONO POR ID
+     * 
+     * DELETE /api/abonos/{abonoId}
+     * 
+     * - No requiere enviar el creditoId en la URL.
+     * - El servicio resuelve internamente el crédito asociado al abono,
+     *   elimina el abono y luego:
+     *   - Recalcula totalAbonado y saldoPendiente del crédito.
+     *   - Si el crédito estaba CERRADO y vuelve a tener saldo > 0,
+     *     lo pasa automáticamente a estado ABIERTO.
+     */
+    @DeleteMapping("/abonos/{abonoId}")
+    public ResponseEntity<?> eliminarPorId(@PathVariable Long abonoId) {
+        try {
+            service.eliminar(abonoId);
+            // 200 + JSON: muchos clientes hacen response.json() y fallan con 204 sin cuerpo
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "Abono eliminado correctamente",
+                    "abonoId", abonoId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage(),
+                    "tipo", "VALIDACION"));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", e.getMessage(),
+                    "tipo", "VALIDACION"));
         }
     }
 }

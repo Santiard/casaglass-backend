@@ -4,10 +4,13 @@ import com.casaglass.casaglass_backend.dto.AbonoDTO;
 import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.AbonoRepository;
 import com.casaglass.casaglass_backend.repository.CreditoRepository;
+import com.casaglass.casaglass_backend.repository.EntregaDetalleRepository;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -22,17 +25,27 @@ public class AbonoService {
     private final OrdenRepository ordenRepo;
     private final SedeRepository sedeRepo;
     private final CreditoService creditoService;
+    private final EntregaDetalleRepository entregaDetalleRepo;
 
     public AbonoService(AbonoRepository abonoRepo,
                         CreditoRepository creditoRepo,
                         OrdenRepository ordenRepo,
                         SedeRepository sedeRepo,
-                        CreditoService creditoService) {
+                        CreditoService creditoService,
+                        EntregaDetalleRepository entregaDetalleRepo) {
         this.abonoRepo = abonoRepo;
         this.creditoRepo = creditoRepo;
         this.ordenRepo = ordenRepo;
         this.sedeRepo = sedeRepo;
         this.creditoService = creditoService;
+        this.entregaDetalleRepo = entregaDetalleRepo;
+    }
+
+    private void assertAbonoNoEnEntregaDinero(Long abonoId) {
+        if (entregaDetalleRepo.existsByAbono_Id(abonoId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Este abono ya está incluido en una entrega de dinero y no se puede eliminar.");
+        }
     }
 
     /* -------- Helpers de dinero (redondeado a 2 decimales) -------- */
@@ -381,7 +394,8 @@ public class AbonoService {
     @Transactional
     public void eliminar(Long creditoId, Long abonoId) {
         Abono abono = abonoRepo.findById(abonoId)
-                .orElseThrow(() -> new RuntimeException("Abono no encontrado: " + abonoId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Abono no encontrado: " + abonoId));
         
         if (!abono.getCredito().getId().equals(creditoId)) {
             throw new IllegalArgumentException("El abono no pertenece al crédito indicado");
@@ -392,8 +406,42 @@ public class AbonoService {
             throw new IllegalArgumentException("No se pueden eliminar abonos de un crédito anulado");
         }
 
-        abonoRepo.delete(abono);
-        
+        assertAbonoNoEnEntregaDinero(abonoId);
+
+        // Quitar de la colección del crédito (mappedBy + orphanRemoval): evita que la sesión
+        // siga referenciando el abono borrado y falle en merge al guardar el crédito.
+        credito.getAbonos().remove(abono);
+
+        // Recalcular totales del crédito
+        creditoService.recalcularTotales(creditoId);
+    }
+
+    /**
+     * 🗑️ ELIMINAR ABONO POR ID
+     * Versión simplificada que no requiere creditoId en la URL.
+     * Resuelve el crédito asociado y recalcula sus totales.
+     */
+    @Transactional
+    public void eliminar(Long abonoId) {
+        Abono abono = abonoRepo.findById(abonoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Abono no encontrado: " + abonoId));
+
+        Credito credito = abono.getCredito();
+        if (credito == null || credito.getId() == null) {
+            throw new IllegalStateException("El abono no tiene un crédito asociado válido");
+        }
+
+        if (credito.getEstado() == Credito.EstadoCredito.ANULADO) {
+            throw new IllegalArgumentException("No se pueden eliminar abonos de un crédito anulado");
+        }
+
+        assertAbonoNoEnEntregaDinero(abonoId);
+
+        Long creditoId = credito.getId();
+
+        credito.getAbonos().remove(abono);
+
         // Recalcular totales del crédito
         creditoService.recalcularTotales(creditoId);
     }

@@ -45,4 +45,7 @@ public interface EntregaDetalleRepository extends JpaRepository<EntregaDetalle, 
     long countByEntregaId(Long entregaId);
 
     void deleteByEntregaId(Long entregaId);
+
+    /** True si el abono está referenciado por algún detalle de entrega de dinero (bloquea DELETE en BD). */
+    boolean existsByAbono_Id(Long abonoId);
 }

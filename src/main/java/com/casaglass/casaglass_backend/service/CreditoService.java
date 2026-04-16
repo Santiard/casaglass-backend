@@ -1,5 +1,6 @@
 package com.casaglass.casaglass_backend.service;
 
+import com.casaglass.casaglass_backend.model.Abono;
 import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.Cliente;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -509,8 +511,43 @@ public class CreditoService {
 
         credito.setTotalAbonado(normalize(totalAbonos));
         credito.actualizarSaldo();
-
+        sincronizarSaldoPosteriorEnAbonos(credito);
         return creditoRepo.save(credito);
+    }
+
+    /**
+     * Reescribe {@link Abono#getSaldo()} en cada abono del crédito: es el saldo pendiente
+     * justo después de aplicar ese abono, en orden cronológico (fecha, id).
+     * Así, si se elimina o cambia un abono, los snapshots no quedan desactualizados.
+     */
+    private void sincronizarSaldoPosteriorEnAbonos(Credito credito) {
+        if (credito.getAbonos() == null || credito.getAbonos().isEmpty()) {
+            return;
+        }
+        double retFuente = 0.0;
+        double retIca = 0.0;
+        Orden orden = credito.getOrden();
+        if (orden != null) {
+            if (orden.isTieneRetencionFuente() && orden.getRetencionFuente() != null) {
+                retFuente = orden.getRetencionFuente();
+            }
+            if (orden.isTieneRetencionIca() && orden.getRetencionIca() != null) {
+                retIca = orden.getRetencionIca();
+            }
+        }
+        double totalCredito = credito.getTotalCredito() != null ? credito.getTotalCredito() : 0.0;
+        double running = normalize(totalCredito - retFuente - retIca);
+
+        List<Abono> ordenados = new ArrayList<>(credito.getAbonos());
+        ordenados.sort(Comparator
+                .comparing(Abono::getFecha, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(Abono::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        for (Abono a : ordenados) {
+            double monto = normalize(a.getTotal() != null ? a.getTotal() : 0.0);
+            running = normalize(running - monto);
+            a.setSaldo(running);
+        }
     }
 
     /**
