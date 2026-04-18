@@ -153,6 +153,9 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     // 📊 MÉTODO PARA DASHBOARD - VENTAS DE HOY
     List<Orden> findBySedeIdAndFechaAndVentaTrue(Long sedeId, LocalDate fecha);
 
+    // 📊 MÉTODO PARA DASHBOARD - VENTAS DEL MES
+    List<Orden> findBySedeIdAndFechaBetweenAndVentaTrue(Long sedeId, LocalDate desde, LocalDate hasta);
+
     /**
      * 🔍 BÚSQUEDA AVANZADA DE ÓRDENES CON MÚLTIPLES FILTROS
      * Usado para GET /api/ordenes/tabla con filtros opcionales

@@ -32,6 +32,12 @@ public interface CreditoRepository extends JpaRepository<Credito, Long> {
     // 📊 MÉTODO PARA DASHBOARD - CRÉDITOS POR SEDE
     List<Credito> findByOrdenSedeIdAndEstado(Long sedeId, Credito.EstadoCredito estado);
 
+    // 📊 MÉTODO PARA DASHBOARD - DEUDAS CREADAS EN EL MES (sin importar estado)
+    List<Credito> findByOrdenSedeIdAndFechaInicioBetween(Long sedeId, LocalDate desde, LocalDate hasta);
+
+    // 📊 MÉTODO PARA DASHBOARD - HISTÓRICO TOTAL DE DEUDAS DE LA SEDE (todos los estados)
+    List<Credito> findByOrdenSedeId(Long sedeId);
+
     /**
      * Encuentra créditos por rango de fecha de inicio
      */

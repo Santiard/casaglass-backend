@@ -15,8 +15,11 @@ public class SedeDashboardDTO {
     
     private SedeInfo sede;
     private VentasHoyInfo ventasHoy;
+    private VentasMesInfo ventasMes;
     private FaltanteEntregaInfo faltanteEntrega;
     private CreditosPendientesInfo creditosPendientes;
+    private DeudasMesInfo deudasMes;
+    private DeudasActivasInfo deudasActivas;
     private TrasladosPendientesInfo trasladosPendientes;
     private AlertasStockInfo alertasStock;
     
@@ -44,7 +47,11 @@ public class SedeDashboardDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class FaltanteEntregaInfo {
-        private Double montoFaltante;
+        private Double montoFaltante;          // Total pendiente de entregar (contado + abonos)
+        private Double montoOrdenesContado;    // Parte de ventas a contado sin entrega
+        private Double montoAbonos;            // Parte de abonos de crédito sin entrega
+        private Integer cantidadOrdenes;       // N.º de órdenes contado pendientes
+        private Integer cantidadAbonos;        // N.º de abonos pendientes
         private LocalDateTime ultimaEntrega;
         private Double montoUltimaEntrega;
         private String estadoUltimaEntrega;
@@ -114,5 +121,43 @@ public class SedeDashboardDTO {
         private Double stockActual;
         private Integer nivelReorden; // Calculado como cantidad mínima recomendada
         private String estado; // "AGOTADO", "CRÍTICO", "BAJO"
+    }
+
+    /** Ventas realizadas durante el mes en curso para la sede */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VentasMesInfo {
+        private Integer cantidad;
+        private Double total;
+        private Integer ventasContado;
+        private Integer ventasCredito;
+        private Double totalContado;
+        private Double totalCredito;
+    }
+
+    /** Créditos (deudas) creados durante el mes en curso para la sede */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DeudasMesInfo {
+        private Integer totalDeudas;
+        private Double montoTotalDeudas;
+        private Double montoPendiente;
+        private Integer deudasAbiertas;
+        private Integer deudasCerradas;
+    }
+
+    /** Histórico completo de deudas de la sede (todos los estados, desde siempre) */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DeudasActivasInfo {
+        private Integer totalDeudas;
+        private Double montoTotalHistorico;
+        private Double montoPendienteActivo;
+        private Integer deudasAbiertas;
+        private Integer deudasCerradas;
+        private Integer deudasAnuladas;
     }
 }

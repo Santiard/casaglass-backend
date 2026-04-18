@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,6 +34,9 @@ public class SedeDashboardService {
     @Autowired
     private TrasladoRepository trasladoRepository;
 
+    @Autowired
+    private AbonoRepository abonoRepository;
+
     @Transactional(readOnly = true)
     public SedeDashboardDTO obtenerDashboard(Long sedeId) {
         // Verificar que la sede existe
@@ -44,8 +48,11 @@ public class SedeDashboardService {
         
         dashboard.setSede(obtenerInfoSede(sede));
         dashboard.setVentasHoy(obtenerVentasHoy(sedeId));
+        dashboard.setVentasMes(obtenerVentasMes(sedeId));
         dashboard.setFaltanteEntrega(obtenerFaltanteEntrega(sedeId));
         dashboard.setCreditosPendientes(obtenerCreditosPendientes(sedeId));
+        dashboard.setDeudasMes(obtenerDeudasMes(sedeId));
+        dashboard.setDeudasActivas(obtenerDeudasActivas(sedeId));
         dashboard.setTrasladosPendientes(obtenerTrasladosPendientes(sedeId));
         dashboard.setAlertasStock(obtenerAlertasStock(sedeId));
         
@@ -85,23 +92,112 @@ public class SedeDashboardService {
         return new VentasHoyInfo(cantidad, total, cantidadContado, cantidadCredito, totalContado, totalCredito);
     }
 
+    private VentasMesInfo obtenerVentasMes(Long sedeId) {
+        YearMonth mesActual = YearMonth.now();
+        LocalDate primerDia = mesActual.atDay(1);
+        LocalDate ultimoDia = mesActual.atEndOfMonth();
+
+        List<Orden> ventasMes = ordenRepository.findBySedeIdAndFechaBetweenAndVentaTrue(sedeId, primerDia, ultimoDia);
+
+        Integer cantidad = ventasMes.size();
+        Double total = ventasMes.stream().mapToDouble(Orden::getTotal).sum();
+
+        List<Orden> ventasContado = ventasMes.stream()
+                .filter(orden -> !orden.isCredito())
+                .collect(Collectors.toList());
+
+        List<Orden> ventasCredito = ventasMes.stream()
+                .filter(Orden::isCredito)
+                .collect(Collectors.toList());
+
+        return new VentasMesInfo(
+                cantidad,
+                total,
+                ventasContado.size(),
+                ventasCredito.size(),
+                ventasContado.stream().mapToDouble(Orden::getTotal).sum(),
+                ventasCredito.stream().mapToDouble(Orden::getTotal).sum()
+        );
+    }
+
     private FaltanteEntregaInfo obtenerFaltanteEntrega(Long sedeId) {
-        // Obtener la última entrega de dinero de la sede
+        // Órdenes a contado que aún no se han incluido en ninguna entrega de dinero
+        List<Orden> ordenesContadoPendientes = ordenRepository.findOrdenesContadoDisponiblesParaEntregaSinFecha(sedeId);
+        Double montoOrdenesContado = ordenesContadoPendientes.stream()
+                .mapToDouble(Orden::getTotal).sum();
+
+        // Abonos de crédito que aún no se han incluido en ninguna entrega de dinero
+        List<Abono> abonosPendientes = abonoRepository.findAbonosDisponiblesParaEntregaSinFecha(sedeId);
+        Double montoAbonos = abonosPendientes.stream()
+                .mapToDouble(Abono::getTotal).sum();
+
+        Double montoFaltante = montoOrdenesContado + montoAbonos;
+
+        // Datos de la última entrega registrada (contexto informativo)
         EntregaDinero ultimaEntrega = entregaDineroRepository.findFirstBySedeIdOrderByFechaEntregaDesc(sedeId);
-        
+
         if (ultimaEntrega == null) {
-            return new FaltanteEntregaInfo(0.0, null, 0.0, "SIN_ENTREGAS");
+            return new FaltanteEntregaInfo(
+                    montoFaltante,
+                    montoOrdenesContado,
+                    montoAbonos,
+                    ordenesContadoPendientes.size(),
+                    abonosPendientes.size(),
+                    null, 0.0, "SIN_ENTREGAS"
+            );
         }
-        
-        // Ya no hay diferencia porque siempre se entrega todo el dinero
-        Double montoFaltante = 0.0;
-        
+
         return new FaltanteEntregaInfo(
                 montoFaltante,
-                ultimaEntrega.getFechaEntrega().atStartOfDay(), // Convertir LocalDate a LocalDateTime
+                montoOrdenesContado,
+                montoAbonos,
+                ordenesContadoPendientes.size(),
+                abonosPendientes.size(),
+                ultimaEntrega.getFechaEntrega().atStartOfDay(),
                 ultimaEntrega.getMonto() != null ? ultimaEntrega.getMonto() : 0.0,
                 ultimaEntrega.getEstado().name()
         );
+    }
+
+    private DeudasMesInfo obtenerDeudasMes(Long sedeId) {
+        YearMonth mesActual = YearMonth.now();
+        LocalDate primerDia = mesActual.atDay(1);
+        LocalDate ultimoDia = mesActual.atEndOfMonth();
+
+        List<Credito> deudasMes = creditoRepository.findByOrdenSedeIdAndFechaInicioBetween(sedeId, primerDia, ultimoDia);
+
+        Integer totalDeudas = deudasMes.size();
+        Double montoTotal = deudasMes.stream().mapToDouble(Credito::getTotalCredito).sum();
+        Double montoPendiente = deudasMes.stream().mapToDouble(Credito::getSaldoPendiente).sum();
+
+        long abiertas = deudasMes.stream()
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                .count();
+        long cerradas = deudasMes.stream()
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.CERRADO)
+                .count();
+
+        return new DeudasMesInfo(totalDeudas, montoTotal, montoPendiente, (int) abiertas, (int) cerradas);
+    }
+
+    private DeudasActivasInfo obtenerDeudasActivas(Long sedeId) {
+        List<Credito> todas = creditoRepository.findByOrdenSedeId(sedeId);
+
+        Integer totalDeudas = todas.size();
+        Double montoTotalHistorico = todas.stream().mapToDouble(Credito::getTotalCredito).sum();
+        Double montoPendienteActivo = todas.stream()
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                .mapToDouble(Credito::getSaldoPendiente)
+                .sum();
+
+        int abiertas = (int) todas.stream()
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO).count();
+        int cerradas = (int) todas.stream()
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.CERRADO).count();
+        int anuladas = (int) todas.stream()
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ANULADO).count();
+
+        return new DeudasActivasInfo(totalDeudas, montoTotalHistorico, montoPendienteActivo, abiertas, cerradas, anuladas);
     }
 
     private CreditosPendientesInfo obtenerCreditosPendientes(Long sedeId) {
