@@ -37,6 +37,30 @@ public class SedeDashboardService {
     @Autowired
     private AbonoRepository abonoRepository;
 
+    /**
+     * Dashboard de tarjetas con sedeId opcional.
+     * - sedeId != null → idéntico al dashboard de sede individual
+     * - sedeId == null → agrega datos de todas las sedes
+     */
+    @Transactional(readOnly = true)
+    public SedeDashboardDTO obtenerDashboardTarjetas(Long sedeId) {
+        if (sedeId != null) {
+            return obtenerDashboard(sedeId);
+        }
+
+        SedeDashboardDTO dashboard = new SedeDashboardDTO();
+        dashboard.setSede(new SedeDashboardDTO.SedeInfo(null, "Todas las sedes"));
+        dashboard.setVentasHoy(obtenerVentasHoyTodasSedes());
+        dashboard.setVentasMes(obtenerVentasMesTodasSedes());
+        dashboard.setFaltanteEntrega(obtenerFaltanteEntregaTodasSedes());
+        dashboard.setCreditosPendientes(obtenerCreditosPendientesTodasSedes());
+        dashboard.setDeudasMes(obtenerDeudasMesTodasSedes());
+        dashboard.setDeudasActivas(obtenerDeudasActivasTodasSedes());
+        dashboard.setTrasladosPendientes(obtenerTrasladosPendientesTodasSedes());
+        dashboard.setAlertasStock(obtenerAlertasStockTodasSedes());
+        return dashboard;
+    }
+
     @Transactional(readOnly = true)
     public SedeDashboardDTO obtenerDashboard(Long sedeId) {
         // Verificar que la sede existe
@@ -295,6 +319,115 @@ public class SedeDashboardService {
         Integer totalPendientes = trasladosRecibirDTO.size() + trasladosEnviarDTO.size();
         
         return new TrasladosPendientesInfo(totalPendientes, trasladosRecibirDTO, trasladosEnviarDTO);
+    }
+
+    // ===== MÉTODOS AGREGADOS — TODAS LAS SEDES =====
+
+    private VentasHoyInfo obtenerVentasHoyTodasSedes() {
+        LocalDate hoy = LocalDate.now();
+        List<Orden> ventasHoy = ordenRepository.findByFechaBetween(hoy, hoy).stream()
+                .filter(Orden::isVenta)
+                .collect(Collectors.toList());
+        List<Orden> contado = ventasHoy.stream().filter(o -> !o.isCredito()).collect(Collectors.toList());
+        List<Orden> credito = ventasHoy.stream().filter(Orden::isCredito).collect(Collectors.toList());
+        return new VentasHoyInfo(
+                ventasHoy.size(),
+                ventasHoy.stream().mapToDouble(Orden::getTotal).sum(),
+                contado.size(), credito.size(),
+                contado.stream().mapToDouble(Orden::getTotal).sum(),
+                credito.stream().mapToDouble(Orden::getTotal).sum()
+        );
+    }
+
+    private VentasMesInfo obtenerVentasMesTodasSedes() {
+        YearMonth mesActual = YearMonth.now();
+        List<Orden> ventasMes = ordenRepository.findByFechaBetween(mesActual.atDay(1), mesActual.atEndOfMonth()).stream()
+                .filter(Orden::isVenta)
+                .collect(Collectors.toList());
+        List<Orden> contado = ventasMes.stream().filter(o -> !o.isCredito()).collect(Collectors.toList());
+        List<Orden> credito = ventasMes.stream().filter(Orden::isCredito).collect(Collectors.toList());
+        return new VentasMesInfo(
+                ventasMes.size(),
+                ventasMes.stream().mapToDouble(Orden::getTotal).sum(),
+                contado.size(), credito.size(),
+                contado.stream().mapToDouble(Orden::getTotal).sum(),
+                credito.stream().mapToDouble(Orden::getTotal).sum()
+        );
+    }
+
+    private FaltanteEntregaInfo obtenerFaltanteEntregaTodasSedes() {
+        List<Orden> ordenesPendientes = ordenRepository.findOrdenesContadoDisponiblesParaEntregaTodasSedes();
+        List<Abono> abonosPendientes = abonoRepository.findAbonosDisponiblesParaEntregaTodasSedes();
+        double montoOrdenes = ordenesPendientes.stream().mapToDouble(Orden::getTotal).sum();
+        double montoAbonos = abonosPendientes.stream().mapToDouble(Abono::getTotal).sum();
+        return new FaltanteEntregaInfo(
+                montoOrdenes + montoAbonos,
+                montoOrdenes, montoAbonos,
+                ordenesPendientes.size(), abonosPendientes.size(),
+                null, 0.0, "TODAS_SEDES"
+        );
+    }
+
+    private CreditosPendientesInfo obtenerCreditosPendientesTodasSedes() {
+        List<Credito> activos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
+        LocalDate limiteVencido = LocalDate.now().minusDays(30);
+        LocalDate limiteProximo = LocalDate.now().minusDays(20);
+        List<SedeDashboardDTO.CreditoResumenDTO> vencidos = activos.stream()
+                .filter(c -> c.getFechaInicio().isBefore(limiteVencido))
+                .map(this::convertirACreditoResumen)
+                .collect(Collectors.toList());
+        List<SedeDashboardDTO.CreditoResumenDTO> proximos = activos.stream()
+                .filter(c -> c.getFechaInicio().isAfter(limiteVencido) && c.getFechaInicio().isBefore(limiteProximo))
+                .map(this::convertirACreditoResumen)
+                .collect(Collectors.toList());
+        return new CreditosPendientesInfo(
+                activos.size(),
+                activos.stream().mapToDouble(Credito::getTotalCredito).sum(),
+                activos.stream().mapToDouble(Credito::getSaldoPendiente).sum(),
+                vencidos, proximos
+        );
+    }
+
+    private DeudasMesInfo obtenerDeudasMesTodasSedes() {
+        YearMonth mesActual = YearMonth.now();
+        List<Credito> deudasMes = creditoRepository.findByFechaInicioBetween(mesActual.atDay(1), mesActual.atEndOfMonth());
+        long abiertas = deudasMes.stream().filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO).count();
+        long cerradas = deudasMes.stream().filter(c -> c.getEstado() == Credito.EstadoCredito.CERRADO).count();
+        return new DeudasMesInfo(
+                deudasMes.size(),
+                deudasMes.stream().mapToDouble(Credito::getTotalCredito).sum(),
+                deudasMes.stream().mapToDouble(Credito::getSaldoPendiente).sum(),
+                (int) abiertas, (int) cerradas
+        );
+    }
+
+    private DeudasActivasInfo obtenerDeudasActivasTodasSedes() {
+        List<Credito> todas = creditoRepository.findAll();
+        int abiertas = (int) todas.stream().filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO).count();
+        int cerradas = (int) todas.stream().filter(c -> c.getEstado() == Credito.EstadoCredito.CERRADO).count();
+        int anuladas = (int) todas.stream().filter(c -> c.getEstado() == Credito.EstadoCredito.ANULADO).count();
+        return new DeudasActivasInfo(
+                todas.size(),
+                todas.stream().mapToDouble(Credito::getTotalCredito).sum(),
+                todas.stream().filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                        .mapToDouble(Credito::getSaldoPendiente).sum(),
+                abiertas, cerradas, anuladas
+        );
+    }
+
+    private TrasladosPendientesInfo obtenerTrasladosPendientesTodasSedes() {
+        List<Traslado> pendientes = trasladoRepository.findByFechaConfirmacionIsNull();
+        List<TrasladoPendienteDTO> dtos = pendientes.stream()
+                .map(this::convertirATrasladoPendiente)
+                .collect(Collectors.toList());
+        return new TrasladosPendientesInfo(dtos.size(), dtos, List.of());
+    }
+
+    private AlertasStockInfo obtenerAlertasStockTodasSedes() {
+        List<ProductoBajoStockDTO> productosBajos = inventarioRepository.findAllByCantidadLessThanEqual(20).stream()
+                .map(this::convertirAProductoBajoStock)
+                .collect(Collectors.toList());
+        return new AlertasStockInfo(productosBajos.size(), productosBajos);
     }
 
     private TrasladoPendienteDTO convertirATrasladoPendiente(Traslado traslado) {

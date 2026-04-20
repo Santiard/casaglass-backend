@@ -126,6 +126,18 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     );
 
     /**
+     * 💰 ÓRDENES A CONTADO DISPONIBLES PARA ENTREGA — TODAS LAS SEDES (SIN FILTRO DE FECHA NI SEDE)
+     * Usado para el dashboard agregado de todas las sedes.
+     */
+    @Query("SELECT o FROM Orden o WHERE " +
+           "o.cliente.id != 499 AND " +
+           "o.credito = false AND " +
+           "o.venta = true AND " +
+           "o.incluidaEntrega = false AND " +
+           "o.estado = 'ACTIVA'")
+    List<Orden> findOrdenesContadoDisponiblesParaEntregaTodasSedes();
+
+    /**
      * 🏦 ÓRDENES A CRÉDITO CON ABONOS EN EL PERÍODO
      * - De la sede especificada
      * - Venta a crédito (credito = true)

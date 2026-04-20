@@ -54,6 +54,9 @@ public interface TrasladoRepository extends JpaRepository<Traslado, Long> {
     
     List<Traslado> findBySedeDestinoIdAndFechaConfirmacionIsNull(Long sedeDestinoId);
 
+    // 📊 MÉTODO PARA DASHBOARD - TODOS LOS TRASLADOS PENDIENTES (TODAS LAS SEDES)
+    List<Traslado> findByFechaConfirmacionIsNull();
+
     /**
      * 🔍 BÚSQUEDA AVANZADA DE TRASLADOS CON MÚLTIPLES FILTROS
      * Todos los parámetros son opcionales (nullable)

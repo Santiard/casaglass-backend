@@ -2,8 +2,10 @@ package com.casaglass.casaglass_backend.controller;
 
 import com.casaglass.casaglass_backend.dto.DashboardCompletoDTO;
 import com.casaglass.casaglass_backend.dto.DashboardVentasPorSedeDTO;
+import com.casaglass.casaglass_backend.dto.SedeDashboardDTO;
 import com.casaglass.casaglass_backend.service.DashboardCompletoService;
 import com.casaglass.casaglass_backend.service.DashboardService;
+import com.casaglass.casaglass_backend.service.SedeDashboardService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,9 @@ public class DashboardController {
     @Autowired
     private DashboardCompletoService dashboardCompletoService;
 
+    @Autowired
+    private SedeDashboardService sedeDashboardService;
+
     /**
      * 📊 DASHBOARD COMPLETO - Endpoint consolidado
      * Retorna todos los datos relevantes en una sola llamada
@@ -38,6 +43,29 @@ public class DashboardController {
         try {
             DashboardCompletoDTO dashboard = dashboardCompletoService.obtenerDashboardCompleto(desde, hasta);
             return ResponseEntity.ok(dashboard);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    /**
+     * 🏠 TARJETAS DEL HOME CON FILTRO DE SEDE OPCIONAL
+     * 
+     * GET /api/dashboard/tarjetas              → agrega todas las sedes
+     * GET /api/dashboard/tarjetas?sedeId=2    → datos solo de la sede indicada
+     * 
+     * Retorna la misma estructura que GET /api/sedes/{sedeId}/dashboard
+     */
+    @GetMapping("/tarjetas")
+    public ResponseEntity<SedeDashboardDTO> obtenerTarjetas(
+            @RequestParam(required = false) Long sedeId
+    ) {
+        try {
+            SedeDashboardDTO dashboard = sedeDashboardService.obtenerDashboardTarjetas(sedeId);
+            return ResponseEntity.ok(dashboard);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).build();

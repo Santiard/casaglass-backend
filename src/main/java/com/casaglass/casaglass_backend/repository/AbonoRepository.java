@@ -90,6 +90,20 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
     );
 
     /**
+     * 💰 ABONOS DISPONIBLES PARA ENTREGA — TODAS LAS SEDES (SIN FILTRO DE FECHA NI SEDE)
+     * Usado para el dashboard agregado de todas las sedes.
+     */
+    @Query("SELECT DISTINCT a FROM Abono a " +
+           "JOIN a.orden o " +
+           "LEFT JOIN EntregaDetalle ed ON ed.abono.id = a.id WHERE " +
+           "a.cliente.id != 499 AND " +
+           "o.credito = true AND " +
+           "o.venta = true AND " +
+           "o.estado = 'ACTIVA' AND " +
+           "ed.id IS NULL")
+    List<Abono> findAbonosDisponiblesParaEntregaTodasSedes();
+
+    /**
      * 🔍 BÚSQUEDA AVANZADA DE ABONOS CON MÚLTIPLES FILTROS
      * Todos los parámetros son opcionales (nullable)
      * ✅ Usa la sede del ABONO (donde se registró el pago), no la sede de la orden

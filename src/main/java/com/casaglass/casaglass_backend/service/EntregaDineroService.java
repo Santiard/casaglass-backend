@@ -511,16 +511,26 @@ public class EntregaDineroService {
         LocalDate inicioMes = fechaEntrega.withDayOfMonth(1);
         LocalDate finMes = fechaEntrega.withDayOfMonth(fechaEntrega.lengthOfMonth());
         
-        // 1. Total del mes (solo de la misma sede de la entrega)
-           List<EntregaDinero> entregasDelMes = entrega.getSede() != null
-               ? entregaDineroRepository.findBySedeIdAndFechaEntregaBetween(entrega.getSede().getId(), inicioMes, finMes)
-               : entregaDineroRepository.findByFechaEntregaBetween(inicioMes, finMes);
-        Double totalDelMes = entregasDelMes.stream()
-                .mapToDouble(ent -> ent.getMonto() != null ? ent.getMonto() : 0.0)
+        // 1. Total del mes: suma de TODAS las ventas (contado + crédito) de la sede en el mes
+        Double totalDelMes;
+        if (entrega.getSede() != null) {
+            List<Orden> ventasDelMes = ordenRepository.findBySedeIdAndFechaBetweenAndVentaTrue(
+                entrega.getSede().getId(), inicioMes, finMes);
+            totalDelMes = ventasDelMes.stream()
+                .mapToDouble(o -> o.getTotal() != null ? o.getTotal() : 0.0)
                 .sum();
+        } else {
+            List<Orden> ventasDelMes = ordenRepository.findByFechaBetween(inicioMes, finMes);
+            totalDelMes = ventasDelMes.stream()
+                .filter(o -> o.isVenta())
+                .mapToDouble(o -> o.getTotal() != null ? o.getTotal() : 0.0)
+                .sum();
+        }
 
         // 2. Total deudas mensuales (créditos activos iniciados en el mes de la misma sede)
+        //    + total créditos activos histórico (todos los abiertos de la sede, sin filtro de fecha)
         Double totalDeudasMensuales;
+        Double totalCreditosActivosHistorico;
         if (entrega.getSede() != null) {
             List<Credito> creditosActivosSede = creditoRepository.findByOrdenSedeIdAndEstado(
                 entrega.getSede().getId(),
@@ -532,12 +542,18 @@ public class EntregaDineroService {
                     !credito.getFechaInicio().isAfter(finMes))
                 .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
                 .sum();
+            totalCreditosActivosHistorico = creditosActivosSede.stream()
+                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+                .sum();
         } else {
             List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
             totalDeudasMensuales = creditosActivos.stream()
                 .filter(credito -> credito.getFechaInicio() != null &&
                     !credito.getFechaInicio().isBefore(inicioMes) &&
                     !credito.getFechaInicio().isAfter(finMes))
+                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+                .sum();
+            totalCreditosActivosHistorico = creditosActivos.stream()
                 .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
                 .sum();
         }
@@ -558,6 +574,7 @@ public class EntregaDineroService {
         resumen.setTotalDineroEntregado(entrega.getMonto() != null ? entrega.getMonto() : 0.0);
         resumen.setTotalDelMes(totalDelMes);
         resumen.setTotalDeudasMensuales(totalDeudasMensuales);
+        resumen.setTotalCreditosActivosHistorico(totalCreditosActivosHistorico);
         resumen.setMes(mesISO);
         resumen.setSede(sedeNombre);
         resumen.setTrabajador(trabajadorNombre);
@@ -575,18 +592,22 @@ public class EntregaDineroService {
         LocalDate inicioMes = fechaEntrega.withDayOfMonth(1);
         LocalDate finMes = fechaEntrega.withDayOfMonth(fechaEntrega.lengthOfMonth());
         
-        // 1. Total del mes (sin sede en este overload)
-               List<EntregaDinero> entregasDelMes = entregaDineroRepository.findByFechaEntregaBetween(inicioMes, finMes);
-        Double totalDelMes = entregasDelMes.stream()
-                .mapToDouble(ent -> ent.getMonto() != null ? ent.getMonto() : 0.0)
+        // 1. Total del mes: suma de TODAS las ventas (contado + crédito) del mes
+        List<Orden> ventasDelMes = ordenRepository.findByFechaBetween(inicioMes, finMes);
+        Double totalDelMes = ventasDelMes.stream()
+                .filter(o -> o.isVenta())
+                .mapToDouble(o -> o.getTotal() != null ? o.getTotal() : 0.0)
                 .sum();
         
-        // 2. Total deudas mensuales (sin sede en este overload)
+        // 2. Total deudas mensuales + histórico (sin sede en este overload)
         List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
         Double totalDeudasMensuales = creditosActivos.stream()
             .filter(credito -> credito.getFechaInicio() != null &&
                 !credito.getFechaInicio().isBefore(inicioMes) &&
                 !credito.getFechaInicio().isAfter(finMes))
+                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+                .sum();
+        Double totalCreditosActivosHistorico = creditosActivos.stream()
                 .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
                 .sum();
 
@@ -601,6 +622,7 @@ public class EntregaDineroService {
         resumen.setTotalDineroEntregado(0.0);
         resumen.setTotalDelMes(totalDelMes);
         resumen.setTotalDeudasMensuales(totalDeudasMensuales);
+        resumen.setTotalCreditosActivosHistorico(totalCreditosActivosHistorico);
         resumen.setMes(mesISO);
         resumen.setMesNombre(mesNombre);
         

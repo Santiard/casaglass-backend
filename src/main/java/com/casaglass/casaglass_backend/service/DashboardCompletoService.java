@@ -121,7 +121,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.VentaPorDia> obtenerVentasPorDia(LocalDate desde, LocalDate hasta) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
-                                .filter(this::esOrdenDeTrabajadorMonitoreado)
+                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .collect(Collectors.toList());
 
@@ -141,7 +141,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.VentaPorSede> obtenerVentasPorSede(LocalDate desde, LocalDate hasta) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
-                                .filter(this::esOrdenDeTrabajadorMonitoreado)
+                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .filter(o -> o.getSede() != null)
                 .collect(Collectors.toList());
@@ -163,7 +163,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.TopProducto> obtenerTopProductos(LocalDate desde, LocalDate hasta, int limite) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
-                                .filter(this::esOrdenDeTrabajadorMonitoreado)
+                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .collect(Collectors.toList());
 
@@ -202,7 +202,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.TopCliente> obtenerTopClientes(LocalDate desde, LocalDate hasta, int limite) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
-                                .filter(this::esOrdenDeTrabajadorMonitoreado)
+                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .filter(o -> o.getCliente() != null)
                 .collect(Collectors.toList());
@@ -275,7 +275,7 @@ public class DashboardCompletoService {
 
     private List<DashboardCompletoDTO.TicketPromedioSede> obtenerTicketPromedioPorSede(LocalDate desde, LocalDate hasta) {
         List<Orden> ventas = ordenRepository.findByFechaBetween(desde, hasta).stream()
-                                .filter(this::esOrdenDeTrabajadorMonitoreado)
+                .filter(this::esOrdenDeTrabajadorMonitoreado)
                 .filter(Orden::isVenta)
                 .filter(o -> o.getSede() != null)
                 .collect(Collectors.toList());

@@ -45,4 +45,11 @@ public class ResumenMesDTO {
      * Nombre del mes en formato "febrero 2026" (campo adicional para referencias)
      */
     private String mesNombre;
+
+    /**
+     * TOTAL CRÉDITOS ACTIVOS HISTÓRICO
+     * Suma del saldo pendiente de TODOS los créditos ABIERTOS de la sede,
+     * sin importar en qué mes fueron creados.
+     */
+    private Double totalCreditosActivosHistorico;
 }

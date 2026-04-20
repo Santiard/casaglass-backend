@@ -82,4 +82,13 @@ public interface InventarioRepository extends JpaRepository<Inventario, Long> {
            "WHERE i.sede.id = :sedeId AND i.cantidad <= :cantidad " +
            "ORDER BY i.cantidad ASC")
     List<Inventario> findBySedeIdAndCantidadLessThanEqual(@Param("sedeId") Long sedeId, @Param("cantidad") Integer cantidad);
+
+    // 📊 MÉTODO PARA DASHBOARD - STOCK BAJO EN TODAS LAS SEDES
+    @Query("SELECT DISTINCT i FROM Inventario i " +
+           "LEFT JOIN FETCH i.producto p " +
+           "LEFT JOIN FETCH p.categoria " +
+           "LEFT JOIN FETCH i.sede " +
+           "WHERE i.cantidad <= :cantidad " +
+           "ORDER BY i.cantidad ASC")
+    List<Inventario> findAllByCantidadLessThanEqual(@Param("cantidad") Integer cantidad);
 }
