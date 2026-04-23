@@ -20,12 +20,19 @@ public class CorteInventarioCompletoController {
 
     /**
      * GET /api/cortes-inventario-completo
-     * Obtiene todos los cortes con su información completa de inventario
+     * Obtiene cortes con inventario (cantidades Insula / Centro / Patios en el DTO).
+     * <p>
+     * <b>Parámetros:</b>
+     * <ul>
+     *   <li>Sin {@code sedeId}: solo cortes con stock &gt; 0 en <em>cualquier</em> sede (p. ej. grilla
+     *       de inventario, admin con todas las sedes).</li>
+     *   <li>Con {@code ?sedeId=}: solo filas con existencia &gt; 0 <em>en esa sede</em> (p. ej. modal
+     *       "Unir cortes"). Equivale a {@link #obtenerInventarioPorSede}.</li>
+     * </ul>
      */
     @GetMapping
     public ResponseEntity<List<CorteInventarioCompletoDTO>> obtenerInventarioCompleto(
             @RequestParam(required = false) Long sedeId) {
-        // Para selector de cortes, el listado base muestra solo elementos con stock.
         List<CorteInventarioCompletoDTO> inventario = sedeId != null
                 ? corteInventarioCompletoService.obtenerInventarioCompletoPorSede(sedeId)
                 : corteInventarioCompletoService.obtenerInventarioCompleto();

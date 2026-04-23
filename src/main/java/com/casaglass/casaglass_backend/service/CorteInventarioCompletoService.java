@@ -261,8 +261,12 @@ public class CorteInventarioCompletoService {
             .collect(Collectors.toList());
     }
 
+    /**
+     * Cortes con stock estrictamente en {@code sedeId} (cantidad &gt; 0 vía
+     * {@link InventarioCorteRepository#findBySedeIdWithStock(long)}). El DTO sigue
+     * trayendo el desglose tri-sede; solo la columna de esta sede tendrá cantidad.
+     */
     public List<CorteInventarioCompletoDTO> obtenerInventarioCompletoPorSede(Long sedeId) {
-        // Obtener inventarios de cortes para una sede específica con stock disponible
         List<InventarioCorte> inventariosSede = inventarioCorteRepository.findBySedeIdWithStock(sedeId);
         
         // Obtener los cortes únicos
