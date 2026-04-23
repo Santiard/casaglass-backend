@@ -51,8 +51,6 @@ import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.HashSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 public class OrdenService {
@@ -84,9 +82,6 @@ public class OrdenService {
     private static final Long SEDE_SIN_CONTROL_CORTES_ID = 1L;
     private static final String META_SEPARATOR = " ##META:";
     private static final Set<String> TIPOS_UNIDAD_VALIDOS = Set.of("UNID", "PERFIL", "MT", "CM");
-
-    /** Medida en cm en textos tipo "... Corte de 50CMS" o "... Corte de 50 CMS" (visible, sin ##META). */
-    private static final Pattern PATRON_MEDIDA_CORTE_CMS = Pattern.compile("(?i)corte\\s+de\\s*(\\d+)\\s*cms?");
 
     public OrdenService(OrdenRepository repo, 
                        ClienteRepository clienteRepository,
@@ -129,14 +124,22 @@ public class OrdenService {
 
     @Transactional(readOnly = true)
     public OrdenEntregaEstadoInfo obtenerEstadoEntregaOrden(Long ordenId) {
-        Optional<EntregaDetalle> detalleOpt = entregaDetalleRepository
-            .findFirstByOrdenIdAndEntregaEstadoInOrderByIdDesc(ordenId, ESTADOS_ENTREGA_BLOQUEO_EDICION);
+        // Solo ingresos (contado/abono) bloquean edición; las filas de reembolso (EGRESO) comparten orden_id pero no imponen ese bloqueo solas.
+        List<EntregaDetalle> ingresos = entregaDetalleRepository.findDetallesIngresoBloqueoOrden(
+                ordenId, ESTADOS_ENTREGA_BLOQUEO_EDICION);
+        EntregaDetalle detalle = ingresos.isEmpty() ? null : ingresos.get(0);
 
-        if (detalleOpt.isEmpty()) {
+        if (detalle == null) {
+            Optional<Orden> ordenOp = repo.findById(ordenId);
+            if (ordenOp.isPresent() && ordenOp.get().isIncluidaEntrega()) {
+                Optional<EntregaDetalle> cualquiera = entregaDetalleRepository
+                        .findFirstByOrdenIdAndEntregaEstadoInOrderByIdDesc(ordenId, ESTADOS_ENTREGA_BLOQUEO_EDICION);
+                Long entregaId = cualquiera.map(d -> d.getEntrega() != null ? d.getEntrega().getId() : null).orElse(null);
+                return new OrdenEntregaEstadoInfo(true, entregaId, "CERRADA", false);
+            }
             return new OrdenEntregaEstadoInfo(false, null, "NINGUNA", true);
         }
 
-        EntregaDetalle detalle = detalleOpt.get();
         Long entregaId = detalle.getEntrega() != null ? detalle.getEntrega().getId() : null;
         EntregaDinero.EstadoEntrega estado = detalle.getEntrega() != null ? detalle.getEntrega().getEstado() : null;
 
@@ -151,7 +154,14 @@ public class OrdenService {
     private void validarOrdenEditablePorEntrega(Long ordenId) {
         OrdenEntregaEstadoInfo estadoEntrega = obtenerEstadoEntregaOrden(ordenId);
         if (estadoEntrega.estaEnEntregaDinero()) {
-            throw new IllegalStateException("La orden ya fue incluida en una entrega de dinero y no puede editarse.");
+            String ref = estadoEntrega.entregaDineroId() != null
+                    ? " (entrega id " + estadoEntrega.entregaDineroId() + ")"
+                    : "";
+            throw new IllegalStateException(
+                    "Orden no editable" + ref + ": ya consta el ingreso a contado o abonos en una entrega de dinero, "
+                            + "o el contado de esta venta quedó entregado en caja. "
+                            + "Solo reembolsos (egresos) en entrega no bloquean la orden; al incluir además la venta a contado, "
+                            + "queda bloqueada para cambios de ítems/totales.");
         }
     }
 
@@ -1912,11 +1922,8 @@ public class OrdenService {
                 // ✅ SEDE 1: Usar flujo sin cortes (cmBase=600 descuenta 1, <600 no descuenta)
                 actualizarInventarioPorVentaSedeSinCortes(ordenActualizada, null);
             } else {
-                // ✅ SEDES 2+: plan guardado en cotización + inventario con cortes
+                // ✅ SEDES 2+: Usar flujo normal con cortes
                 ejecutarPlanCortesSiExiste(ordenActualizada);
-                // Cotización/confirmación solo por tabla: a veces no hay plan o no cubre líneas
-                // "perfil + Corte de X CMS". Sin esto, procesarCortes no corre y no se crea el sobrante.
-                procesarCortesImplicitosDesdeItemsPerfil(ordenActualizada);
                 actualizarInventarioPorVenta(ordenActualizada);
             }
             log.info("[actualizarOrden] Aplicando descuento de inventario por conversión a venta ordenId={}", ordenActualizada.getId());
@@ -2576,115 +2583,6 @@ public class OrdenService {
                 item.setNombre(colaNombres.removeFirst());
             }
         }
-    }
-
-    /**
-     * Extrae la medida en cm desde el nombre visible (ej. "ENGANCHE Corte de 50CMS").
-     */
-    private Integer extraerMedidaCorteCmDesdeNombreVisible(String nombreVisible) {
-        if (nombreVisible == null || nombreVisible.isBlank()) {
-            return null;
-        }
-        Matcher m = PATRON_MEDIDA_CORTE_CMS.matcher(nombreVisible);
-        if (!m.find()) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(m.group(1));
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    /**
-     * Sedes con control de cortes (≠ sede 1): si la orden pasa a venta solo vía tabla y la línea sigue
-     * apuntando al perfil base pero el nombre indica un corte CM, hace falta ejecutar la misma lógica
-     * que {@link #procesarCortes} para crear corte vendido + sobrante. Si ya hubo plan ejecutado o el
-     * ítem ya es {@link Corte}, no hace nada en esa línea.
-     */
-    private void procesarCortesImplicitosDesdeItemsPerfil(Orden orden) {
-        if (orden == null || orden.getId() == null || !orden.isVenta()) {
-            return;
-        }
-        if (orden.getItems() == null || orden.getItems().isEmpty()) {
-            return;
-        }
-
-        // Evita duplicar procesarCortes si ya hubo plan ejecutado para el mismo perfil + medida
-        Set<String> clavesPlanEjecutado = new HashSet<>();
-        for (OrdenCortePlan p : ordenCortePlanRepository.findByOrdenIdAndEstadoOrderByPlanOrdenAsc(
-                orden.getId(), OrdenCortePlan.EstadoPlanCorte.EJECUTADO)) {
-            if (p.getProductoOrigen() != null && p.getProductoOrigen().getId() != null && p.getMedidaSolicitada() != null) {
-                clavesPlanEjecutado.add(p.getProductoOrigen().getId() + ":" + p.getMedidaSolicitada());
-            }
-        }
-
-        List<OrdenVentaDTO.CorteSolicitadoDTO> sinteticos = new ArrayList<>();
-        for (OrdenItem item : orden.getItems()) {
-            if (item == null || item.getProducto() == null || item.getProducto().getId() == null) {
-                continue;
-            }
-            if (esProductoCorte(item.getProducto().getId())) {
-                continue;
-            }
-
-            String nombreCompleto = item.getNombre();
-            String visible = extraerNombreVisible(nombreCompleto);
-            if (visible == null || !visible.toLowerCase().contains("corte de")) {
-                continue;
-            }
-
-            if (!"CM".equals(extraerTipoUnidad(nombreCompleto))) {
-                continue;
-            }
-
-            Integer medida = extraerMedidaCorteCmDesdeNombreVisible(visible);
-            if (medida == null || medida <= 0) {
-                continue;
-            }
-
-            String claveProductoMedida = item.getProducto().getId() + ":" + medida;
-            if (clavesPlanEjecutado.contains(claveProductoMedida)) {
-                continue;
-            }
-
-            Integer cmBase = extraerCmBase(nombreCompleto);
-            int longitudBarra = (cmBase != null && cmBase > 0) ? cmBase : 600;
-
-            Double precioSol = item.getPrecioUnitario();
-            if (precioSol == null || precioSol <= 0) {
-                precioSol = obtenerPrecioProductoPorSede(item.getProducto(),
-                        orden.getSede() != null ? orden.getSede().getId() : null);
-            }
-            if (precioSol == null || precioSol <= 0) {
-                log.warn("[procesarCortesImplicitos] Omitido item ordenId={} productoId={}: sin precio unitario",
-                        orden.getId(), item.getProducto().getId());
-                continue;
-            }
-
-            OrdenVentaDTO.CorteSolicitadoDTO dto = new OrdenVentaDTO.CorteSolicitadoDTO();
-            dto.setProductoId(item.getProducto().getId());
-            dto.setMedidaSolicitada(medida);
-            dto.setCantidad(item.getCantidad() != null ? item.getCantidad() : 1.0);
-            dto.setPrecioUnitarioSolicitado(precioSol);
-            dto.setPrecioUnitarioSobrante(precioSol);
-
-            int medidaSobrante = longitudBarra - medida;
-            if (medidaSobrante > 0) {
-                dto.setMedidaSobrante(medidaSobrante);
-            }
-
-            sinteticos.add(dto);
-        }
-
-        if (sinteticos.isEmpty()) {
-            return;
-        }
-
-        log.info("[procesarCortesImplicitos] ordenId={} cortesSinteticos={}", orden.getId(), sinteticos.size());
-        List<CorteCreacionDTO> creados = procesarCortes(orden, sinteticos);
-        aplicarCortesAItems(orden, creados);
-        repo.save(orden);
     }
 
     private void ejecutarPlanCortesSiExiste(Orden orden) {
@@ -3560,7 +3458,7 @@ public class OrdenService {
         }
 
         // Garantizar que precio1 tenga al menos un valor base para listados generales
-        if (corte.getPrecio1() == null) {
+        if (corte.getPrecio1() == null || corte.getPrecio1() <= 0) {
             corte.setPrecio1(precio);
             actualizado = true;
         }

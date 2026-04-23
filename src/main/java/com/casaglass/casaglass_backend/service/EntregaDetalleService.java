@@ -116,15 +116,16 @@ public class EntregaDetalleService {
         Orden orden = ordenRepository.findById(detalle.getOrden().getId())
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
-        // ✅ VALIDACIÓN 1: Verificar relación real orden↔entrega vigente (más robusto que incluidaEntrega)
-        boolean ordenEnEntregaVigente = entregaDetalleRepository
-            .existsByOrdenIdAndEntregaEstadoIn(orden.getId(), ESTADOS_ENTREGA_BLOQUEO_EDICION);
-        if (ordenEnEntregaVigente) {
-            // Verificar si está en esta misma entrega o en otra
-            if (detalle.getEntrega() == null ||
-                !entregaDetalleRepository.existsByEntregaIdAndOrdenId(detalle.getEntrega().getId(), orden.getId())) {
-                throw new RuntimeException("La orden ya está incluida en otra entrega de dinero vigente");
-            }
+        // ✅ VALIDACIÓN 1: La orden no debe estar ya en otra entrega distinta a la actual (vigente).
+        // Permite varias filas en la MISMA entrega (p. ej. ingreso a contado + egreso por reembolso de la misma orden).
+        if (detalle.getEntrega() == null || detalle.getEntrega().getId() == null) {
+            throw new RuntimeException("La entrega es obligatoria para el detalle");
+        }
+        if (entregaDetalleRepository.existsByOrdenIdAndEntregaIdNotAndEntrega_EstadoIn(
+                orden.getId(),
+                detalle.getEntrega().getId(),
+                ESTADOS_ENTREGA_BLOQUEO_EDICION)) {
+            throw new RuntimeException("La orden ya está incluida en otra entrega de dinero vigente");
         }
 
         // ✅ VALIDACIÓN 2: Si es orden a crédito, validar que el crédito esté abierto
@@ -156,17 +157,20 @@ public class EntregaDetalleService {
             }
         }
 
-        // Establecer la orden en el detalle para que inicializarDesdeOrden() funcione
+        // Establecer la orden en el detalle (referencia gestionada)
         detalle.setOrden(orden);
-        
-        // Inicializar todos los campos snapshot desde la orden (incluye clienteNombre y ventaCredito)
-        detalle.inicializarDesdeOrden();
+
+        // Reembolso: ya viene de inicializarDesdeReembolso; no usar inicializarDesdeOrden (sobrescribe a INGRESO).
+        if (detalle.getReembolsoVenta() != null) {
+            detalle.inicializarDesdeReembolso(detalle.getReembolsoVenta());
+        } else {
+            detalle.inicializarDesdeOrden();
+        }
 
         EntregaDetalle detalleCreado = entregaDetalleRepository.save(detalle);
 
-        // ✅ IMPORTANTE: Solo marcar la orden como incluida si es ORDEN A CONTADO
-        // Para órdenes a crédito, NO se marca como incluida porque se pueden agregar múltiples abonos
-        if (!orden.isCredito()) {
+        // ✅ IMPORTANTE: Marcar incluidaEntrega solo por fila de INGRESO a contado (no por reembolso/egreso).
+        if (!orden.isCredito() && detalle.getReembolsoVenta() == null) {
             orden.setIncluidaEntrega(true);
             ordenRepository.save(orden);
         }
@@ -311,25 +315,29 @@ public class EntregaDetalleService {
     }
 
     public Double calcularMontoTotalEntrega(Long entregaId) {
-        return entregaDetalleRepository.calcularMontoTotalPorEntrega(entregaId);
+        return calcularDineroRealEntrega(entregaId);
     }
 
     /**
      * 💰 CALCULA EL DINERO REAL A ENTREGAR
-     * - Órdenes A CONTADO: Monto completo de la orden (montoOrden)
-     * - Órdenes A CRÉDITO: Monto del abono específico (si hay abono) o montoOrden
+     * - INGRESO: suma {@code montoOrden} (siempre &gt;= 0)
+     * - EGRESO: resta la magnitud (filas antiguas pueden tener montoOrden negativo; nuevas, positivo + {@link TipoMovimiento#EGRESO})
      */
     public Double calcularDineroRealEntrega(Long entregaId) {
         List<EntregaDetalle> detalles = entregaDetalleRepository.findByEntregaId(entregaId);
-        Double total = 0.0;
-        
+        double total = 0.0;
+
         for (EntregaDetalle detalle : detalles) {
-            // Usar el montoOrden que ya está capturado en el snapshot del detalle
-            // Para créditos con abono específico, el montoOrden ya contiene el monto del abono
-            total += (detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0);
+            double m = detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0;
+            if (detalle.getTipoMovimiento() == EntregaDetalle.TipoMovimiento.EGRESO) {
+                // Compat: histórico con monto negativo; actual: monto > 0 y tipo EGRESO
+                total += m < 0 ? m : -Math.abs(m);
+            } else {
+                total += m;
+            }
         }
-        
-        return Math.round(total * 100.0) / 100.0; // Redondear a 2 decimales
+
+        return Math.round(total * 100.0) / 100.0;
     }
 
     /**

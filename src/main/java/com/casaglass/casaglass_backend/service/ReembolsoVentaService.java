@@ -79,6 +79,16 @@ public class ReembolsoVentaService {
     }
 
     /**
+     * Reembolsos (devoluciones) ya procesados y pendientes de salir en una entrega de dinero.
+     * Las fechas se reciben por compatibilidad con {@code /entregas-dinero/ordenes-disponibles};
+     * el filtrado efectivo es el mismo que en abonos: sin rango de fechas en consulta.
+     */
+    @Transactional(readOnly = true)
+    public List<ReembolsoVenta> obtenerReembolsosDisponiblesParaEntrega(Long sedeId, LocalDate fechaDesde, LocalDate fechaHasta) {
+        return reembolsoVentaRepository.findReembolsosDisponiblesParaEntregaSinFecha(sedeId);
+    }
+
+    /**
      * 🚀 LISTADO DE REEMBOLSOS DE VENTA CON FILTROS COMPLETOS
      * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
      */

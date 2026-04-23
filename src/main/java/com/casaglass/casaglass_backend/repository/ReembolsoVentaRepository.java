@@ -29,17 +29,33 @@ public interface ReembolsoVentaRepository extends JpaRepository<ReembolsoVenta, 
     List<ReembolsoVenta> findAllWithDetalles();
 
     /**
+     * 💰 Reembolsos de venta ya procesados, pendientes de salir en una entrega (egresos).
+     * Criterio de sede: solo {@code ordenOriginal.sede} (venta de origen), no la columna duplicada {@code r.sede},
+     * para no excluir filas si en datos históricos {@code reembolsos_venta.sede_id} quedó desalineada de la orden.
+     * Excluido cliente 499; no duplicar si ya hay {@link com.casaglass.casaglass_backend.model.EntregaDetalle}.
+     */
+    @Query("SELECT DISTINCT r FROM ReembolsoVenta r " +
+           "LEFT JOIN EntregaDetalle ed ON ed.reembolsoVenta.id = r.id WHERE " +
+           "r.cliente.id != 499 AND " +
+           "r.ordenOriginal.sede.id = :sedeId AND " +
+           "r.procesado = true AND " +
+           "r.estado = 'PROCESADO' AND " +
+           "ed.id IS NULL")
+    List<ReembolsoVenta> findReembolsosDisponiblesParaEntregaSinFecha(@Param("sedeId") Long sedeId);
+
+    /**
      * 🔍 BÚSQUEDA AVANZADA DE REEMBOLSOS DE VENTA CON MÚLTIPLES FILTROS
      * Todos los parámetros son opcionales (nullable)
      */
     @Query("SELECT DISTINCT r FROM ReembolsoVenta r " +
            "LEFT JOIN FETCH r.detalles d " +
            "LEFT JOIN FETCH r.ordenOriginal o " +
+           "LEFT JOIN FETCH o.sede osede " +
            "LEFT JOIN FETCH r.cliente c " +
            "LEFT JOIN FETCH r.sede s " +
            "WHERE (:ordenId IS NULL OR r.ordenOriginal.id = :ordenId) AND " +
            "(:clienteId IS NULL OR r.cliente.id = :clienteId) AND " +
-           "(:sedeId IS NULL OR r.sede.id = :sedeId) AND " +
+           "(:sedeId IS NULL OR o.sede.id = :sedeId) AND " +
            "(:estado IS NULL OR r.estado = :estado) AND " +
            "(:fechaDesde IS NULL OR r.fecha >= :fechaDesde) AND " +
            "(:fechaHasta IS NULL OR r.fecha <= :fechaHasta) AND " +

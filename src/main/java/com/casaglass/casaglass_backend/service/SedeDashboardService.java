@@ -235,14 +235,15 @@ public class SedeDashboardService {
         // Créditos vencidos (más de 30 días desde fecha_inicio sin estar cerrados)
         LocalDate fechaLimiteVencido = LocalDate.now().minusDays(30);
         List<CreditoResumenDTO> creditosVencidos = creditosActivos.stream()
-                .filter(credito -> credito.getFechaInicio().isBefore(fechaLimiteVencido))
+                .filter(credito -> credito.getFechaInicio() != null && credito.getFechaInicio().isBefore(fechaLimiteVencido))
                 .map(this::convertirACreditoResumen)
                 .collect(Collectors.toList());
         
         // Créditos próximos a vencer (entre 20-30 días)
         LocalDate fechaLimiteProximo = LocalDate.now().minusDays(20);
         List<CreditoResumenDTO> creditosProximoVencimiento = creditosActivos.stream()
-                .filter(credito -> credito.getFechaInicio().isAfter(fechaLimiteVencido) && 
+                .filter(credito -> credito.getFechaInicio() != null &&
+                                   credito.getFechaInicio().isAfter(fechaLimiteVencido) && 
                                    credito.getFechaInicio().isBefore(fechaLimiteProximo))
                 .map(this::convertirACreditoResumen)
                 .collect(Collectors.toList());
@@ -373,11 +374,12 @@ public class SedeDashboardService {
         LocalDate limiteVencido = LocalDate.now().minusDays(30);
         LocalDate limiteProximo = LocalDate.now().minusDays(20);
         List<SedeDashboardDTO.CreditoResumenDTO> vencidos = activos.stream()
-                .filter(c -> c.getFechaInicio().isBefore(limiteVencido))
+                .filter(c -> c.getFechaInicio() != null && c.getFechaInicio().isBefore(limiteVencido))
                 .map(this::convertirACreditoResumen)
                 .collect(Collectors.toList());
         List<SedeDashboardDTO.CreditoResumenDTO> proximos = activos.stream()
-                .filter(c -> c.getFechaInicio().isAfter(limiteVencido) && c.getFechaInicio().isBefore(limiteProximo))
+                .filter(c -> c.getFechaInicio() != null &&
+                             c.getFechaInicio().isAfter(limiteVencido) && c.getFechaInicio().isBefore(limiteProximo))
                 .map(this::convertirACreditoResumen)
                 .collect(Collectors.toList());
         return new CreditosPendientesInfo(

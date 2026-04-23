@@ -88,7 +88,9 @@ public class OrdenController {
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(Map.of(
-                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "message", e.getMessage() != null && !e.getMessage().isBlank()
+                        ? e.getMessage()
+                        : "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
                 "code", "ORDER_ALREADY_IN_DELIVERY"
             ));
         } catch (IllegalArgumentException e) {
@@ -543,7 +545,9 @@ public class OrdenController {
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(Map.of(
-                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "message", e.getMessage() != null && !e.getMessage().isBlank()
+                        ? e.getMessage()
+                        : "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
                 "code", "ORDER_ALREADY_IN_DELIVERY"
             ));
         } catch (IllegalArgumentException e) {
@@ -587,7 +591,9 @@ public class OrdenController {
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(Map.of(
-                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "message", e.getMessage() != null && !e.getMessage().isBlank()
+                        ? e.getMessage()
+                        : "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
                 "code", "ORDER_ALREADY_IN_DELIVERY"
             ));
         } catch (IllegalArgumentException e) {
@@ -613,7 +619,7 @@ public class OrdenController {
      * 
      * Filtros disponibles:
      * - clienteId: Filtrar por cliente
-     * - sedeId: Filtrar por sede
+     * - sedeId: Filtrar por sede de la orden (o.sede)
      * - estado: ACTIVA, ANULADA
      * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
      * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
@@ -829,7 +835,9 @@ public class OrdenController {
             log.warn("[PUT /api/ordenes/tabla/{}] Bloqueada por entrega de dinero: {}", id, e.getMessage());
             return ResponseEntity.status(409)
                     .body(Map.of(
-                        "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                        "message", e.getMessage() != null && !e.getMessage().isBlank()
+                                ? e.getMessage()
+                                : "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
                         "code", "ORDER_ALREADY_IN_DELIVERY"
                     ));
         } catch (IllegalArgumentException e) {

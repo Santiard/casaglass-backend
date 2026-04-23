@@ -201,12 +201,13 @@ public class EntregaDetalleSimpleDTO {
             this.fechaOrden = detalle.getFechaOrden();
             this.fechaAbono = abono != null ? abono.getFecha() : null;
             
-            // ✅ MONTO: Usar fuente correcta según el tipo
+            // ✅ MONTO: API en negativo para egresos; en BD el snapshot es magnitud >= 0
             if (reembolso != null) {
-                // Es reembolso: usar monto del reembolso (negativo)
-                this.montoOrden = -Math.abs(reembolso.getTotalReembolso());
+                this.montoOrden = -Math.abs(reembolso.getTotalReembolso() != null ? reembolso.getTotalReembolso() : 0.0);
+            } else if (com.casaglass.casaglass_backend.model.EntregaDetalle.TipoMovimiento.EGRESO.equals(detalle.getTipoMovimiento())) {
+                double raw = detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0;
+                this.montoOrden = raw < 0 ? raw : -Math.abs(raw);
             } else {
-                // Es orden/abono normal: usar montoOrden del detalle
                 this.montoOrden = detalle.getMontoOrden();
             }
             
@@ -350,12 +351,13 @@ public class EntregaDetalleSimpleDTO {
             this.fechaOrden = detalle.getFechaOrden();
             this.fechaAbono = abono != null ? abono.getFecha() : null;
             
-            // ✅ MONTO: Usar fuente correcta según el tipo
+            // ✅ MONTO: API en negativo para egresos; en BD el snapshot es magnitud >= 0
             if (reembolso != null) {
-                // Es reembolso: usar monto del reembolso (negativo)
-                this.montoOrden = -Math.abs(reembolso.getTotalReembolso());
+                this.montoOrden = -Math.abs(reembolso.getTotalReembolso() != null ? reembolso.getTotalReembolso() : 0.0);
+            } else if (com.casaglass.casaglass_backend.model.EntregaDetalle.TipoMovimiento.EGRESO.equals(detalle.getTipoMovimiento())) {
+                double raw = detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0;
+                this.montoOrden = raw < 0 ? raw : -Math.abs(raw);
             } else {
-                // Es orden/abono normal: usar montoOrden del detalle
                 this.montoOrden = detalle.getMontoOrden();
             }
             

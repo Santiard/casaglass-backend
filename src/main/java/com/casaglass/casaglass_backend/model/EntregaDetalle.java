@@ -47,7 +47,10 @@ public class EntregaDetalle {
     @Column(name = "tipo_movimiento", length = 20, nullable = false)
     private TipoMovimiento tipoMovimiento = TipoMovimiento.INGRESO;
 
-    /** Monto de la orden al momento de la entrega (snapshot para auditoría) */
+    /**
+     * Monto alineado a la fila: siempre &gt;= 0 en persistencia.
+     * INGRESO: monto a sumar; EGRESO: monto del reembolso (se resta al total usando {@link #tipoMovimiento}).
+     */
     @Column(name = "monto_orden", nullable = false)
     @NotNull
     @Min(value = 0, message = "Monto orden no puede ser negativo")
@@ -127,8 +130,8 @@ public class EntregaDetalle {
         if (reembolso != null && reembolso.getOrdenOriginal() != null) {
             this.reembolsoVenta = reembolso;
             this.orden = reembolso.getOrdenOriginal();
-            // Monto negativo para representar egreso en cálculos
-            this.montoOrden = -Math.abs(reembolso.getTotalReembolso());
+            // Magnitud del egreso (positivo); el signo en totales lo aplica tipoMovimiento = EGRESO
+            this.montoOrden = Math.abs(reembolso.getTotalReembolso() != null ? reembolso.getTotalReembolso() : 0.0);
             this.numeroOrden = reembolso.getOrdenOriginal().getNumero();
             this.fechaOrden = reembolso.getFecha();
             this.ventaCredito = reembolso.getOrdenOriginal().isCredito();

@@ -5,13 +5,16 @@ import com.casaglass.casaglass_backend.dto.EntregaDineroResponseDTO;
 import com.casaglass.casaglass_backend.dto.OrdenParaEntregaDTO;
 import com.casaglass.casaglass_backend.dto.EntregaDetalleSimpleDTO;
 import com.casaglass.casaglass_backend.dto.AbonoParaEntregaDTO;
+import com.casaglass.casaglass_backend.dto.ReembolsoParaEntregaDTO;
 import com.casaglass.casaglass_backend.model.EntregaDinero;
 import com.casaglass.casaglass_backend.model.Orden;
+import com.casaglass.casaglass_backend.model.ReembolsoVenta;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.service.EntregaDineroService;
 import com.casaglass.casaglass_backend.service.EntregaDetalleService;
 import com.casaglass.casaglass_backend.service.AbonoService;
+import com.casaglass.casaglass_backend.service.ReembolsoVentaService;
 import com.casaglass.casaglass_backend.model.Abono;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -41,6 +44,9 @@ public class EntregaDineroController {
     
     @Autowired
     private AbonoService abonoService;
+
+    @Autowired
+    private ReembolsoVentaService reembolsoVentaService;
 
     public EntregaDineroController(EntregaDineroService service) {
         this.service = service;
@@ -391,9 +397,10 @@ public class EntregaDineroController {
     /* ========== MÉTODOS AUXILIARES ========== */
 
     /**
-     * 📋 OBTENER ÓRDENES Y ABONOS DISPONIBLES PARA ENTREGA
-     * - Órdenes A CONTADO: Se muestran las órdenes completas
-     * - Órdenes A CRÉDITO: Se muestran los ABONOS individuales (no las órdenes)
+     * 📋 OBTENER ÓRDENES, ABONOS Y REEMBOLSOS DISPONIBLES PARA ENTREGA
+     * - Órdenes A CONTADO: órdenes completas
+     * - Crédito: ABONOS individuales (no la orden entera)
+     * - Devoluciones: REEMBOLSOS procesados aún no incluidos en ninguna entrega (egresos)
      */
     @GetMapping("/ordenes-disponibles")
     public ResponseEntity<?> obtenerOrdenesDisponibles(@RequestParam Long sedeId,
@@ -415,13 +422,22 @@ public class EntregaDineroController {
             
             // Obtener ABONOS disponibles (no órdenes) de créditos en el período
             List<Abono> abonosDisponibles = abonoService.obtenerAbonosDisponiblesParaEntrega(sedeId, fechaDesde, fechaHasta);
-            
+
+            // Reembolsos de venta (devoluciones) como egresos — solo si ya están procesados y libres de entrega
+            List<ReembolsoVenta> reembolsosDisponibles = reembolsoVentaService
+                    .obtenerReembolsosDisponiblesParaEntrega(sedeId, fechaDesde, fechaHasta);
+
+            int totalFilas = ordenesContado.size() + abonosDisponibles.size() + reembolsosDisponibles.size();
+
             return ResponseEntity.ok(Map.of(
                 "ordenesContado", ordenesContado.stream()
                     .map(this::convertirAOrdenParaEntregaDTO)
                     .collect(Collectors.toList()),
                 "abonosDisponibles", abonosDisponibles.stream()
                     .map(this::convertirAAbonoParaEntregaDTO)
+                    .collect(Collectors.toList()),
+                "reembolsosDisponibles", reembolsosDisponibles.stream()
+                    .map(this::convertirAReembolsoParaEntregaDTO)
                     .collect(Collectors.toList()),
                 "rangoAplicado", Map.of(
                     "desde", fechaDesde,
@@ -430,7 +446,8 @@ public class EntregaDineroController {
                 "totales", Map.of(
                     "contado", ordenesContado.size(),
                     "credito", abonosDisponibles.size(),
-                    "total", ordenesContado.size() + abonosDisponibles.size()
+                    "reembolsos", reembolsosDisponibles.size(),
+                    "total", totalFilas
                 )
             ));
         } catch (Exception e) {
@@ -508,7 +525,32 @@ public class EntregaDineroController {
         return dto;
     }
 
-    /**
+    private ReembolsoParaEntregaDTO convertirAReembolsoParaEntregaDTO(ReembolsoVenta r) {
+        ReembolsoParaEntregaDTO dto = new ReembolsoParaEntregaDTO();
+        dto.setId(r.getId());
+        dto.setFecha(r.getFecha());
+        dto.setTotalReembolso(r.getTotalReembolso());
+        dto.setMotivo(r.getMotivo());
+        dto.setFormaReembolso(r.getFormaReembolso() != null ? r.getFormaReembolso().name() : null);
+        dto.setTipoMovimiento("EGRESO");
+        dto.setEstado(r.getEstado() != null ? r.getEstado().name() : null);
+        if (r.getOrdenOriginal() != null) {
+            dto.setOrdenId(r.getOrdenOriginal().getId());
+            dto.setNumeroOrden(r.getOrdenOriginal().getNumero());
+        }
+        if (r.getCliente() != null) {
+            dto.setClienteNombre(r.getCliente().getNombre());
+            dto.setClienteNit(r.getCliente().getNit());
+        }
+        if (r.getOrdenOriginal() != null && r.getOrdenOriginal().getSede() != null) {
+            dto.setSedeId(r.getOrdenOriginal().getSede().getId());
+            dto.setSedeNombre(r.getOrdenOriginal().getSede().getNombre());
+        } else if (r.getSede() != null) {
+            dto.setSedeId(r.getSede().getId());
+            dto.setSedeNombre(r.getSede().getNombre());
+        }
+        return dto;
+    }
 
     /**
      * ✔️ VALIDAR SI ENTREGA ESTÁ COMPLETA

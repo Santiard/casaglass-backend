@@ -33,7 +33,7 @@ public class ReembolsoVentaController {
      * Filtros disponibles (todos opcionales):
      * - ordenId: Filtrar por orden
      * - clienteId: Filtrar por cliente
-     * - sedeId: Filtrar por sede
+     * - sedeId: Filtrar por la sede de la orden de venta asociada (mismo criterio que el front: venta de origen)
      * - estado: PENDIENTE, PROCESADO, ANULADO
      * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
      * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
