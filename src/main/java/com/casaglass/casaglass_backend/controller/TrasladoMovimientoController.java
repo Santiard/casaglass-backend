@@ -4,6 +4,8 @@ import com.casaglass.casaglass_backend.dto.ConfirmarTrasladoRequest;
 import com.casaglass.casaglass_backend.dto.ConfirmarTrasladoResponse;
 import com.casaglass.casaglass_backend.dto.TrasladoMovimientoDTO;
 import com.casaglass.casaglass_backend.service.TrasladoMovimientoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/traslados-movimientos")
+@Tag(name = "Traslados — movimientos (listas)", description = "Listados y confirmación vía body JSON. Misma confirmación lógica que POST /api/traslados/{id}/confirmar")
 // CORS configurado globalmente en CorsConfig.java
 public class TrasladoMovimientoController {
 
@@ -141,6 +144,7 @@ public class TrasladoMovimientoController {
      * Response: { "message": "...", "traslado": { ... } }
      */
     @PutMapping("/{id}/confirmar")
+    @Operation(summary = "Confirmar traslado (body JSON)", description = "Misma lógica que POST /api/traslados/{id}/confirmar?trabajadorId=... — delega en TrasladoService.confirmarLlegada.")
     public ResponseEntity<ConfirmarTrasladoResponse> confirmarTraslado(
             @PathVariable Long id, 
             @RequestBody ConfirmarTrasladoRequest request) {

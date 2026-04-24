@@ -95,7 +95,7 @@ public class CorteInventarioCompletoService {
 
         // Convertir a DTOs
         return cortes.stream()
-            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId()), null))
             .collect(Collectors.toList());
     }
 
@@ -117,7 +117,7 @@ public class CorteInventarioCompletoService {
                 ));
 
         return cortes.stream()
-            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId()), null))
             .collect(Collectors.toList());
     }
 
@@ -147,7 +147,7 @@ public class CorteInventarioCompletoService {
 
         return cortes.stream()
             .filter(corte -> inventariosPorCorteYSede.containsKey(corte.getId()))
-            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId()), null))
             .collect(Collectors.toList());
     }
 
@@ -175,7 +175,7 @@ public class CorteInventarioCompletoService {
 
         return cortes.stream()
             .filter(corte -> inventariosPorCorteYSede.containsKey(corte.getId()))
-            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId()), sedeId))
             .collect(Collectors.toList());
     }
 
@@ -197,7 +197,7 @@ public class CorteInventarioCompletoService {
                 ));
 
         return cortes.stream()
-            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId()), null))
             .collect(Collectors.toList());
     }
 
@@ -227,7 +227,7 @@ public class CorteInventarioCompletoService {
                 ));
 
         return cortes.stream()
-            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId()), null))
             .collect(Collectors.toList());
     }
 
@@ -257,7 +257,7 @@ public class CorteInventarioCompletoService {
                 ));
 
         return cortes.stream()
-            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId()), null))
             .collect(Collectors.toList());
     }
 
@@ -291,24 +291,56 @@ public class CorteInventarioCompletoService {
                 ));
 
         return cortes.stream()
-            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId())))
+            .map(corte -> convertirADTO(corte, inventariosPorCorteYSede.get(corte.getId()), sedeId))
             .collect(Collectors.toList());
     }
 
-    private CorteInventarioCompletoDTO convertirADTO(Corte corte, Map<Long, Double> inventariosPorSede) {
-        // Obtener cantidades por sede (0 si no existe)
-        Long insulaId = obtenerSedeId("insula");
-        Long centroId = obtenerSedeId("centro");
-        Long patiosId = obtenerSedeId("patios");
+    /**
+     * {@code filtroSedeInventario} = cuando no es {@code null}: se solicitó
+     * {@link #obtenerInventarioCompletoPorSede(long)} o {@code ?sedeId=}; el mapa solo trae
+     * filas de esa sede, pero las claves reales de {@code inventario_cortes} deben mapear a
+     * Insula/Centro/Patios usando el <strong>id de sede de la query</strong> (1,2,3), no solo
+     * {@link #obtenerSedeId(String)} por nombre (si no coincide, antes quedaba en 0 o se mezclaba
+     * con otra sede y el total parecía “suma de todo”).
+     */
+    private CorteInventarioCompletoDTO convertirADTO(
+            Corte corte, Map<Long, Double> inventariosPorSede, Long filtroSedeInventario) {
+        double insU;
+        double cenU;
+        double patU;
+        if (filtroSedeInventario != null) {
+            double v = 0.0;
+            if (inventariosPorSede != null) {
+                if (inventariosPorSede.containsKey(filtroSedeInventario)) {
+                    v = inventariosPorSede.get(filtroSedeInventario);
+                } else if (inventariosPorSede.size() == 1) {
+                    v = inventariosPorSede.values().iterator().next();
+                } else {
+                    for (Map.Entry<Long, Double> e : inventariosPorSede.entrySet()) {
+                        v += e.getValue() != null ? e.getValue() : 0.0;
+                    }
+                }
+            }
+            insU = filtroSedeInventario.equals(1L) ? v : 0.0;
+            cenU = filtroSedeInventario.equals(2L) ? v : 0.0;
+            patU = filtroSedeInventario.equals(3L) ? v : 0.0;
+            if (filtroSedeInventario != 1L && filtroSedeInventario != 2L && filtroSedeInventario != 3L) {
+                Long ins = obtenerSedeId("insula");
+                Long cen = obtenerSedeId("centro");
+                Long pat = obtenerSedeId("patios");
+                insU = ins != null && filtroSedeInventario.equals(ins) ? v : 0.0;
+                cenU = cen != null && filtroSedeInventario.equals(cen) ? v : 0.0;
+                patU = pat != null && filtroSedeInventario.equals(pat) ? v : 0.0;
+            }
+        } else {
+            Long insulaId = obtenerSedeId("insula");
+            Long centroId = obtenerSedeId("centro");
+            Long patiosId = obtenerSedeId("patios");
+            insU = inventariosPorSede != null && insulaId != null ? inventariosPorSede.getOrDefault(insulaId, 0.0) : 0;
+            cenU = inventariosPorSede != null && centroId != null ? inventariosPorSede.getOrDefault(centroId, 0.0) : 0;
+            patU = inventariosPorSede != null && patiosId != null ? inventariosPorSede.getOrDefault(patiosId, 0.0) : 0;
+        }
 
-        Double cantidadInsula = inventariosPorSede != null && insulaId != null ? inventariosPorSede.getOrDefault(insulaId, 0.0) : 0;
-        Double cantidadCentro = inventariosPorSede != null && centroId != null ? inventariosPorSede.getOrDefault(centroId, 0.0) : 0;
-        Double cantidadPatios = inventariosPorSede != null && patiosId != null ? inventariosPorSede.getOrDefault(patiosId, 0.0) : 0;
-        
-        // Debug logging para verificar mapeo
-        // Log removido para producción
-
-        // Obtener nombre de la categoría, tipo y color
         String categoriaNombre = corte.getCategoria() != null ? corte.getCategoria().getNombre() : null;
         String tipoProducto = corte.getTipo() != null ? corte.getTipo().name() : null;
         String colorProducto = corte.getColor() != null ? corte.getColor().name() : null;
@@ -321,9 +353,9 @@ public class CorteInventarioCompletoService {
             tipoProducto,
             colorProducto,
             corte.getLargoCm(),
-            cantidadInsula,
-            cantidadCentro,
-            cantidadPatios,
+            insU,
+            cenU,
+            patU,
             corte.getPrecio1(),
             corte.getPrecio2(),
             corte.getPrecio3()

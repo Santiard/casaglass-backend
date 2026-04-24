@@ -47,6 +47,9 @@ public class TrasladoMovimientoDTO {
         private Long id;
         private Double cantidad;
         private ProductoSimpleDTO producto;
+        /** Producto entero a descontar en Insula en traslados 1→2/3 con corte (id plano + resumen). */
+        private Long productoInventarioADescontarSede1Id;
+        private ProductoSimpleDTO productoInventarioADescontarSede1;
     }
 
     @Data

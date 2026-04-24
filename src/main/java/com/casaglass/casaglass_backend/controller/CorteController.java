@@ -4,6 +4,7 @@ import com.casaglass.casaglass_backend.model.Corte;
 import com.casaglass.casaglass_backend.service.CorteService;
 import com.casaglass.casaglass_backend.dto.CorteActualizarCompletoDTO;
 import com.casaglass.casaglass_backend.dto.CorteInventarioCompletoDTO;
+import com.casaglass.casaglass_backend.dto.CorteResolverTrasladoRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -110,6 +111,30 @@ public class CorteController {
             return ResponseEntity.ok(resultado);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * Traslados (Insula u otros): busca o crea un corte a partir del <strong>id del producto entero en BD</strong>
+     * y la medida. Evita el bloqueo del front cuando el catálogo no trae {@code categoria} en el JSON; la categoría
+     * se carga de la entidad al guardar. Ver {@link com.casaglass.casaglass_backend.service.CorteService#resolverOCrearCorteParaTrasladoDesdePerfil(long, int)}.
+     */
+    @PostMapping("/resolver-para-traslado")
+    public ResponseEntity<?> resolverParaTraslado(@RequestBody CorteResolverTrasladoRequest body) {
+        try {
+            if (body.getProductoPerfilId() == null || body.getProductoPerfilId() <= 0) {
+                return ResponseEntity.badRequest().body("productoPerfilId es obligatorio y debe ser > 0");
+            }
+            if (body.getMedidaCm() == null || body.getMedidaCm() <= 0) {
+                return ResponseEntity.badRequest().body("medidaCm es obligatoria y debe ser > 0");
+            }
+            Corte c = service.resolverOCrearCorteParaTrasladoDesdePerfil(
+                    body.getProductoPerfilId(), body.getMedidaCm());
+            return ResponseEntity.ok(c);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
 

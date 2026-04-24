@@ -74,4 +74,13 @@ public interface EntregaDetalleRepository extends JpaRepository<EntregaDetalle, 
 
     /** True si el abono está referenciado por algún detalle de entrega de dinero (bloquea DELETE en BD). */
     boolean existsByAbono_Id(Long abonoId);
+
+    /**
+     * True si ya existe un detalle con este reembolso en <em>otra</em> entrega (no {@code entregaId}).
+     */
+    @Query("SELECT CASE WHEN COUNT(ed) > 0 THEN true ELSE false END FROM EntregaDetalle ed " +
+           "WHERE ed.reembolsoVenta.id = :reembolsoId AND ed.entrega.id <> :entregaId")
+    boolean existsByReembolsoVentaIdAndEntregaIdNot(
+            @Param("reembolsoId") Long reembolsoId,
+            @Param("entregaId") Long entregaId);
 }

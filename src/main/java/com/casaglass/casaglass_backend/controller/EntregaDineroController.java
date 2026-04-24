@@ -16,12 +16,15 @@ import com.casaglass.casaglass_backend.service.EntregaDetalleService;
 import com.casaglass.casaglass_backend.service.AbonoService;
 import com.casaglass.casaglass_backend.service.ReembolsoVentaService;
 import com.casaglass.casaglass_backend.model.Abono;
+import jakarta.persistence.RollbackException;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -280,6 +283,7 @@ public class EntregaDineroController {
                 "tipo", "VALIDACION"
             ));
         } catch (RuntimeException e) {
+            rethrowParaExceptionHandler(e);
             String mensaje = e.getMessage() != null ? e.getMessage() : "Error de negocio";
             if (mensaje.toLowerCase().contains("ya está incluida en otra entrega")) {
                 return ResponseEntity.status(409).body(Map.of(
@@ -299,6 +303,29 @@ public class EntregaDineroController {
         }
     }
 
+    /**
+     * Si se atrapa un fallo al hacer commit, {@code e.getMessage()} es solo
+     * "Could not commit JPA transaction" y el detalle (MySQL duplicado, etc.) está en la cadena
+     * de causas. Dejamos que {@link com.casaglass.casaglass_backend.api.ApiExceptionHandler} mapee
+     * {@link DataIntegrityViolationException} y el resto.
+     */
+    private static void rethrowParaExceptionHandler(RuntimeException e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof DataIntegrityViolationException) {
+                throw (DataIntegrityViolationException) t;
+            }
+        }
+        if (e instanceof DataIntegrityViolationException) {
+            throw (DataIntegrityViolationException) e;
+        }
+        if (e instanceof RollbackException) {
+            throw (RollbackException) e;
+        }
+        if (e instanceof TransactionException) {
+            throw (TransactionException) e;
+        }
+    }
+
     /* ========== ACCIONES DE ENTREGA ========== */
 
     /**
@@ -313,6 +340,7 @@ public class EntregaDineroController {
                 "entrega", new EntregaDineroResponseDTO(entregaConfirmada)
             ));
         } catch (RuntimeException e) {
+            rethrowParaExceptionHandler(e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Error interno: " + e.getMessage()));
@@ -331,6 +359,7 @@ public class EntregaDineroController {
                 "entrega", new EntregaDineroResponseDTO(entregaCancelada)
             ));
         } catch (RuntimeException e) {
+            rethrowParaExceptionHandler(e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Error interno: " + e.getMessage()));
@@ -373,6 +402,7 @@ public class EntregaDineroController {
                 "entrega", new EntregaDineroResponseDTO(entregaActualizada)
             ));
         } catch (RuntimeException e) {
+            rethrowParaExceptionHandler(e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Error interno: " + e.getMessage()));
@@ -388,6 +418,7 @@ public class EntregaDineroController {
             service.eliminarEntrega(id);
             return ResponseEntity.ok(Map.of("mensaje", "Entrega eliminada exitosamente"));
         } catch (RuntimeException e) {
+            rethrowParaExceptionHandler(e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("error", "Error interno: " + e.getMessage()));

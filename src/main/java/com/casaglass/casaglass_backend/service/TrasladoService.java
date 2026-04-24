@@ -6,12 +6,12 @@ import com.casaglass.casaglass_backend.dto.TrasladoDetalleBatchDTO;
 import com.casaglass.casaglass_backend.exception.InventarioInsuficienteException;
 import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.CatalogoProductoTrasladoProjection;
+import com.casaglass.casaglass_backend.repository.CorteRepository;
 import com.casaglass.casaglass_backend.repository.TrasladoDetalleRepository;
 import com.casaglass.casaglass_backend.repository.TrasladoRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.ProductoRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
-import com.casaglass.casaglass_backend.service.InventarioService;
 import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,15 +23,27 @@ import java.time.LocalDate;
 // no LocalDateTime/LocalTime needed
 import java.util.*;
 
+/**
+ * Traslados entre sedes. Entre <strong>Centro (2) y Patios (3)</strong>, las líneas cuyo
+ * {@code producto} es un {@link com.casaglass.casaglass_backend.model.Corte} mueven
+ * stock en {@code inventario_cortes}; el resto de pares o productos no-corte usan
+ * {@link Inventario} como hasta ahora.
+ */
 @Service
 public class TrasladoService {
+
+    private static final long SEDE_INSULA_ID = 1L;
+    private static final long SEDE_CENTRO_ID = 2L;
+    private static final long SEDE_PATIOS_ID = 3L;
 
     private final TrasladoRepository repo;
     private final TrasladoDetalleRepository detalleRepo;
     private final SedeRepository sedeRepository;
     private final ProductoRepository productoRepository;
     private final TrabajadorRepository trabajadorRepository;
+    private final CorteRepository corteRepository;
     private final InventarioService inventarioService;
+    private final InventarioCorteService inventarioCorteService;
     private final EntityManager em;
 
     public TrasladoService(TrasladoRepository repo,
@@ -39,14 +51,18 @@ public class TrasladoService {
                            SedeRepository sedeRepository,
                            ProductoRepository productoRepository,
                            TrabajadorRepository trabajadorRepository,
+                           CorteRepository corteRepository,
                            InventarioService inventarioService,
+                           InventarioCorteService inventarioCorteService,
                            EntityManager em) {
         this.repo = repo;
         this.detalleRepo = detalleRepo;
         this.sedeRepository = sedeRepository;
         this.productoRepository = productoRepository;
         this.trabajadorRepository = trabajadorRepository;
+        this.corteRepository = corteRepository;
         this.inventarioService = inventarioService;
+        this.inventarioCorteService = inventarioCorteService;
         this.em = em;
     }
 
@@ -188,6 +204,16 @@ public class TrasladoService {
                 
                 d.setTraslado(payload);
                 d.setProducto(producto);
+                if (d.getProductoInventarioADescontarSede1() != null
+                        && d.getProductoInventarioADescontarSede1().getId() != null) {
+                    Producto aDescontar = productoRepository.findById(
+                                    d.getProductoInventarioADescontarSede1().getId())
+                            .orElseThrow(() -> new RuntimeException("Producto a descontar (sede 1) no encontrado: "
+                                    + d.getProductoInventarioADescontarSede1().getId()));
+                    d.setProductoInventarioADescontarSede1(aDescontar);
+                } else {
+                    d.setProductoInventarioADescontarSede1(null);
+                }
             }
         }
 
@@ -205,50 +231,11 @@ public class TrasladoService {
      * - Suma la cantidad a la sede destino
      */
     private void actualizarInventarioTraslado(Traslado traslado) {
-        Long sedeOrigenId = traslado.getSedeOrigen().getId();
-        Long sedeDestinoId = traslado.getSedeDestino().getId();
-        
+        if (traslado.getDetalles() == null) {
+            return;
+        }
         for (TrasladoDetalle detalle : traslado.getDetalles()) {
-            Long productoId = detalle.getProducto().getId();
-            Double cantidad = detalle.getCantidad();
-            
-            // 1. RESTAR de sede origen
-            Optional<Inventario> inventarioOrigen = inventarioService.obtenerPorProductoYSede(productoId, sedeOrigenId);
-            if (inventarioOrigen.isPresent()) {
-                Inventario invOrigen = inventarioOrigen.get();
-                double nuevaCantidadOrigen = invOrigen.getCantidad() - cantidad;
-                
-                if (nuevaCantidadOrigen < 0) {
-                    throw new InventarioInsuficienteException(
-                        "No hay suficiente stock en sede origen. Disponible: " + 
-                        invOrigen.getCantidad() + ", requerido: " + cantidad,
-                        invOrigen.getCantidad(), cantidad, productoId, sedeOrigenId);
-                }
-                
-                invOrigen.setCantidad(nuevaCantidadOrigen);
-                inventarioService.actualizar(invOrigen.getId(), invOrigen);
-            } else {
-                throw new InventarioInsuficienteException(
-                    "No existe inventario del producto ID " + productoId + 
-                    " en sede origen ID " + sedeOrigenId,
-                    0.0, cantidad, productoId, sedeOrigenId);
-            }
-            
-            // 2. SUMAR a sede destino
-            Optional<Inventario> inventarioDestino = inventarioService.obtenerPorProductoYSede(productoId, sedeDestinoId);
-            if (inventarioDestino.isPresent()) {
-                // Actualizar inventario existente
-                Inventario invDestino = inventarioDestino.get();
-                invDestino.setCantidad(invDestino.getCantidad() + cantidad);
-                inventarioService.actualizar(invDestino.getId(), invDestino);
-            } else {
-                // Crear nuevo inventario en sede destino
-                Inventario nuevoInventario = new Inventario();
-                nuevoInventario.setProducto(detalle.getProducto());
-                nuevoInventario.setSede(traslado.getSedeDestino());
-                nuevoInventario.setCantidad(cantidad);
-                inventarioService.guardar(nuevoInventario);
-            }
+            aplicarMovimientoLinea(traslado, detalle);
         }
     }
 
@@ -291,18 +278,9 @@ public class TrasladoService {
         Traslado traslado = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Traslado no encontrado con id " + id));
         
-        // 2️⃣ Revertir el inventario de todos los detalles antes de eliminar
-        if (traslado.getDetalles() != null && !traslado.getDetalles().isEmpty()) {
-            Long sedeOrigenId = traslado.getSedeOrigen().getId();
-            Long sedeDestinoId = traslado.getSedeDestino().getId();
-            
+        if (traslado.getDetalles() != null) {
             for (TrasladoDetalle detalle : traslado.getDetalles()) {
-                Long productoId = detalle.getProducto().getId();
-                Double cantidad = detalle.getCantidad();
-                
-                // Revertir inventario: devolver a origen y restar de destino
-                ajustarInventario(productoId, sedeOrigenId, cantidad, "origen");
-                ajustarInventario(productoId, sedeDestinoId, -cantidad, "destino");
+                revertirMovimientoLinea(traslado, detalle);
             }
         }
         
@@ -327,17 +305,16 @@ public class TrasladoService {
 
         payload.setTraslado(t);
         payload.setProducto(em.getReference(Producto.class, payload.getProducto().getId()));
+        if (payload.getProductoInventarioADescontarSede1() != null
+                && payload.getProductoInventarioADescontarSede1().getId() != null) {
+            payload.setProductoInventarioADescontarSede1(
+                    em.getReference(Producto.class, payload.getProductoInventarioADescontarSede1().getId()));
+        } else {
+            payload.setProductoInventarioADescontarSede1(null);
+        }
         
         TrasladoDetalle detalleGuardado = detalleRepo.save(payload);
-        
-        // 🔄 ACTUALIZAR INVENTARIO: Restar de origen y sumar a destino
-        Long sedeOrigenId = t.getSedeOrigen().getId();
-        Long sedeDestinoId = t.getSedeDestino().getId();
-        Long productoId = payload.getProducto().getId();
-        Double cantidad = payload.getCantidad();
-        
-        ajustarInventario(productoId, sedeOrigenId, -cantidad, "origen");
-        ajustarInventario(productoId, sedeDestinoId, cantidad, "destino");
+        aplicarMovimientoLinea(t, detalleGuardado);
         
         return detalleGuardado;
     }
@@ -350,50 +327,28 @@ public class TrasladoService {
             throw new IllegalArgumentException("El detalle no pertenece al traslado indicado");
 
         Traslado traslado = d.getTraslado();
-        Long sedeOrigenId = traslado.getSedeOrigen().getId();
-        Long sedeDestinoId = traslado.getSedeDestino().getId();
+        revertirMovimientoLinea(traslado, d);
         
-        // 🔄 CAMBIO DE PRODUCTO: Revertir inventario del producto anterior y aplicar el nuevo
-        if (payload.getProducto() != null && payload.getProducto().getId() != null 
-            && !Objects.equals(d.getProducto().getId(), payload.getProducto().getId())) {
-            
-            Long productoAnteriorId = d.getProducto().getId();
-            Double cantidadAnterior = d.getCantidad();
-            
-            // Revertir movimiento del producto anterior
-            ajustarInventario(productoAnteriorId, sedeOrigenId, cantidadAnterior, "origen");
-            ajustarInventario(productoAnteriorId, sedeDestinoId, -cantidadAnterior, "destino");
-            
-            // Aplicar movimiento del nuevo producto
-            Long productoNuevoId = payload.getProducto().getId();
-            Double cantidadNueva = (payload.getCantidad() != null) ? payload.getCantidad() : cantidadAnterior;
-            
-            ajustarInventario(productoNuevoId, sedeOrigenId, -cantidadNueva, "origen");
-            ajustarInventario(productoNuevoId, sedeDestinoId, cantidadNueva, "destino");
-            
-            d.setProducto(em.getReference(Producto.class, productoNuevoId));
-            if (payload.getCantidad() != null) {
-                if (payload.getCantidad() < 1) throw new IllegalArgumentException("cantidad debe ser >= 1");
-                d.setCantidad(payload.getCantidad());
+        if (payload.getProducto() != null && payload.getProducto().getId() != null) {
+            d.setProducto(em.getReference(Producto.class, payload.getProducto().getId()));
+        }
+        if (payload.getCantidad() != null) {
+            if (payload.getCantidad() < 1) {
+                throw new IllegalArgumentException("cantidad debe ser >= 1");
+            }
+            d.setCantidad(payload.getCantidad());
+        }
+        if (payload.getProductoInventarioADescontarSede1() != null) {
+            if (payload.getProductoInventarioADescontarSede1().getId() == null) {
+                d.setProductoInventarioADescontarSede1(null);
+            } else {
+                d.setProductoInventarioADescontarSede1(
+                        em.getReference(Producto.class, payload.getProductoInventarioADescontarSede1().getId()));
             }
         }
-        // 🔄 CAMBIO DE CANTIDAD: Ajustar solo la diferencia
-        else if (payload.getCantidad() != null && !Objects.equals(d.getCantidad(), payload.getCantidad())) {
-            if (payload.getCantidad() < 1) throw new IllegalArgumentException("cantidad debe ser >= 1");
-            
-            Long productoId = d.getProducto().getId();
-            Double cantidadAnterior = d.getCantidad();
-            Double cantidadNueva = payload.getCantidad();
-            Double diferencia = cantidadNueva - cantidadAnterior;
-            
-            // Ajustar inventario por la diferencia
-            ajustarInventario(productoId, sedeOrigenId, -diferencia, "origen");
-            ajustarInventario(productoId, sedeDestinoId, diferencia, "destino");
-            
-            d.setCantidad(cantidadNueva);
-        }
-        
-        return detalleRepo.save(d);
+        d = detalleRepo.save(d);
+        aplicarMovimientoLinea(traslado, d);
+        return d;
     }
 
     @Transactional
@@ -403,17 +358,8 @@ public class TrasladoService {
         if (!Objects.equals(d.getTraslado().getId(), trasladoId))
             throw new IllegalArgumentException("El detalle no pertenece al traslado indicado");
         
-        // 🔄 REVERTIR INVENTARIO: Devolver a origen y restar de destino
         Traslado traslado = d.getTraslado();
-        Long sedeOrigenId = traslado.getSedeOrigen().getId();
-        Long sedeDestinoId = traslado.getSedeDestino().getId();
-        Long productoId = d.getProducto().getId();
-        Double cantidad = d.getCantidad();
-        
-        // Devolver cantidad a sede origen
-        ajustarInventario(productoId, sedeOrigenId, cantidad, "origen");
-        // Restar cantidad de sede destino
-        ajustarInventario(productoId, sedeDestinoId, -cantidad, "destino");
+        revertirMovimientoLinea(traslado, d);
         
         detalleRepo.delete(d);
     }
@@ -433,9 +379,6 @@ public class TrasladoService {
         Traslado traslado = repo.findById(trasladoId)
                 .orElseThrow(() -> new RuntimeException("Traslado no encontrado con id " + trasladoId));
         
-        Long sedeOrigenId = traslado.getSedeOrigen().getId();
-        Long sedeDestinoId = traslado.getSedeDestino().getId();
-        
         // 2️⃣ ELIMINAR detalles (revertir inventario primero)
         if (batchDTO.getEliminar() != null && !batchDTO.getEliminar().isEmpty()) {
             for (Long detalleId : batchDTO.getEliminar()) {
@@ -446,14 +389,7 @@ public class TrasladoService {
                     throw new IllegalArgumentException("El detalle " + detalleId + " no pertenece al traslado " + trasladoId);
                 }
                 
-                // 🔄 REVERTIR INVENTARIO: Devolver a origen y restar de destino (igual que eliminarDetalle)
-                Long productoId = detalle.getProducto().getId();
-                Double cantidad = detalle.getCantidad();
-                
-                // Devolver cantidad a sede origen (sumar)
-                ajustarInventario(productoId, sedeOrigenId, cantidad, "origen");
-                // Restar cantidad de sede destino
-                ajustarInventario(productoId, sedeDestinoId, -cantidad, "destino");
+                revertirMovimientoLinea(traslado, detalle);
                 
                 // ✅ Eliminar el detalle después de revertir el inventario
                 // Usar consulta nativa DELETE para asegurar ejecución inmediata
@@ -465,7 +401,6 @@ public class TrasladoService {
             em.flush();
         }
         
-        // 3️⃣ ACTUALIZAR detalles existentes
         if (batchDTO.getActualizar() != null && !batchDTO.getActualizar().isEmpty()) {
             for (TrasladoDetalleBatchDTO.DetalleActualizarDTO dto : batchDTO.getActualizar()) {
                 TrasladoDetalle detalle = detalleRepo.findById(dto.getDetalleId())
@@ -474,44 +409,26 @@ public class TrasladoService {
                 if (!Objects.equals(detalle.getTraslado().getId(), trasladoId)) {
                     throw new IllegalArgumentException("El detalle " + dto.getDetalleId() + " no pertenece al traslado " + trasladoId);
                 }
-                
-                // Cambiar producto si se especifica
-                if (dto.getProductoId() != null && !Objects.equals(detalle.getProducto().getId(), dto.getProductoId())) {
-                    Long productoAnteriorId = detalle.getProducto().getId();
-                    Double cantidadAnterior = detalle.getCantidad();
-                    
-                    // Revertir inventario del producto anterior
-                    ajustarInventario(productoAnteriorId, sedeOrigenId, cantidadAnterior, "origen");
-                    ajustarInventario(productoAnteriorId, sedeDestinoId, -cantidadAnterior, "destino");
-                    
-                    // Aplicar inventario del nuevo producto
-                    Double cantidadNueva = (dto.getCantidad() != null) ? dto.getCantidad() : cantidadAnterior;
-                    ajustarInventario(dto.getProductoId(), sedeOrigenId, -cantidadNueva, "origen");
-                    ajustarInventario(dto.getProductoId(), sedeDestinoId, cantidadNueva, "destino");
-                    
+                revertirMovimientoLinea(traslado, detalle);
+                if (dto.getProductoId() != null) {
                     detalle.setProducto(productoRepository.findById(dto.getProductoId())
                             .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + dto.getProductoId())));
-                    detalle.setCantidad(cantidadNueva);
                 }
-                // Cambiar cantidad si se especifica (y no cambió el producto)
-                else if (dto.getCantidad() != null && !Objects.equals(detalle.getCantidad(), dto.getCantidad())) {
+                if (dto.getCantidad() != null) {
                     if (dto.getCantidad() < 1) {
                         throw new IllegalArgumentException("La cantidad debe ser >= 1");
                     }
-                    
-                    Long productoId = detalle.getProducto().getId();
-                    Double cantidadAnterior = detalle.getCantidad();
-                    Double cantidadNueva = dto.getCantidad();
-                    Double diferencia = cantidadNueva - cantidadAnterior;
-                    
-                    // Ajustar inventario por la diferencia
-                    ajustarInventario(productoId, sedeOrigenId, -diferencia, "origen");
-                    ajustarInventario(productoId, sedeDestinoId, diferencia, "destino");
-                    
-                    detalle.setCantidad(cantidadNueva);
+                    detalle.setCantidad(dto.getCantidad());
                 }
-                
-                detalleRepo.save(detalle);
+                if (Boolean.TRUE.equals(dto.getLimpiarProductoInventarioADescontarSede1())) {
+                    detalle.setProductoInventarioADescontarSede1(null);
+                } else if (dto.getProductoInventarioADescontarSede1Id() != null) {
+                    detalle.setProductoInventarioADescontarSede1(productoRepository.findById(dto.getProductoInventarioADescontarSede1Id())
+                            .orElseThrow(() -> new RuntimeException("Producto a descontar (sede 1) no encontrado: "
+                                    + dto.getProductoInventarioADescontarSede1Id())));
+                }
+                detalle = detalleRepo.save(detalle);
+                aplicarMovimientoLinea(traslado, detalle);
             }
         }
         
@@ -532,12 +449,14 @@ public class TrasladoService {
                 nuevoDetalle.setTraslado(traslado);
                 nuevoDetalle.setProducto(producto);
                 nuevoDetalle.setCantidad(dto.getCantidad());
-                
+                if (dto.getProductoInventarioADescontarSede1Id() != null) {
+                    nuevoDetalle.setProductoInventarioADescontarSede1(productoRepository
+                            .findById(dto.getProductoInventarioADescontarSede1Id())
+                            .orElseThrow(() -> new RuntimeException("Producto a descontar (sede 1) no encontrado: "
+                                    + dto.getProductoInventarioADescontarSede1Id())));
+                }
                 detalleRepo.save(nuevoDetalle);
-                
-                // Aplicar inventario
-                ajustarInventario(dto.getProductoId(), sedeOrigenId, -dto.getCantidad(), "origen");
-                ajustarInventario(dto.getProductoId(), sedeDestinoId, dto.getCantidad(), "destino");
+                aplicarMovimientoLinea(traslado, nuevoDetalle);
             }
         }
         
@@ -550,14 +469,198 @@ public class TrasladoService {
         return detalleRepo.findByTrasladoId(trasladoId);
     }
     
+    private static boolean esParCentroPatios(Long sedeA, Long sedeB) {
+        if (sedeA == null || sedeB == null) {
+            return false;
+        }
+        return (sedeA.equals(SEDE_CENTRO_ID) && sedeB.equals(SEDE_PATIOS_ID))
+                || (sedeA.equals(SEDE_PATIOS_ID) && sedeB.equals(SEDE_CENTRO_ID));
+    }
+
+    private static boolean esSedeCentroOPatios(Long sedeId) {
+        return sedeId != null && (sedeId.equals(SEDE_CENTRO_ID) || sedeId.equals(SEDE_PATIOS_ID));
+    }
+
     /**
-     * Método auxiliar para ajustar inventario de forma segura
-     * @param productoId ID del producto
-     * @param sedeId ID de la sede
-     * @param ajuste Cantidad a ajustar (positivo = suma, negativo = resta)
-     * @param tipo "origen" o "destino" para mensajes de error
+     * Reglas: {@code productoInventarioADescontarSede1} solo si origen=1, destino=2|3, línea corte, y
+     * el producto a descontar no es corte y hay stock en sede 1. Si se envía en otro contexto, 400.
      */
-    private void ajustarInventario(Long productoId, Long sedeId, Double ajuste, String tipo) {
+    private void validarReglasProductoInventarioADescontarSede1(Traslado t, TrasladoDetalle d) {
+        if (d.getProductoInventarioADescontarSede1() == null) {
+            return;
+        }
+        long o = t.getSedeOrigen().getId();
+        long dest = t.getSedeDestino().getId();
+        boolean parUnoAResto = (o == SEDE_INSULA_ID) && (dest == SEDE_CENTRO_ID || dest == SEDE_PATIOS_ID);
+        if (!parUnoAResto) {
+            throw new IllegalArgumentException(
+                    "productoInventarioADescontarSede1 solo aplica a traslados cuyo origen es Insula (1) "
+                            + "y el destino es Centro (2) o Patios (3).");
+        }
+        if (d.getProducto() == null || d.getProducto().getId() == null) {
+            throw new IllegalArgumentException("La línea requiere producto para validar el descuento en sede 1.");
+        }
+        if (!corteRepository.existsById(d.getProducto().getId())) {
+            throw new IllegalArgumentException(
+                    "productoInventarioADescontarSede1 solo aplica cuando la línea traslada un corte (producto corte).");
+        }
+        Long pDesc = d.getProductoInventarioADescontarSede1().getId();
+        if (corteRepository.existsById(pDesc)) {
+            throw new IllegalArgumentException(
+                    "El producto a descontar en Insula no puede ser un corte; use un producto entero (id=" + pDesc + ").");
+        }
+        double need = d.getCantidad() != null ? d.getCantidad() : 0.0;
+        if (need <= 0) {
+            return;
+        }
+        double disponible = inventarioService.obtenerPorProductoYSede(pDesc, SEDE_INSULA_ID)
+                .map(Inventario::getCantidad)
+                .orElse(0.0);
+        if (disponible < need) {
+            throw new InventarioInsuficienteException(
+                    "Stock insuficiente en Insula del producto a descontar (id " + pDesc
+                            + "). Disponible: " + disponible + ", requerido: " + need,
+                    disponible, need, pDesc, SEDE_INSULA_ID);
+        }
+    }
+
+    /**
+     * Aplica el movimiento de stock de una línea al crear/confirmar detalle (saca origen, entra en destino).
+     */
+    private void aplicarMovimientoLinea(Traslado t, TrasladoDetalle d) {
+        validarReglasProductoInventarioADescontarSede1(t, d);
+        long o = t.getSedeOrigen().getId();
+        long dest = t.getSedeDestino().getId();
+        Long pid = d.getProducto().getId();
+        double q = d.getCantidad();
+        boolean corte = corteRepository.existsById(pid);
+
+        if (corte && esParCentroPatios(o, dest)) {
+            ajustarInventarioCorte(pid, o, -q, "origen");
+            ajustarInventarioCorte(pid, dest, +q, "destino");
+            return;
+        }
+        if (corte && o == SEDE_INSULA_ID && esSedeCentroOPatios(dest)) {
+            if (d.getProductoInventarioADescontarSede1() != null) {
+                Long pDesc = d.getProductoInventarioADescontarSede1().getId();
+                ajustarInventarioProductoNormal(pDesc, SEDE_INSULA_ID, -q, "sede1-producto-entero");
+            }
+            ajustarInventarioCorte(pid, dest, +q, "destino");
+            // Nombre canónico del corte (misma lógica que OrdenService al crear/ajustar cortes)
+            actualizarNombreCorteTrasladoInsulaADestino(d);
+            return;
+        }
+        if (corte && esSedeCentroOPatios(o) && dest == SEDE_INSULA_ID) {
+            ajustarInventarioCorte(pid, o, -q, "origen");
+            return;
+        }
+        ajustarInventarioProductoNormal(pid, o, -q, "origen");
+        ajustarInventarioProductoNormal(pid, dest, +q, "destino");
+    }
+
+    /**
+     * Revierte el movimiento de stock de una línea (anular traslado o editar/borrar detalle).
+     */
+    private void revertirMovimientoLinea(Traslado t, TrasladoDetalle d) {
+        long o = t.getSedeOrigen().getId();
+        long dest = t.getSedeDestino().getId();
+        Long pid = d.getProducto().getId();
+        double q = d.getCantidad();
+        boolean corte = corteRepository.existsById(pid);
+
+        if (corte && esParCentroPatios(o, dest)) {
+            ajustarInventarioCorte(pid, o, +q, "origen-revertir");
+            ajustarInventarioCorte(pid, dest, -q, "destino-revertir");
+            return;
+        }
+        if (corte && o == SEDE_INSULA_ID && esSedeCentroOPatios(dest)) {
+            if (d.getProductoInventarioADescontarSede1() != null) {
+                Long pDesc = d.getProductoInventarioADescontarSede1().getId();
+                ajustarInventarioProductoNormal(pDesc, SEDE_INSULA_ID, +q, "sede1-producto-revertir");
+            }
+            ajustarInventarioCorte(pid, dest, -q, "destino-revertir");
+            return;
+        }
+        if (corte && esSedeCentroOPatios(o) && dest == SEDE_INSULA_ID) {
+            ajustarInventarioCorte(pid, o, +q, "origen-revertir");
+            return;
+        }
+        ajustarInventarioProductoNormal(pid, o, +q, "origen-revertir");
+        ajustarInventarioProductoNormal(pid, dest, -q, "destino-revertir");
+    }
+
+    /**
+     * Traslado Insula (1) → Centro (2) o Patios (3) con línea corte: al acreditar corte en destino,
+     * fija {@link Corte#getNombre()} usando el <strong>producto entero</strong> descontado en 1
+     * y la medida del corte, mismo criterio que en {@code OrdenService}:
+     * {@code [base entero] Corte de {medida} CMS}.
+     * <p>El {@code nombre} está en la fila del {@code Corte} (id único a nivel app); afecta listados
+     * en todas las sedes. Solo corre si la línea trae {@code productoInventarioADescontarSede1}.</p>
+     */
+    private void actualizarNombreCorteTrasladoInsulaADestino(TrasladoDetalle d) {
+        if (d.getProducto() == null || d.getProducto().getId() == null) {
+            return;
+        }
+        if (d.getProductoInventarioADescontarSede1() == null
+                || d.getProductoInventarioADescontarSede1().getId() == null) {
+            return;
+        }
+        Long corteId = d.getProducto().getId();
+        if (!corteRepository.existsById(corteId)) {
+            return;
+        }
+        Corte corte = corteRepository.findById(corteId).orElse(null);
+        if (corte == null) {
+            return;
+        }
+        Long enteroId = d.getProductoInventarioADescontarSede1().getId();
+        Producto entero = productoRepository.findById(enteroId).orElse(null);
+        if (entero == null) {
+            return;
+        }
+        String nombreEntero = entero.getNombre() != null ? entero.getNombre() : "";
+        int idx = nombreEntero.indexOf(" Corte de ");
+        String baseNombre = idx != -1 ? nombreEntero.substring(0, idx).trim() : nombreEntero.trim();
+        if (baseNombre.isEmpty()) {
+            baseNombre = entero.getCodigo() != null && !entero.getCodigo().isBlank()
+                    ? entero.getCodigo().trim() : "Corte";
+        }
+        double largo = corte.getLargoCm() != null ? corte.getLargoCm() : 0.0;
+        int medida = (int) Math.round(largo);
+        if (medida <= 0) {
+            return;
+        }
+        String nombreFinal = baseNombre + " Corte de " + medida + " CMS";
+        if (nombreFinal.equals(corte.getNombre())) {
+            return;
+        }
+        corte.setNombre(nombreFinal);
+        corteRepository.save(corte);
+    }
+
+    private void ajustarInventarioCorte(Long corteId, Long sedeId, Double ajuste, String tipo) {
+        if (ajuste == null || ajuste == 0) {
+            return;
+        }
+        if (ajuste < 0) {
+            double aSacar = -ajuste;
+            double disponible = inventarioCorteService
+                    .obtenerPorCorteYSede(corteId, sedeId)
+                    .map(InventarioCorte::getCantidad)
+                    .orElse(0.0);
+            if (disponible < aSacar) {
+                throw new InventarioInsuficienteException(
+                        "No hay suficiente stock de corte en sede " + tipo
+                                + ". Disponible: " + disponible + ", requerido: " + aSacar,
+                        disponible, aSacar, corteId, sedeId);
+            }
+            inventarioCorteService.decrementarStock(corteId, sedeId, aSacar);
+        } else {
+            inventarioCorteService.incrementarStock(corteId, sedeId, ajuste);
+        }
+    }
+
+    private void ajustarInventarioProductoNormal(Long productoId, Long sedeId, Double ajuste, String tipo) {
         Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(productoId, sedeId);
         
         if (inventarioOpt.isPresent()) {
@@ -572,7 +675,6 @@ public class TrasladoService {
             inv.setCantidad(nuevaCantidad);
             inventarioService.actualizar(inv.getId(), inv);
         } else {
-            // Si no existe inventario y el ajuste es positivo, crear nuevo registro
             if (ajuste > 0) {
                 Inventario nuevoInventario = new Inventario();
                 nuevoInventario.setProducto(productoRepository.findById(productoId)

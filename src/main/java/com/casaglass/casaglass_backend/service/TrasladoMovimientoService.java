@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.dto.TrasladoMovimientoDTO;
+import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.Traslado;
 import com.casaglass.casaglass_backend.repository.TrasladoRepository;
 import org.springframework.stereotype.Service;
@@ -262,11 +263,22 @@ public class TrasladoMovimientoService {
                                     categoria
                             );
                         }
+                        TrasladoMovimientoDTO.ProductoSimpleDTO productoDes = null;
+                        Long productoInventarioADescontarSede1Id = null;
+                        if (detalle.getProductoInventarioADescontarSede1() != null) {
+                            Producto pd = detalle.getProductoInventarioADescontarSede1();
+                            productoInventarioADescontarSede1Id = pd.getId();
+                            String catD = pd.getCategoria() != null ? pd.getCategoria().getNombre() : null;
+                            productoDes = new TrasladoMovimientoDTO.ProductoSimpleDTO(
+                                    pd.getId(), pd.getNombre(), pd.getCodigo(), catD);
+                        }
 
                         return new TrasladoMovimientoDTO.TrasladoDetalleSimpleDTO(
                                 detalle.getId(),
                                 detalle.getCantidad(),
-                                producto
+                                producto,
+                                productoInventarioADescontarSede1Id,
+                                productoDes
                         );
                     })
                     .collect(Collectors.toList());

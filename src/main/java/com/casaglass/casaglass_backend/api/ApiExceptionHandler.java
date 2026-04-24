@@ -4,14 +4,19 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.RollbackException;
 import jakarta.validation.ConstraintViolationException;
+import com.casaglass.casaglass_backend.exception.InventarioInsuficienteException;
 import org.hibernate.LazyInitializationException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.Instant;
 import java.util.Map;
 
@@ -34,6 +39,31 @@ public class ApiExceptionHandler {
      * Violaciones de integridad (FK/UNIQUE, etc.) -> 409 Conflict
      * Útil para: NIT duplicado, correo duplicado, eliminación con registros relacionados, etc.
      */
+    /**
+     * Traslado / venta: stock no alcanza para la operación.
+     */
+    @ExceptionHandler(InventarioInsuficienteException.class)
+    public ResponseEntity<Map<String, Object>> handleInventarioInsuficiente(InventarioInsuficienteException ex) {
+        Map<String, Object> b = new java.util.HashMap<>();
+        b.put("timestamp", Instant.now().toString());
+        b.put("status", HttpStatus.CONFLICT.value());
+        b.put("error", "INVENTARIO_INSUFICIENTE");
+        b.put("message", ex.getMessage());
+        if (ex.getProductoId() != null) {
+            b.put("productoId", ex.getProductoId());
+        }
+        if (ex.getSedeId() != null) {
+            b.put("sedeId", ex.getSedeId());
+        }
+        if (ex.getCantidadDisponible() != null) {
+            b.put("cantidadDisponible", ex.getCantidadDisponible());
+        }
+        if (ex.getCantidadRequerida() != null) {
+            b.put("cantidadRequerida", ex.getCantidadRequerida());
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(b);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
         // Mensaje por defecto
@@ -44,9 +74,11 @@ public class ApiExceptionHandler {
         lower = lower != null ? lower.toLowerCase() : "";
 
         if (lower.contains("unique") || lower.contains("duplicate") || lower.contains("unicidad")) {
-            // Detectar específicamente qué campo tiene el problema
-            // Clave única del NIT en clientes: UKgs8pntaqxksfh6jp4asuokx7a
-            // Clave única del correo en clientes: UK8duxx4vm6d736wokeq3u5skw7
+            // Misma entrega + misma orden dos veces (p. ej. abono y reembolso) si existe UNIQUE(entrega_id, orden_id) en BD
+            if (lower.contains("entrega_detalle")
+                    || (lower.contains("entrega_id") && lower.contains("orden_id"))) {
+                message = "No se puede duplicar la misma orden en la misma entrega de dinero. Revise abonos y reembolsos o el índice único en la base de datos.";
+            } else
             if (lower.contains("ukgs8pntaqxksfh6jp4asuokx7a") || lower.contains("nit")) {
                 message = "El NIT ya está registrado.";
             } else if (lower.contains("uk8duxx4vm6d736wokeq3u5skw7") || lower.contains("correo") || lower.contains("email")) {
@@ -62,6 +94,50 @@ public class ApiExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(body(HttpStatus.CONFLICT, message, "CONFLICT"));
+    }
+
+    private ResponseEntity<Map<String, Object>> unwrapDataIntegrityOrConflict(Throwable ex) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof DataIntegrityViolationException) {
+                return handleDataIntegrity((DataIntegrityViolationException) t);
+            }
+            if (t instanceof SQLIntegrityConstraintViolationException) {
+                String m = t.getMessage();
+                if (m != null && isEntregaDetalleDuplicate(m)) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(body(HttpStatus.CONFLICT,
+                                    "No se puede duplicar la misma orden en la misma entrega de dinero. Revise abonos y reembolsos o el índice único en la base de datos.",
+                                    "CONFLICT"));
+                }
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(body(HttpStatus.CONFLICT,
+                                m != null ? m : "Violación de integridad de datos.",
+                                "CONFLICT"));
+            }
+        }
+        Throwable root = ex;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String msg = root != null && root.getMessage() != null ? root.getMessage() : ex.getMessage();
+        if (msg == null || msg.isBlank()) {
+            msg = "No se pudo completar la operación (error de transacción).";
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(body(HttpStatus.CONFLICT, msg, "TRANSACTION_ERROR"));
+    }
+
+    private static boolean isEntregaDetalleDuplicate(String raw) {
+        String lower = raw.toLowerCase();
+        return lower.contains("entrega_detalle") || (lower.contains("entrega_id") && lower.contains("orden_id"));
+    }
+
+    /**
+     * "Could not commit JPA transaction" y similares: el fallo real suele ser {@link DataIntegrityViolationException} anidada.
+     */
+    @ExceptionHandler({ TransactionSystemException.class, RollbackException.class, UnexpectedRollbackException.class })
+    public ResponseEntity<Map<String, Object>> handleTransactionOrRollback(Exception ex) {
+        return unwrapDataIntegrityOrConflict(ex);
     }
 
     /**

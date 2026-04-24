@@ -117,14 +117,16 @@ public class EntregaDetalleService {
                 .orElseThrow(() -> new RuntimeException("Orden no encontrada"));
 
         // ✅ VALIDACIÓN 1: La orden no debe estar ya en otra entrega distinta a la actual (vigente).
-        // Permite varias filas en la MISMA entrega (p. ej. ingreso a contado + egreso por reembolso de la misma orden).
+        // No aplica a EGRESO por reembolso: el ingreso (contado/abono) pudo salir en otra entrega y el
+        // reembolso se liquida en una entrega de caja distinta.
         if (detalle.getEntrega() == null || detalle.getEntrega().getId() == null) {
             throw new RuntimeException("La entrega es obligatoria para el detalle");
         }
-        if (entregaDetalleRepository.existsByOrdenIdAndEntregaIdNotAndEntrega_EstadoIn(
-                orden.getId(),
-                detalle.getEntrega().getId(),
-                ESTADOS_ENTREGA_BLOQUEO_EDICION)) {
+        if (detalle.getReembolsoVenta() == null
+                && entregaDetalleRepository.existsByOrdenIdAndEntregaIdNotAndEntrega_EstadoIn(
+                        orden.getId(),
+                        detalle.getEntrega().getId(),
+                        ESTADOS_ENTREGA_BLOQUEO_EDICION)) {
             throw new RuntimeException("La orden ya está incluida en otra entrega de dinero vigente");
         }
 
@@ -139,21 +141,12 @@ public class EntregaDetalleService {
             }
         }
 
-        // ✅ VALIDACIÓN 3: Si es un reembolso, verificar que no esté ya incluido en otra entrega
+        // ✅ VALIDACIÓN 3: Rechazar si el mismo reembolso ya está vinculado a otra entrega distinta
         if (detalle.getReembolsoVenta() != null) {
             Long reembolsoId = detalle.getReembolsoVenta().getId();
-            
-            // Buscar si este reembolso ya está en alguna entrega
-            List<EntregaDetalle> detallesConReembolso = entregaDetalleRepository.findAll().stream()
-                .filter(d -> d.getReembolsoVenta() != null && d.getReembolsoVenta().getId().equals(reembolsoId))
-                .collect(java.util.stream.Collectors.toList());
-            
-            for (EntregaDetalle existente : detallesConReembolso) {
-                // Si el reembolso está en otra entrega (no en esta), rechazar
-                if (detalle.getEntrega() == null || 
-                    !existente.getEntrega().getId().equals(detalle.getEntrega().getId())) {
-                    throw new RuntimeException("Este reembolso ya está incluido en otra entrega de dinero");
-                }
+            Long entregaId = detalle.getEntrega().getId();
+            if (entregaDetalleRepository.existsByReembolsoVentaIdAndEntregaIdNot(reembolsoId, entregaId)) {
+                throw new RuntimeException("Este reembolso ya está incluido en otra entrega de dinero");
             }
         }
 

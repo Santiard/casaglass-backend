@@ -1,0 +1,9 @@
+-- Hint operativo: si al crear/actualizar entregas con abono+reembols para la misma orden
+-- MySQL responde con DUPLICATE o violación de índice único sobre (entrega_id, orden_id),
+-- compruebe índices con:
+--   SHOW INDEX FROM entrega_detalles;
+--   SHOW CREATE TABLE entrega_detalles;
+-- Si el negocio requiere dos filas (INGRESO y EGRESO) para el mismo par, elimine o sustituya
+-- ese índice único según criterio de negocio, por ejemplo:
+--   ALTER TABLE entrega_detalles DROP INDEX nombre_que_venga_en_el_error;
+-- (Ejecución manual: este proyecto no aplica automáticamente este script.)

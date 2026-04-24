@@ -51,6 +51,8 @@ public interface CorteRepository extends JpaRepository<Corte, Long> {
     // 🆕 Método para buscar por lista de IDs
     List<Corte> findByIdIn(List<Long> ids);
 
+    List<Corte> findByCodigoAndLargoCmOrderByIdDesc(String codigo, Double largoCm);
+
     // 🆕 Buscar corte existente por código base (sin sufijo), largo exacto, categoría y color
     // ✅ El código siempre es el del producto base (ej: "392"), no incluye la medida
     @Query("SELECT DISTINCT c FROM Corte c WHERE c.codigo = :codigo AND c.largoCm = :largo AND c.categoria.id = :categoriaId AND c.color = :color ORDER BY c.id DESC")

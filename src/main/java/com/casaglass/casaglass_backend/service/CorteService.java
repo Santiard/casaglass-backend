@@ -2,6 +2,7 @@ package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.model.Categoria;
 import com.casaglass.casaglass_backend.model.Corte;
+import com.casaglass.casaglass_backend.model.Producto;
 import com.casaglass.casaglass_backend.model.InventarioCorte;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.repository.CategoriaRepository;
@@ -12,12 +13,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class CorteService {
+
+    private static final long SEDE_INSULA_RESOLVER_REF = 1L;
 
     private final com.casaglass.casaglass_backend.service.InventarioCorteService inventarioCorteService;
     private final com.casaglass.casaglass_backend.service.SedeService sedeService;
@@ -47,6 +53,137 @@ public class CorteService {
 
     public Optional<Corte> obtenerPorId(Long id) {
         return repository.findById(id);
+    }
+
+    /**
+     * Para traslados: localiza o crea un corte a partir de un <strong>producto entero en BD</strong> y
+     * la medida en cm, sin depender de que el front tenga {@code categoria} en el DTO de catálogo
+     * (suele faltar y bloquea el <code>POST /api/cortes</code> en cliente).
+     * <p>Orden: reutiliza si ya existe corte con mismo (código, color, categoría, largo) o heurística;
+     * si no, crea uno con precio1 proporcional a <code>precio1(entero) × (medida/600)</code> mín. 0,01.
+     * Categoría puede ser null (coherente con <code>Producto</code> nullable).</p>
+     */
+    @Transactional
+    public Corte resolverOCrearCorteParaTrasladoDesdePerfil(long productoPerfilId, int medidaCm) {
+        if (medidaCm <= 0) {
+            throw new IllegalArgumentException("medidaCm debe ser > 0");
+        }
+        Producto p = productoRepository.findById(productoPerfilId)
+                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + productoPerfilId));
+        if (repository.existsById(productoPerfilId)) {
+            throw new IllegalArgumentException("Use un producto entero (perfil), no un id de corte: " + productoPerfilId);
+        }
+        String codigo = p.getCodigo();
+        if (codigo == null || codigo.isBlank()) {
+            throw new IllegalArgumentException("El producto " + productoPerfilId + " no tiene código; no se puede asociar un corte");
+        }
+        final double largoBuscado = medidaCm;
+        Corte reutil = buscarCorteReutilizableParaTraslado(p, codigo, medidaCm, largoBuscado);
+        if (reutil != null) {
+            return reutil;
+        }
+        Corte c = new Corte();
+        c.setCodigo(codigo);
+        String nombreP = p.getNombre() != null ? p.getNombre() : codigo;
+        int i = nombreP.indexOf(" Corte de ");
+        String baseNombre = i != -1 ? nombreP.substring(0, i).trim() : nombreP.trim();
+        c.setNombre(baseNombre + " Corte de " + medidaCm + " CMS");
+        c.setLargoCm(largoBuscado);
+        c.setCategoria(p.getCategoria());
+        c.setTipo(p.getTipo());
+        c.setColor(p.getColor());
+        c.setCantidad(0.0);
+        c.setCosto(0.0);
+        final double refBarCm = 600.0;
+        double pBase = p.getPrecio1() != null && p.getPrecio1() > 0 ? p.getPrecio1() : 1.0;
+        double linea = pBase * (medidaCm / refBarCm);
+        if (linea < 0.01) {
+            linea = 0.01;
+        }
+        c.setPrecio1(linea);
+        return guardar(c);
+    }
+
+    /**
+     * Misma semántica que {@link com.casaglass.casaglass_backend.service.OrdenService#crearCorteIndividual} paso 0,
+     * más tolerancia para no duplicar filas (mismo código + medida × color + categoría).
+     */
+    private Corte buscarCorteReutilizableParaTraslado(
+            Producto p, String codigo, int medidaCm, double largoBuscado) {
+        if (p.getCategoria() != null && p.getColor() != null) {
+            List<Corte> priorizados = repository.findExistingByCodigoAndSpecsPrioritizedBySede(
+                    codigo, largoBuscado, p.getCategoria().getId(), p.getColor(), SEDE_INSULA_RESOLVER_REF);
+            if (priorizados != null && !priorizados.isEmpty()) {
+                return priorizados.get(0);
+            }
+            List<Corte> exact = repository.findByCodigoAndColorAndCategoria_IdAndLargoCm(
+                    codigo, p.getColor(), p.getCategoria().getId(), largoBuscado);
+            if (exact != null && !exact.isEmpty()) {
+                return exact.get(0);
+            }
+        }
+        List<Corte> candidatos = repository.findByCodigoAndLargoCmOrderByIdDesc(codigo, largoBuscado);
+        if (candidatos == null || candidatos.isEmpty()) {
+            double tol = 0.5;
+            List<Corte> porRango = repository.findByLargoCmBetween(medidaCm - tol, medidaCm + tol).stream()
+                    .filter(c -> codigo.equals(c.getCodigo()))
+                    .collect(Collectors.toList());
+            if (porRango != null && !porRango.isEmpty()) {
+                if (p.getColor() != null) {
+                    Optional<Corte> m = porRango.stream()
+                            .filter(c -> c.getColor() != null && p.getColor().equals(c.getColor()))
+                            .min(Comparator.comparing(Corte::getId));
+                    if (m.isPresent()) {
+                        return m.get();
+                    }
+                }
+                if (p.getCategoria() != null) {
+                    Optional<Corte> m = porRango.stream()
+                            .filter(c -> c.getCategoria() != null
+                                    && p.getCategoria().getId().equals(c.getCategoria().getId()))
+                            .min(Comparator.comparing(Corte::getId));
+                    if (m.isPresent()) {
+                        return m.get();
+                    }
+                }
+                if (porRango.size() == 1) {
+                    return porRango.get(0);
+                }
+                return porRango.stream().min(Comparator.comparing(Corte::getId)).orElse(null);
+            }
+        } else {
+            if (p.getColor() != null) {
+                List<Corte> conColor = candidatos.stream()
+                        .filter(c -> c.getColor() != null && p.getColor().equals(c.getColor()))
+                        .toList();
+                if (!conColor.isEmpty()) {
+                    if (p.getCategoria() != null) {
+                        Optional<Corte> c = conColor.stream()
+                                .filter(x -> x.getCategoria() != null
+                                        && p.getCategoria().getId().equals(x.getCategoria().getId()))
+                                .min(Comparator.comparing(Corte::getId));
+                        if (c.isPresent()) {
+                            return c.get();
+                        }
+                    }
+                    return conColor.stream().min(Comparator.comparing(Corte::getId)).orElse(null);
+                }
+            }
+            if (p.getCategoria() != null) {
+                Optional<Corte> byCat = candidatos.stream()
+                        .filter(c -> c.getCategoria() != null
+                                && Objects.equals(p.getCategoria().getId(), c.getCategoria().getId()))
+                        .min(Comparator.comparing(Corte::getId));
+                if (byCat.isPresent()) {
+                    return byCat.get();
+                }
+            }
+            if (candidatos.size() == 1) {
+                return candidatos.get(0);
+            }
+            return candidatos.stream().min(Comparator.comparing(Corte::getId)).orElse(null);
+        }
+        return null;
     }
 
     public Optional<Corte> obtenerPorCodigo(String codigo) {
