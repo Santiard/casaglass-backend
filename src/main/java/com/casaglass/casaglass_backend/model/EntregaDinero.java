@@ -41,10 +41,12 @@ public class EntregaDinero {
     @NotNull
     private LocalDate fechaEntrega;
 
-    /** Monto de la entrega (calculado automáticamente desde las órdenes) */
+    /**
+     * Monto neto de la entrega (ingresos − egresos / reembolsos), alineado con el desglose.
+     * Puede ser negativo si la caja entrega solo devoluciones (egresos) u ostenta más salida que entrada.
+     */
     @Column(name = "monto", nullable = false)
     @NotNull
-    @Min(value = 0, message = "Monto no puede ser negativo")
     private Double monto = 0.0;
 
     /** Desglose por método de pago */

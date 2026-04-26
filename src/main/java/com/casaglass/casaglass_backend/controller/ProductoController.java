@@ -123,6 +123,43 @@ public class ProductoController {
         }
     }
 
+    /**
+     * Variante de producto sin conocer el id: mismo código, color y nombre que en la línea de orden
+     * (el nombre en BD debe coincidir de forma exacta, ignorando mayúsculas, con el de la línea).
+     * GET /api/productos/variante?codigo=...&color=MATE&nombre=...
+     */
+    @GetMapping("/variante")
+    public ResponseEntity<?> obtenerProductoVariante(
+            @RequestParam String codigo,
+            @RequestParam String color,
+            @RequestParam String nombre) {
+        if (codigo == null || codigo.isBlank() || color == null || color.isBlank()
+                || nombre == null || nombre.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "PARAMETROS_REQUERIDOS",
+                    "message", "Se requieren los query params 'codigo', 'color' y 'nombre' (no vacíos)"));
+        }
+        ColorProducto colorEnum;
+        try {
+            colorEnum = ColorProducto.valueOf(color.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "COLOR_INVALIDO",
+                    "message", "Color no válido. Valores: MATE, BLANCO, NEGRO, BRONCE, NA"));
+        }
+        List<Producto> cands = service.buscarProductosVariantePorCodigoYColor(codigo, colorEnum, nombre);
+        if (cands.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (cands.size() > 1) {
+            return ResponseEntity.status(409).body(Map.of(
+                    "error", "VARIAS_VARIANTES",
+                    "message", "Hay más de un producto con el mismo código, color y nombre en catálogo",
+                    "coincidencias", cands.size()));
+        }
+        return ResponseEntity.ok(cands.get(0));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Producto> obtener(@PathVariable Long id) {
         return service.obtenerPorId(id)

@@ -87,13 +87,18 @@ public class ApiExceptionHandler {
                 // Mensaje genérico para otros casos de unique
                 message = "Ya existe un registro con estos datos (violación de restricción única).";
             }
-        } else if (lower.contains("foreign key") || lower.contains("foreign-key") || lower.contains("fk_")) {
-            // Caso: no se puede eliminar por relaciones
-            message = "No se puede eliminar el registro porque tiene datos relacionados.";
+        } else if (lower.contains("foreign key") || lower.contains("foreign-key") || lower.contains("fk_")
+                || lower.contains("cannot delete") || lower.contains("cannot add") || lower.contains("a foreign key constraint fails")) {
+            // Caso: no se puede eliminar por relaciones, o referencia a fila inexistente
+            message = "No se puede completar operación: restricción de clave foránea o dato referenciado inválido.";
         }
 
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(body(HttpStatus.CONFLICT, message, "CONFLICT"));
+        Map<String, Object> payload = new java.util.HashMap<>(body(HttpStatus.CONFLICT, message, "CONFLICT"));
+        String rootMsg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        if (rootMsg != null && !rootMsg.isBlank()) {
+            payload.put("detail", rootMsg);
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(payload);
     }
 
     private ResponseEntity<Map<String, Object>> unwrapDataIntegrityOrConflict(Throwable ex) {

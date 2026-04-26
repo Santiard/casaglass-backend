@@ -23,6 +23,9 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     // Buscar todos los productos con el mismo código
     List<Producto> findAllByCodigo(String codigo);
 
+    /** Variante exacta: mismo código (como en orden) y color (corte, vidrio, base comparten herencia). */
+    List<Producto> findByCodigoAndColor(String codigo, ColorProducto color);
+
     // Buscar productos cuyo nombre o código contengan un texto (búsqueda general)
     List<Producto> findByNombreContainingIgnoreCaseOrCodigoContainingIgnoreCase(String nombre, String codigo);
 

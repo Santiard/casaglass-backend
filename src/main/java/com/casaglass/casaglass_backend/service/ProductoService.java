@@ -85,6 +85,32 @@ public class ProductoService {
         return repo.findByCodigo(codigo);
     }
 
+    /**
+     * Productos (incl. subclases) con {@code codigo} y {@code color} exactos en BD, y
+     * {@code nombre} igual al de la fila (trim + mayúsculas ignoradas), para no confundir
+     * p. ej. "Producto X" con "Producto X CORTE 50cm" (mismo código/color).
+     */
+    @Transactional(readOnly = true)
+    public List<Producto> buscarProductosVariantePorCodigoYColor(String codigo, ColorProducto color, String nombre) {
+        if (codigo == null) {
+            return List.of();
+        }
+        String c = codigo.trim();
+        if (c.isEmpty()) {
+            return List.of();
+        }
+        if (nombre == null) {
+            return List.of();
+        }
+        String n = nombre.trim();
+        if (n.isEmpty()) {
+            return List.of();
+        }
+        return repo.findByCodigoAndColor(c, color).stream()
+                .filter(p -> p.getNombre() != null && p.getNombre().trim().equalsIgnoreCase(n))
+                .collect(Collectors.toList());
+    }
+
     public List<Producto> listarPorCategoriaId(Long categoriaId) {
         return repo.findByCategoria_Id(categoriaId);
     }
