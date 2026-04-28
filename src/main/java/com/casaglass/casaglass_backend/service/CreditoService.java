@@ -7,6 +7,7 @@ import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.model.EntregaClienteEspecial;
 import com.casaglass.casaglass_backend.repository.CreditoRepository;
 import com.casaglass.casaglass_backend.repository.FacturaRepository;
+import com.casaglass.casaglass_backend.repository.SedeRepository;
 import jakarta.persistence.EntityManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -25,15 +27,18 @@ public class CreditoService {
     private final EntityManager entityManager;
     private final FacturaRepository facturaRepository;
     private final EntregaClienteEspecialService entregaClienteEspecialService;
+    private final SedeRepository sedeRepository;
 
     public CreditoService(CreditoRepository creditoRepo,
                           EntityManager entityManager,
                           FacturaRepository facturaRepository,
-                          EntregaClienteEspecialService entregaClienteEspecialService) {
+                          EntregaClienteEspecialService entregaClienteEspecialService,
+                          SedeRepository sedeRepository) {
         this.creditoRepo = creditoRepo;
         this.entityManager = entityManager;
         this.facturaRepository = facturaRepository;
         this.entregaClienteEspecialService = entregaClienteEspecialService;
+        this.sedeRepository = sedeRepository;
     }
 
     /* ---------- Helpers de dinero (redondeado a 2 decimales) ---------- */
@@ -601,18 +606,29 @@ public class CreditoService {
      * - Ordenado por fecha de orden (más recientes primero)
      * 
      * @param clienteId ID del cliente
+     * @param sedeId    Si no es {@code null}, solo créditos cuya {@code orden.sede} coincide (recomendado: sede del usuario en abonos).
+     *                  Si es {@code null}, lista todos los pendientes del cliente (comportamiento anterior; sin filtro por sede).
      * @return Lista de CreditoPendienteDTO con toda la información necesaria
      */
     @Transactional(readOnly = true)
-    public List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> listarCreditosPendientes(Long clienteId) {
-        // ✅ USAR MÉTODO ALTERNATIVO DIRECTAMENTE: Buscar todos y filtrar manualmente
-        // Esto evita problemas con la comparación de Double en el repositorio
+    public List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> listarCreditosPendientes(Long clienteId,
+                                                                                                   Long sedeId) {
+        if (clienteId == null) {
+            throw new IllegalArgumentException("clienteId es obligatorio");
+        }
+        if (sedeId != null && !sedeRepository.existsById(sedeId)) {
+            throw new IllegalArgumentException("Sede no encontrada");
+        }
+
+        // ✅ Buscar todos y filtrar manualmente (evita problemas de precisión con Double en el repositorio)
         List<Credito> todosCreditos = creditoRepo.findByClienteId(clienteId);
-        
-        // Filtrar por estado ABIERTO y saldo > 0.001 (umbral mínimo para evitar problemas de precisión)
+
         List<Credito> creditosFiltrados = todosCreditos.stream()
             .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
             .filter(c -> c.getSaldoPendiente() != null && c.getSaldoPendiente() > 0.001)
+            .filter(c -> sedeId == null
+                    || (c.getOrden() != null && c.getOrden().getSede() != null
+                        && Objects.equals(c.getOrden().getSede().getId(), sedeId)))
             .collect(java.util.stream.Collectors.toList());
 
         // Convertir a DTO

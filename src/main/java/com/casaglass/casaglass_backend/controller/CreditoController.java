@@ -424,10 +424,11 @@ public class CreditoController {
 
     /**
      * 💰 LISTAR CRÉDITOS PENDIENTES DE UN CLIENTE
-     * GET /api/creditos/cliente/{clienteId}/pendientes
+     * GET /api/creditos/cliente/{clienteId}/pendientes?sedeId={sedeOpcional}
      * 
      * Endpoint especializado para la página de abonos.
      * Retorna SOLO los créditos con saldo pendiente > 0 y estado ABIERTO.
+     * Opcionalmente, si viene {@code sedeId}, solo los de esa sede ({@code orden.sede}); si no viene, igual que antes (todas las sedes).
      * 
      * Incluye:
      * - Datos del crédito (id, totalCredito, totalAbonado, saldoPendiente, estado)
@@ -452,10 +453,12 @@ public class CreditoController {
      * ]
      */
     @GetMapping("/cliente/{clienteId}/pendientes")
-    public ResponseEntity<?> listarCreditosPendientes(@PathVariable Long clienteId) {
+    public ResponseEntity<?> listarCreditosPendientes(
+            @PathVariable Long clienteId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long sedeId) {
         try {
-            List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> creditos = 
-                service.listarCreditosPendientes(clienteId);
+            List<com.casaglass.casaglass_backend.dto.CreditoPendienteDTO> creditos =
+                service.listarCreditosPendientes(clienteId, sedeId);
             
             return ResponseEntity.ok(creditos);
         } catch (IllegalArgumentException e) {

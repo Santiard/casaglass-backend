@@ -15,7 +15,7 @@ import java.time.LocalDate;
  * - Calcular retención de fuente y retención ICA
  * - Registrar abonos
  * 
- * Endpoint: GET /api/creditos/cliente/{clienteId}/pendientes
+ * Endpoint: GET /api/creditos/cliente/{clienteId}/pendientes (opcional ?sedeId= para filtrar por sede de la orden)
  */
 @Data
 @NoArgsConstructor

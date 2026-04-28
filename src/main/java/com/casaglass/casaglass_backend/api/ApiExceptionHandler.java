@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -223,6 +224,21 @@ public class ApiExceptionHandler {
         String message = "Error al cargar datos relacionados. Por favor, intente nuevamente.";
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(body(HttpStatus.INTERNAL_SERVER_ERROR, message, "LAZY_LOADING_ERROR"));
+    }
+
+    /**
+     * Parámetro requerido en la firma del controlador pero ausente en la URL (p. ej. versión vieja vs nueva del API).
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingRequestParam(MissingServletRequestParameterException ex) {
+        String name = ex.getParameterName() != null ? ex.getParameterName() : "?";
+        String hint = "sedeId".equals(name)
+                ? " Este endpoint admite sedeId como opcional (actualice el backend) o envíelo en la query si su versión lo exige."
+                : "";
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(body(HttpStatus.BAD_REQUEST,
+                        "Falta el parámetro requerido \"" + name + "\"." + hint,
+                        "BAD_REQUEST"));
     }
 
     /**
