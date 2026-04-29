@@ -172,18 +172,19 @@ public class EntregaDineroController {
         return service.obtenerPorId(id)
                 .map(entrega -> {
                     EntregaDineroResponseDTO dto = new EntregaDineroResponseDTO(entrega);
-                    // Los detalles ya incluyen el monto del abono específico si existe
-                    if (dto.getDetalles() != null) {
+                    // Misma colección pero construcción directa por detalle (abonos coherentes).
+                    if (entrega.getDetalles() != null) {
                         dto.setDetalles(entrega.getDetalles().stream()
                                 .map(EntregaDetalleSimpleDTO::new)
                                 .collect(Collectors.toList()));
                     }
-                    
+                    dto.sincronizarCabeceraConTotalesDesdeDetalles();
+
                     // ✅ Calcular y agregar resumen del mes (pasando la entrega completa)
                     if (entrega.getFechaEntrega() != null) {
                         dto.setResumenMes(service.calcularResumenMes(entrega));
                     }
-                    
+
                     return ResponseEntity.ok(dto);
                 })
                 .orElse(ResponseEntity.notFound().build());

@@ -20,6 +20,10 @@ public class EntregaDineroResponseDTO {
     private TrabajadorSimpleDTO empleado;
     private String empleadoNombre;
     private LocalDate fechaEntrega;
+    /**
+     * En respuestas GET, {@link #sincronizarCabeceraConTotalesDesdeDetalles()} puede reemplazar
+     * monto y monto* con el agregado desde detalles (arqueo coherente con retefuente / medios).
+     */
     private Double monto;
     private Double montoEfectivo;
     private Double montoTransferencia;
@@ -36,6 +40,14 @@ public class EntregaDineroResponseDTO {
     
     // Resumen del mes de la entrega
     private ResumenMesDTO resumenMes;
+
+    /**
+     * Totales por medio de pago derivados solo de los detalles ({@link EntregaDetalleSimpleDTO}):
+     * suman efectivo/transf/cheque/depósito por línea; EGRESO resta. Para impresión/arqueo: el front
+     * puede mostrar estos valores sin recalcular. No usar el campo contable "{@code subtotal}" del
+     * detalle para esto — son montos cargados por venta (incluye IVA donde aplique como en orden).
+     */
+    private TotalesEntregaPorMedioDTO totalesPorMedioDesdeDetalles;
     
     // Constructor desde entidad
     public EntregaDineroResponseDTO(EntregaDinero entrega) {
@@ -76,7 +88,8 @@ public class EntregaDineroResponseDTO {
             
             // Calcular información adicional
             this.totalOrdenes = this.detalles.size();
-            
+            sincronizarCabeceraConTotalesDesdeDetalles();
+
         } catch (jakarta.persistence.EntityNotFoundException e) {
             // Si ocurre una excepción durante la construcción, inicializar con valores por defecto
             this.id = entrega != null ? entrega.getId() : null;
@@ -95,6 +108,7 @@ public class EntregaDineroResponseDTO {
             this.detalles = List.of();
             this.totalOrdenes = 0;
             this.resumenMes = null; // Se calculará después en el controlador
+            this.totalesPorMedioDesdeDetalles = TotalesEntregaPorMedioDTO.ceros();
         } catch (Exception e) {
             // Cualquier otra excepción: inicializar con valores por defecto
             this.id = entrega != null ? entrega.getId() : null;
@@ -113,6 +127,29 @@ public class EntregaDineroResponseDTO {
             this.detalles = List.of();
             this.totalOrdenes = 0;
             this.resumenMes = null; // Se calculará después en el controlador
+            this.totalesPorMedioDesdeDetalles = TotalesEntregaPorMedioDTO.ceros();
         }
+    }
+
+    /**
+     * Recalcula {@link #totalesPorMedioDesdeDetalles} y copia esos valores a la cabecera del DTO
+     * ({@code montoEfectivo}, …) y {@code monto} = suma de los cuatro medios, para que listados e
+     * impresión muestren lo mismo que el agregado por líneas (sin depender solo de lo persistido al POST).
+     * No modifica la base de datos.
+     */
+    public void sincronizarCabeceraConTotalesDesdeDetalles() {
+        this.totalesPorMedioDesdeDetalles = TotalesEntregaPorMedioDTO.desdeDetalles(this.detalles);
+        if (this.detalles == null || this.detalles.isEmpty()) {
+            return;
+        }
+        TotalesEntregaPorMedioDTO t = this.totalesPorMedioDesdeDetalles;
+        if (t == null) {
+            return;
+        }
+        this.montoEfectivo = t.getEfectivo();
+        this.montoTransferencia = t.getTransferencia();
+        this.montoCheque = t.getCheque();
+        this.montoDeposito = t.getDeposito();
+        this.monto = t.sumaTotalMedios();
     }
 }
