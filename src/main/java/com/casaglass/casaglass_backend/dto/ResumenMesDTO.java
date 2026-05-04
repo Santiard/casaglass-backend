@@ -15,8 +15,8 @@ public class ResumenMesDTO {
     private Double totalDineroEntregado;
 
     /**
-     * TOTAL DEL MES
-     * Suma del dinero entregado en el mes de la entrega.
+     * TOTAL VENTAS DEL MES (sede del contexto cuando aplica): suma de {@code orden.total} con venta en el mes calendario.
+     * No es la suma de montos de entregas del mes ({@link #totalDineroEntregado} es solo la entrega actual).
      */
     private Double totalDelMes;
 
