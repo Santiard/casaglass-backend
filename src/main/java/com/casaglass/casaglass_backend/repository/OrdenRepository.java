@@ -121,6 +121,18 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
         @Param("fechaHasta") LocalDate fechaHasta
     );
 
+        /**
+         * 💰 ÓRDENES A CONTADO DISPONIBLES PARA ENTREGA (TODAS LAS SEDES)
+         * Usado por el dashboard agregado cuando no se filtra por sede.
+         */
+        @Query("SELECT o FROM Orden o WHERE " +
+            "o.cliente.id != 499 AND " +
+            "o.credito = false AND " +
+            "o.venta = true AND " +
+            "o.incluidaEntrega = false AND " +
+            "o.estado = 'ACTIVA'")
+        List<Orden> findOrdenesContadoDisponiblesParaEntregaTodasSedes();
+
     /**
      * 💰 ÓRDENES A CONTADO DISPONIBLES PARA ENTREGA (SIN FILTRO DE FECHA)
      * Trae todas las órdenes de la sede que aún no están incluidas en entrega.
