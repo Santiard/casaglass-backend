@@ -73,5 +73,11 @@ public interface ReembolsoVentaRepository extends JpaRepository<ReembolsoVenta, 
         @Param("procesado") Boolean procesado,
         @Param("incluyeEnEntregas") Boolean incluyeEnEntregas
     );
+
+    /**
+     * Suma total de reembolsos (totalReembolso) de ventas en el periodo, por sede de la orden original
+     */
+    @Query("SELECT COALESCE(SUM(r.totalReembolso), 0.0) FROM ReembolsoVenta r WHERE r.ordenOriginal.sede.id = :sedeId AND r.fecha BETWEEN :desde AND :hasta")
+    Double sumTotalReembolsosPorSedeEnPeriodo(@Param("sedeId") Long sedeId, @Param("desde") java.time.LocalDate desde, @Param("hasta") java.time.LocalDate hasta);
 }
 

@@ -10,6 +10,8 @@ import com.casaglass.casaglass_backend.repository.CierreInformeMensualSedeReposi
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
+import com.casaglass.casaglass_backend.repository.AbonoRepository;
+import com.casaglass.casaglass_backend.repository.ReembolsoVentaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,18 +36,24 @@ public class InformeMensualService {
     private final InventarioRepository inventarioRepository;
     private final CierreInformeMensualSedeRepository cierreInformeRepository;
     private final EntregaDineroService entregaDineroService;
+    private final AbonoRepository abonoRepository;
+    private final ReembolsoVentaRepository reembolsoVentaRepository;
 
     public InformeMensualService(
             SedeRepository sedeRepository,
             OrdenRepository ordenRepository,
             InventarioRepository inventarioRepository,
             CierreInformeMensualSedeRepository cierreInformeRepository,
-            EntregaDineroService entregaDineroService) {
+            EntregaDineroService entregaDineroService,
+            AbonoRepository abonoRepository,
+            ReembolsoVentaRepository reembolsoVentaRepository) {
         this.sedeRepository = sedeRepository;
         this.ordenRepository = ordenRepository;
         this.inventarioRepository = inventarioRepository;
         this.cierreInformeRepository = cierreInformeRepository;
         this.entregaDineroService = entregaDineroService;
+        this.abonoRepository = abonoRepository;
+        this.reembolsoVentaRepository = reembolsoVentaRepository;
     }
 
     private static void validarMes(int anio, int mesVal) {
@@ -67,7 +75,12 @@ public class InformeMensualService {
      * {@code SUM(entregas_dinero.monto)} sobre la sede y fechas (inclusive), todos los estados de entrega registrados así en BD.
      */
     private double calcularDineroRecogidoMes(Long sedeId, LocalDate inicio, LocalDate fin) {
-        return round2(entregaDineroService.obtenerTotalEntregadoPorSedeEnPeriodo(sedeId, inicio, fin));
+        Double ventasContado = ordenRepository.sumTotalVentasContadoPorSedeEnPeriodo(sedeId, inicio, fin);
+        Double abonos = abonoRepository.sumTotalAbonosPorSedeEnPeriodo(sedeId, inicio, fin);
+        Double reembolsos = reembolsoVentaRepository.sumTotalReembolsosPorSedeEnPeriodo(sedeId, inicio, fin);
+
+        double total = nz(ventasContado) + nz(abonos) - nz(reembolsos);
+        return round2(total);
     }
 
     private InformeMensualRangoOrdenesDTO calcularRangoOrdenes(Long sedeId, LocalDate inicio, LocalDate fin) {

@@ -38,6 +38,12 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
     Double calcularTotalAbonosOrdenEnPeriodo(@Param("ordenId") Long ordenId, 
                                            @Param("fechaDesde") LocalDate fechaDesde, 
                                            @Param("fechaHasta") LocalDate fechaHasta);
+
+    /**
+     * Suma total de abonos registrados en una sede durante un periodo
+     */
+    @Query("SELECT COALESCE(SUM(a.total), 0.0) FROM Abono a WHERE a.sede.id = :sedeId AND a.fecha BETWEEN :desde AND :hasta")
+    Double sumTotalAbonosPorSedeEnPeriodo(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
     
     /**
      * 💰 ABONOS DISPONIBLES PARA ENTREGA

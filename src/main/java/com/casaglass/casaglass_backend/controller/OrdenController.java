@@ -88,9 +88,7 @@ public class OrdenController {
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(Map.of(
-                "message", e.getMessage() != null && !e.getMessage().isBlank()
-                        ? e.getMessage()
-                        : "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
                 "code", "ORDER_ALREADY_IN_DELIVERY"
             ));
         } catch (IllegalArgumentException e) {
@@ -260,7 +258,7 @@ public class OrdenController {
                 throw new IllegalArgumentException("Estado inválido: " + estado + ". Valores válidos: ACTIVA, ANULADA");
             }
         }
-
+        
         // Si solo hay trabajadorId y ningún otro filtro nuevo, usar método específico (compatibilidad)
         if (trabajadorId != null && estadoEnum == null && fechaDesde == null && fechaHasta == null && 
             facturada == null && page == null && size == null && sortBy == null && sortOrder == null) {
@@ -545,9 +543,7 @@ public class OrdenController {
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(Map.of(
-                "message", e.getMessage() != null && !e.getMessage().isBlank()
-                        ? e.getMessage()
-                        : "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
                 "code", "ORDER_ALREADY_IN_DELIVERY"
             ));
         } catch (IllegalArgumentException e) {
@@ -591,9 +587,7 @@ public class OrdenController {
             ));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(Map.of(
-                "message", e.getMessage() != null && !e.getMessage().isBlank()
-                        ? e.getMessage()
-                        : "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
                 "code", "ORDER_ALREADY_IN_DELIVERY"
             ));
         } catch (IllegalArgumentException e) {
@@ -619,7 +613,7 @@ public class OrdenController {
      * 
      * Filtros disponibles:
      * - clienteId: Filtrar por cliente
-     * - sedeId: Filtrar por sede de la orden (o.sede)
+     * - sedeId: Filtrar por sede
      * - estado: ACTIVA, ANULADA
      * - fechaDesde: YYYY-MM-DD (fecha desde, inclusive)
      * - fechaHasta: YYYY-MM-DD (fecha hasta, inclusive)
@@ -646,7 +640,6 @@ public class OrdenController {
             @RequestParam(required = false) Boolean venta,
             @RequestParam(required = false) Boolean credito,
             @RequestParam(required = false) Boolean facturada,
-            @RequestParam(required = false) String estadoPago,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String sortBy,
@@ -661,14 +654,11 @@ public class OrdenController {
                 throw new IllegalArgumentException("Estado inválido: " + estado + ". Valores válidos: ACTIVA, ANULADA");
             }
         }
-
-        String estadoPagoNormalizado = normalizarEstadoPago(estadoPago);
         
         // Si hay trabajadorId, filtrar por trabajador (compatibilidad hacia atrás)
         // Nota: trabajadorId no está en el query del repositorio, se maneja después
         if (trabajadorId != null && (clienteId == null && sedeId == null && estadoEnum == null && 
-            fechaDesde == null && fechaHasta == null && venta == null && credito == null && facturada == null &&
-            estadoPagoNormalizado == null)) {
+            fechaDesde == null && fechaHasta == null && venta == null && credito == null && facturada == null)) {
             // Solo filtro por trabajador, usar método específico
             if (page != null && size != null) {
                 // TODO: Implementar paginación para trabajador
@@ -680,33 +670,8 @@ public class OrdenController {
         // Usar método con filtros completos
         return service.listarParaTablaConFiltros(
             clienteId, sedeId, estadoEnum, fechaDesde, fechaHasta, 
-            venta, credito, facturada, estadoPagoNormalizado, page, size, sortBy, sortOrder
+            venta, credito, facturada, page, size, sortBy, sortOrder
         );
-    }
-
-    private String normalizarEstadoPago(String estadoPago) {
-        if (estadoPago == null) {
-            return null;
-        }
-
-        String normalizado = estadoPago.trim().toUpperCase();
-        if (normalizado.isEmpty()) {
-            return null;
-        }
-
-        if ("NO_PAGADO".equals(normalizado)) {
-            normalizado = "NO PAGADO";
-        }
-
-        if (!"PAGADO".equals(normalizado) &&
-            !"ABONADO".equals(normalizado) &&
-            !"NO PAGADO".equals(normalizado)) {
-            throw new IllegalArgumentException(
-                "estadoPago inválido: " + estadoPago + ". Valores válidos: PAGADO, ABONADO, NO PAGADO"
-            );
-        }
-
-        return normalizado;
     }
 
     /**
@@ -835,9 +800,7 @@ public class OrdenController {
             log.warn("[PUT /api/ordenes/tabla/{}] Bloqueada por entrega de dinero: {}", id, e.getMessage());
             return ResponseEntity.status(409)
                     .body(Map.of(
-                        "message", e.getMessage() != null && !e.getMessage().isBlank()
-                                ? e.getMessage()
-                                : "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
+                        "message", "La orden ya fue incluida en una entrega de dinero y no puede editarse.",
                         "code", "ORDER_ALREADY_IN_DELIVERY"
                     ));
         } catch (IllegalArgumentException e) {

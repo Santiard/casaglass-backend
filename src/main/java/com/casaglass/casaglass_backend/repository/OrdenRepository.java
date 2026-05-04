@@ -42,6 +42,11 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
 
     List<Orden> findBySedeIdAndFechaBetween(Long sedeId, LocalDate desde, LocalDate hasta);
 
+    /**
+     * Ventas (venta=true) en la sede y periodo
+     */
+    List<Orden> findBySedeIdAndFechaBetweenAndVentaTrue(Long sedeId, LocalDate desde, LocalDate hasta);
+
     // 🆕 Métodos para filtrar por trabajador
     List<Orden> findByTrabajadorId(Long trabajadorId);
 
@@ -60,6 +65,12 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     @EntityGraph(attributePaths = {"cliente", "sede", "items", "items.producto"})
     @Query("SELECT o FROM Orden o")
     List<Orden> findAllWithFullRelations();
+
+    /**
+     * Suma total de ventas a contado en un periodo para una sede (venta=true AND credito=false)
+     */
+    @Query("SELECT COALESCE(SUM(o.total), 0.0) FROM Orden o WHERE o.sede.id = :sedeId AND o.fecha BETWEEN :desde AND :hasta AND o.venta = true AND o.credito = false")
+    Double sumTotalVentasContadoPorSedeEnPeriodo(@Param("sedeId") Long sedeId, @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
     /**
      * 🔍 OBTENER ORDEN POR ID CON TODAS LAS RELACIONES CARGADAS
@@ -126,18 +137,6 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     );
 
     /**
-     * 💰 ÓRDENES A CONTADO DISPONIBLES PARA ENTREGA — TODAS LAS SEDES (SIN FILTRO DE FECHA NI SEDE)
-     * Usado para el dashboard agregado de todas las sedes.
-     */
-    @Query("SELECT o FROM Orden o WHERE " +
-           "o.cliente.id != 499 AND " +
-           "o.credito = false AND " +
-           "o.venta = true AND " +
-           "o.incluidaEntrega = false AND " +
-           "o.estado = 'ACTIVA'")
-    List<Orden> findOrdenesContadoDisponiblesParaEntregaTodasSedes();
-
-    /**
      * 🏦 ÓRDENES A CRÉDITO CON ABONOS EN EL PERÍODO
      * - De la sede especificada
      * - Venta a crédito (credito = true)
@@ -165,9 +164,6 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
     // 📊 MÉTODO PARA DASHBOARD - VENTAS DE HOY
     List<Orden> findBySedeIdAndFechaAndVentaTrue(Long sedeId, LocalDate fecha);
 
-    // 📊 MÉTODO PARA DASHBOARD - VENTAS DEL MES
-    List<Orden> findBySedeIdAndFechaBetweenAndVentaTrue(Long sedeId, LocalDate desde, LocalDate hasta);
-
     /**
      * 🔍 BÚSQUEDA AVANZADA DE ÓRDENES CON MÚLTIPLES FILTROS
      * Usado para GET /api/ordenes/tabla con filtros opcionales
@@ -176,7 +172,6 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
      */
     @Query("SELECT DISTINCT o FROM Orden o " +
            "LEFT JOIN o.factura f " +
-           "LEFT JOIN o.creditoDetalle c " +
            "WHERE (:clienteId IS NULL OR o.cliente.id = :clienteId) AND " +
            "(:sedeId IS NULL OR o.sede.id = :sedeId) AND " +
            "(:estado IS NULL OR o.estado = :estado) AND " +
@@ -184,11 +179,6 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
            "(:fechaHasta IS NULL OR o.fecha <= :fechaHasta) AND " +
            "(:venta IS NULL OR o.venta = :venta) AND " +
            "(:credito IS NULL OR o.credito = :credito) AND " +
-           "(:estadoPago IS NULL OR " +
-           "  (:estadoPago = 'PAGADO' AND ((o.venta = true AND o.credito = false) OR (o.venta = true AND o.credito = true AND COALESCE(c.saldoPendiente, 0) <= 0.01))) OR " +
-           "  (:estadoPago = 'ABONADO' AND (o.venta = true AND o.credito = true AND COALESCE(c.saldoPendiente, 0) > 0.01 AND COALESCE(c.totalAbonado, 0) > 0.01)) OR " +
-           "  (:estadoPago = 'NO PAGADO' AND ((o.venta = false) OR (o.venta = true AND o.credito = true AND (c.id IS NULL OR (COALESCE(c.saldoPendiente, 0) > 0.01 AND COALESCE(c.totalAbonado, 0) <= 0.01)))))" +
-           ") AND " +
            "(:facturada IS NULL OR (:facturada = true AND f.id IS NOT NULL) OR (:facturada = false AND f.id IS NULL)) " +
            "ORDER BY o.fecha DESC, o.numero DESC")
     List<Orden> buscarConFiltros(
@@ -199,7 +189,6 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
         @Param("fechaHasta") LocalDate fechaHasta,
         @Param("venta") Boolean venta,
         @Param("credito") Boolean credito,
-        @Param("estadoPago") String estadoPago,
         @Param("facturada") Boolean facturada
     );
 }

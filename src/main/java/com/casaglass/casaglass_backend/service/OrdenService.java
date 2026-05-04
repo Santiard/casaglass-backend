@@ -124,22 +124,14 @@ public class OrdenService {
 
     @Transactional(readOnly = true)
     public OrdenEntregaEstadoInfo obtenerEstadoEntregaOrden(Long ordenId) {
-        // Solo ingresos (contado/abono) bloquean edición; las filas de reembolso (EGRESO) comparten orden_id pero no imponen ese bloqueo solas.
-        List<EntregaDetalle> ingresos = entregaDetalleRepository.findDetallesIngresoBloqueoOrden(
-                ordenId, ESTADOS_ENTREGA_BLOQUEO_EDICION);
-        EntregaDetalle detalle = ingresos.isEmpty() ? null : ingresos.get(0);
+        Optional<EntregaDetalle> detalleOpt = entregaDetalleRepository
+            .findFirstByOrdenIdAndEntregaEstadoInOrderByIdDesc(ordenId, ESTADOS_ENTREGA_BLOQUEO_EDICION);
 
-        if (detalle == null) {
-            Optional<Orden> ordenOp = repo.findById(ordenId);
-            if (ordenOp.isPresent() && ordenOp.get().isIncluidaEntrega()) {
-                Optional<EntregaDetalle> cualquiera = entregaDetalleRepository
-                        .findFirstByOrdenIdAndEntregaEstadoInOrderByIdDesc(ordenId, ESTADOS_ENTREGA_BLOQUEO_EDICION);
-                Long entregaId = cualquiera.map(d -> d.getEntrega() != null ? d.getEntrega().getId() : null).orElse(null);
-                return new OrdenEntregaEstadoInfo(true, entregaId, "CERRADA", false);
-            }
+        if (detalleOpt.isEmpty()) {
             return new OrdenEntregaEstadoInfo(false, null, "NINGUNA", true);
         }
 
+        EntregaDetalle detalle = detalleOpt.get();
         Long entregaId = detalle.getEntrega() != null ? detalle.getEntrega().getId() : null;
         EntregaDinero.EstadoEntrega estado = detalle.getEntrega() != null ? detalle.getEntrega().getEstado() : null;
 
@@ -154,14 +146,7 @@ public class OrdenService {
     private void validarOrdenEditablePorEntrega(Long ordenId) {
         OrdenEntregaEstadoInfo estadoEntrega = obtenerEstadoEntregaOrden(ordenId);
         if (estadoEntrega.estaEnEntregaDinero()) {
-            String ref = estadoEntrega.entregaDineroId() != null
-                    ? " (entrega id " + estadoEntrega.entregaDineroId() + ")"
-                    : "";
-            throw new IllegalStateException(
-                    "Orden no editable" + ref + ": ya consta el ingreso a contado o abonos en una entrega de dinero, "
-                            + "o el contado de esta venta quedó entregado en caja. "
-                            + "Solo reembolsos (egresos) en entrega no bloquean la orden; al incluir además la venta a contado, "
-                            + "queda bloqueada para cambios de ítems/totales.");
+            throw new IllegalStateException("La orden ya fue incluida en una entrega de dinero y no puede editarse.");
         }
     }
 
@@ -1153,7 +1138,7 @@ public class OrdenService {
         
         // Buscar órdenes con filtros
         List<Orden> ordenes = repo.buscarConFiltros(
-            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, null, facturada
+            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, facturada
         );
         
         // Aplicar ordenamiento
@@ -1358,7 +1343,6 @@ public class OrdenService {
             Boolean venta,
             Boolean credito,
             Boolean facturada,
-            String estadoPago,
             Integer page,
             Integer size,
             String sortBy,
@@ -1383,7 +1367,7 @@ public class OrdenService {
         
         // Buscar órdenes con filtros
         List<Orden> ordenes = repo.buscarConFiltros(
-            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, estadoPago, facturada
+            clienteId, sedeId, estado, fechaDesde, fechaHasta, venta, credito, facturada
         );
         
         // Aplicar ordenamiento
@@ -3458,7 +3442,7 @@ public class OrdenService {
         }
 
         // Garantizar que precio1 tenga al menos un valor base para listados generales
-        if (corte.getPrecio1() == null || corte.getPrecio1() <= 0) {
+        if (corte.getPrecio1() == null) {
             corte.setPrecio1(precio);
             actualizado = true;
         }
