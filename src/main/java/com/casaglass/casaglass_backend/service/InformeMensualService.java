@@ -101,13 +101,22 @@ public class InformeMensualService {
         return new InformeMensualRangoOrdenesDTO(nmin, nmax, cantidad, CRITERIO_RANGO_ORDENES);
     }
 
-    /** Valor inventario productos: Σ cantidad × costo ({@link Inventario}); no incluye cortes en v1. */
+    /**
+     * Valor inventario productos: Σ cantidad × precioVenta.
+     * Ahora usa `Producto.precio1` como precio de venta preferido; si es NULL, cae a `Producto.costo`.
+     * Nota: no incluye cortes en v1.
+     */
     private Double valorInventarioPorSede(Long sedeId) {
         List<Inventario> rows = inventarioRepository.findBySedeId(sedeId);
-        double v =
-                rows.stream()
-                        .mapToDouble(inv -> nz(inv.getCantidad()) * nz(inv.getProducto() != null ? inv.getProducto().getCosto() : null))
-                        .sum();
+        double v = rows.stream()
+                .mapToDouble(inv -> {
+                    Double precio = null;
+                    if (inv.getProducto() != null) {
+                        precio = inv.getProducto().getPrecio1() != null ? inv.getProducto().getPrecio1() : inv.getProducto().getCosto();
+                    }
+                    return nz(inv.getCantidad()) * nz(precio);
+                })
+                .sum();
         return round2(v);
     }
 
