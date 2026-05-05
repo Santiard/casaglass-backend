@@ -660,6 +660,64 @@ public class CreditoService {
     }
 
     /**
+     * Listar órdenes (créditos) del cliente especial creadas en un mes específico.
+         * Retorna lista de órdenes + totales: venta, pagos y saldo pendiente.
+         * @param year año (ej. 2026)
+         * @param month mes 1-12
+     */
+    @Transactional(readOnly = true)
+        public com.casaglass.casaglass_backend.dto.OrdenesEspecialMesResponseDTO listarOrdenesEspecialesPorMes(
+            int year, int month) {
+        java.time.LocalDate desde = java.time.LocalDate.of(year, month, 1);
+        java.time.LocalDate hasta = desde.withDayOfMonth(desde.lengthOfMonth());
+
+        List<Credito> creditos = creditoRepo.buscarClienteEspecial(null, null, desde, hasta);
+
+        com.casaglass.casaglass_backend.dto.OrdenesEspecialMesResponseDTO resp =
+                new com.casaglass.casaglass_backend.dto.OrdenesEspecialMesResponseDTO();
+        resp.year = year;
+        resp.month = month;
+
+        List<com.casaglass.casaglass_backend.dto.OrdenEspecialMesItemDTO> items = new java.util.ArrayList<>();
+
+        double totalVenta = 0.0;
+        double totalPagos = 0.0;
+        double totalSaldo = 0.0;
+
+        for (Credito c : creditos) {
+            Orden o = c.getOrden();
+            com.casaglass.casaglass_backend.dto.OrdenEspecialMesItemDTO it =
+                    new com.casaglass.casaglass_backend.dto.OrdenEspecialMesItemDTO();
+
+            if (o != null) {
+                it.ordenId = o.getId();
+                it.numeroOrden = o.getNumero();
+                it.fechaOrden = o.getFecha();
+                it.obra = o.getObra();
+                it.totalOrden = o.getTotal();
+            }
+
+            it.creditoId = c.getId();
+            it.totalCredito = c.getTotalCredito();
+            it.totalAbonado = c.getTotalAbonado() != null ? c.getTotalAbonado() : 0.0;
+            it.saldoPendiente = c.getSaldoPendiente() != null ? c.getSaldoPendiente() : 0.0;
+
+            totalVenta += it.totalOrden != null ? it.totalOrden : 0.0;
+            totalPagos += it.totalAbonado != null ? it.totalAbonado : 0.0;
+            totalSaldo += it.saldoPendiente != null ? it.saldoPendiente : 0.0;
+
+            items.add(it);
+        }
+
+        resp.ordenes = items;
+        resp.totalVenta = Math.round(totalVenta * 100.0) / 100.0;
+        resp.totalPagos = Math.round(totalPagos * 100.0) / 100.0;
+        resp.totalSaldoPendiente = Math.round(totalSaldo * 100.0) / 100.0;
+
+        return resp;
+    }
+
+    /**
      * 💰 MARCAR CRÉDITOS DEL CLIENTE ESPECIAL COMO PAGADOS (SIN REGISTRO DE ABONOS)
      * 
      * Este método es específico para el cliente especial (ID 499 - JAIRO JAVIER VELANDIA)

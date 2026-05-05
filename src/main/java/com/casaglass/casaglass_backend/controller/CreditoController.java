@@ -37,17 +37,20 @@ public class CreditoController {
     private final OrdenService ordenService;
     private final OrdenRepository ordenRepository;
     private final TrabajadorRepository trabajadorRepository;
+    private final com.casaglass.casaglass_backend.service.CreditoService creditoService;
 
     public CreditoController(CreditoService service,
                              EntregaClienteEspecialService entregaClienteEspecialService,
                              OrdenService ordenService,
                              OrdenRepository ordenRepository,
-                             TrabajadorRepository trabajadorRepository) {
+                             TrabajadorRepository trabajadorRepository,
+                             com.casaglass.casaglass_backend.service.CreditoService creditoService) {
         this.service = service;
         this.entregaClienteEspecialService = entregaClienteEspecialService;
         this.ordenService = ordenService;
         this.ordenRepository = ordenRepository;
         this.trabajadorRepository = trabajadorRepository;
+        this.creditoService = creditoService;
     }
 
     /** 💳 Crear crédito para una orden específica */
@@ -556,6 +559,25 @@ public class CreditoController {
                 "error", e.getMessage(),
                 "tipo", "NO_ENCONTRADO"
             ));
+        }
+    }
+
+    /**
+     * GET /api/creditos/cliente-especial/ordenes-mes
+     * Params: year (int), month (1-12)
+     * Retorna: listado de órdenes (créditos) del cliente especial cuyo credito.fechaInicio
+     *          cae en el mes solicitado, junto a totales (venta, pagos, saldo pendiente).
+     */
+    @GetMapping("/cliente-especial/ordenes-mes")
+    public ResponseEntity<?> listarOrdenesEspecialesPorMes(
+            @RequestParam int year,
+            @RequestParam int month) {
+        try {
+            com.casaglass.casaglass_backend.dto.OrdenesEspecialMesResponseDTO resp =
+                    creditoService.listarOrdenesEspecialesPorMes(year, month);
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", e.getMessage()));
         }
     }
 }
