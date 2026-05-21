@@ -609,7 +609,6 @@ public class OrdenService {
         ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
         Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
-        Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         
         // 🔗 ACTUALIZAR RELACIONES
         Cliente cliente = clienteRepository.findById(ventaDTO.getClienteId())
