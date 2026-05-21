@@ -608,6 +608,7 @@ public class OrdenService {
         ordenExistente.setCredito(ventaDTO.isCredito());
         ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
         Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
+        Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
         
         // 🔗 ACTUALIZAR RELACIONES
