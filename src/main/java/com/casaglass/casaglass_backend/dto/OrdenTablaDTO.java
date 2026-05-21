@@ -31,6 +31,8 @@ public class OrdenTablaDTO {
     private boolean tieneRetencionIca; // Indica si la orden tiene retención ICA
     private Double porcentajeIca; // Porcentaje de retención ICA (configurable desde frontend)
     private Double retencionIca; // Valor monetario de la retención ICA
+    private Double porcentajeDescuento; // Porcentaje de descuento aplicado sobre el subtotal
+    private Double montoDescuento; // Valor monetario del descuento aplicado
     private Orden.EstadoOrden estado;
     private boolean facturada;  // Indica si la orden tiene una factura asociada
     private String numeroFactura; // Número de la factura asociada (null si no tiene)

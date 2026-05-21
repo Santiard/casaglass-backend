@@ -99,6 +99,18 @@ public class Orden {
   private Double subtotal = 0.0;
 
   /**
+   * Porcentaje de descuento aplicado sobre el subtotal.
+   */
+  @Column(name = "porcentaje_descuento")
+  private Double porcentajeDescuento = 0.0;
+
+  /**
+   * Valor monetario del descuento aplicado sobre el subtotal.
+   */
+  @Column(name = "monto_descuento")
+  private Double montoDescuento = 0.0;
+
+  /**
    * Valor del IVA calculado
    * Se calcula como: suma de items - subtotal
    */

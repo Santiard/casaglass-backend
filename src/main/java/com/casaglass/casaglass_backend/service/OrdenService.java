@@ -115,6 +115,37 @@ public class OrdenService {
         this.businessSettingsRepository = businessSettingsRepository;
     }
 
+    private double normalizarMonto(double valor) {
+        return Math.round(valor * 100.0) / 100.0;
+    }
+
+    private Double normalizarPorcentajeDescuento(Double porcentajeDescuento) {
+        if (porcentajeDescuento == null) {
+            return 0.0;
+        }
+        if (porcentajeDescuento < 0 || porcentajeDescuento > 100) {
+            throw new IllegalArgumentException("El porcentaje de descuento debe estar entre 0 y 100");
+        }
+        return normalizarMonto(porcentajeDescuento);
+    }
+
+    private double aplicarDescuentoAlSubtotalBruto(double subtotalBruto, Double porcentajeDescuento) {
+        double pct = porcentajeDescuento != null ? porcentajeDescuento : 0.0;
+        if (subtotalBruto <= 0 || pct <= 0) {
+            return normalizarMonto(subtotalBruto);
+        }
+        double descuento = subtotalBruto * (pct / 100.0);
+        return normalizarMonto(subtotalBruto - descuento);
+    }
+
+    private double calcularMontoDescuento(double subtotalBruto, Double porcentajeDescuento) {
+        double pct = porcentajeDescuento != null ? porcentajeDescuento : 0.0;
+        if (subtotalBruto <= 0 || pct <= 0) {
+            return 0.0;
+        }
+        return normalizarMonto(subtotalBruto * (pct / 100.0));
+    }
+
     public record OrdenEntregaEstadoInfo(
         boolean estaEnEntregaDinero,
         Long entregaDineroId,
@@ -184,13 +215,17 @@ public class OrdenService {
                 Double linea = it.getPrecioUnitario() * it.getCantidad();
                 it.setTotalLinea(linea);
                 subtotalFacturado += linea;
-                // ✅ Campo descripcion eliminado - los datos del producto se obtienen mediante la relación
             }
         }
         subtotalFacturado = Math.round(subtotalFacturado * 100.0) / 100.0;
-        
+
+        // --- Aplicar descuento si viene en la entidad (compatibilidad con POST /api/ordenes)
+        Double porcentajeDescuento = normalizarPorcentajeDescuento(orden.getPorcentajeDescuento());
+        double montoDescuento = calcularMontoDescuento(subtotalFacturado, porcentajeDescuento);
+        double subtotalFacturadoConDescuento = aplicarDescuentoAlSubtotalBruto(subtotalFacturado, porcentajeDescuento);
+
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalFacturado, orden.isTieneRetencionFuente(), 
+        Double[] valores = calcularValoresMonetariosOrden(subtotalFacturadoConDescuento, orden.isTieneRetencionFuente(), 
                                                           orden.isTieneRetencionIca(), orden.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
@@ -200,6 +235,8 @@ public class OrdenService {
         
         // Guardar valores en la orden
         orden.setSubtotal(subtotalSinIva);        // Base sin IVA
+        orden.setPorcentajeDescuento(porcentajeDescuento);
+        orden.setMontoDescuento(montoDescuento);
         orden.setIva(iva);                        // IVA
         orden.setRetencionFuente(retencionFuente); // Retención de fuente
         orden.setRetencionIca(retencionIca);      // Retención ICA
@@ -238,6 +275,8 @@ public class OrdenService {
         orden.setCredito(ventaDTO.isCredito());
         orden.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
         orden.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
+        orden.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
+        Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
         // 🔗 ESTABLECER RELACIONES (usando referencias ligeras)
@@ -282,9 +321,11 @@ public class OrdenService {
         
         orden.setItems(items);
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        double montoDescuento = calcularMontoDescuento(subtotalBruto, porcentajeDescuento);
+        double subtotalBrutoConDescuento = aplicarDescuentoAlSubtotalBruto(subtotalBruto, porcentajeDescuento);
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente(), 
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBrutoConDescuento, ventaDTO.isTieneRetencionFuente(), 
                                                           ventaDTO.isTieneRetencionIca(), ventaDTO.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
@@ -294,6 +335,8 @@ public class OrdenService {
         
         // Guardar valores en la orden
         orden.setSubtotal(subtotalSinIva);        // Base sin IVA
+        orden.setPorcentajeDescuento(porcentajeDescuento);
+        orden.setMontoDescuento(montoDescuento);
         orden.setIva(iva);                        // IVA
         orden.setRetencionFuente(retencionFuente); // Retención de fuente
         orden.setRetencionIca(retencionIca);      // Retención ICA
@@ -385,6 +428,8 @@ public class OrdenService {
         orden.setCredito(ventaDTO.isCredito());
         orden.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
         orden.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
+        orden.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
+        Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
         // � MONTOS POR MÉTODO DE PAGO (solo para órdenes de contado)
@@ -443,9 +488,11 @@ public class OrdenService {
         
         orden.setItems(items);
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        double montoDescuento = calcularMontoDescuento(subtotalBruto, porcentajeDescuento);
+        double subtotalBrutoConDescuento = aplicarDescuentoAlSubtotalBruto(subtotalBruto, porcentajeDescuento);
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente(), 
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBrutoConDescuento, ventaDTO.isTieneRetencionFuente(), 
                                                           ventaDTO.isTieneRetencionIca(), ventaDTO.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
@@ -455,6 +502,8 @@ public class OrdenService {
         
         // Guardar valores en la orden
         orden.setSubtotal(subtotalSinIva);        // Base sin IVA
+        orden.setPorcentajeDescuento(porcentajeDescuento);
+        orden.setMontoDescuento(montoDescuento);
         orden.setIva(iva);                        // IVA
         orden.setRetencionFuente(retencionFuente); // Retención de fuente
         orden.setRetencionIca(retencionIca);      // Retención ICA
@@ -558,6 +607,8 @@ public class OrdenService {
         ordenExistente.setVenta(ventaDTO.isVenta());
         ordenExistente.setCredito(ventaDTO.isCredito());
         ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
+        Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         
         // 🔗 ACTUALIZAR RELACIONES
         Cliente cliente = clienteRepository.findById(ventaDTO.getClienteId())
@@ -605,13 +656,15 @@ public class OrdenService {
         }
         
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        double montoDescuento = calcularMontoDescuento(subtotalBruto, porcentajeDescuento);
+        double subtotalBrutoConDescuento = aplicarDescuentoAlSubtotalBruto(subtotalBruto, porcentajeDescuento);
         
         ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
         ordenExistente.setPorcentajeIca(ventaDTO.getPorcentajeIca());
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente(), 
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBrutoConDescuento, ventaDTO.isTieneRetencionFuente(), 
                                                           ventaDTO.isTieneRetencionIca(), ventaDTO.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
@@ -621,6 +674,8 @@ public class OrdenService {
         
         // Guardar valores en la orden
         ordenExistente.setSubtotal(subtotalSinIva);        // Base sin IVA
+        ordenExistente.setPorcentajeDescuento(porcentajeDescuento);
+        ordenExistente.setMontoDescuento(montoDescuento);
         ordenExistente.setIva(iva);                        // IVA
         ordenExistente.setRetencionFuente(retencionFuente); // Retención de fuente
         ordenExistente.setRetencionIca(retencionIca);      // Retención ICA
@@ -736,13 +791,15 @@ public class OrdenService {
         }
         
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        double montoDescuento = calcularMontoDescuento(subtotalBruto, porcentajeDescuento);
+        double subtotalBrutoConDescuento = aplicarDescuentoAlSubtotalBruto(subtotalBruto, porcentajeDescuento);
         
         ordenExistente.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
         ordenExistente.setPorcentajeIca(ventaDTO.getPorcentajeIca());
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, ventaDTO.isTieneRetencionFuente(), 
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBrutoConDescuento, ventaDTO.isTieneRetencionFuente(), 
                                                           ventaDTO.isTieneRetencionIca(), ventaDTO.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
@@ -752,6 +809,8 @@ public class OrdenService {
         
         // Guardar valores en la orden
         ordenExistente.setSubtotal(subtotalSinIva);        // Base sin IVA
+        ordenExistente.setPorcentajeDescuento(porcentajeDescuento);
+        ordenExistente.setMontoDescuento(montoDescuento);
         ordenExistente.setIva(iva);                        // IVA
         ordenExistente.setRetencionFuente(retencionFuente); // Retención de fuente
         ordenExistente.setRetencionIca(retencionIca);      // Retención ICA
@@ -1005,6 +1064,11 @@ public class OrdenService {
         // Items obligatorios
         if (ventaDTO.getItems() == null || ventaDTO.getItems().isEmpty()) {
             throw new IllegalArgumentException("Debe incluir al menos un producto en la venta");
+        }
+
+        if (ventaDTO.getPorcentajeDescuento() != null
+                && (ventaDTO.getPorcentajeDescuento() < 0 || ventaDTO.getPorcentajeDescuento() > 100)) {
+            throw new IllegalArgumentException("El porcentaje de descuento debe estar entre 0 y 100");
         }
         
         // ✅ FILTRAR ITEMS INVÁLIDOS (precio 0 o cantidad 0) antes de validar
@@ -1662,6 +1726,8 @@ public class OrdenService {
         dto.setTieneRetencionIca(orden.isTieneRetencionIca());
         dto.setPorcentajeIca(orden.getPorcentajeIca());
         dto.setRetencionIca(orden.getRetencionIca() != null ? orden.getRetencionIca() : 0.0);
+        dto.setPorcentajeDescuento(orden.getPorcentajeDescuento() != null ? orden.getPorcentajeDescuento() : 0.0);
+        dto.setMontoDescuento(orden.getMontoDescuento() != null ? orden.getMontoDescuento() : 0.0);
         dto.setEstado(orden.getEstado());
         dto.setSubtotal(orden.getSubtotal());
         dto.setIva(orden.getIva() != null ? orden.getIva() : 0.0);
@@ -1829,6 +1895,12 @@ public class OrdenService {
         orden.setTieneRetencionFuente(dto.isTieneRetencionFuente());
         orden.setTieneRetencionIca(dto.isTieneRetencionIca());
         orden.setPorcentajeIca(dto.getPorcentajeIca());
+        Double porcentajeDescuento = normalizarPorcentajeDescuento(dto.getPorcentajeDescuento());
+
+        if (dto.getPorcentajeDescuento() != null
+                && (dto.getPorcentajeDescuento() < 0 || dto.getPorcentajeDescuento() > 100)) {
+            throw new IllegalArgumentException("El porcentaje de descuento debe estar entre 0 y 100");
+        }
         
         // Recalcular retenciones con los nuevos valores
         // (se calculará después cuando se actualice el subtotal)
@@ -1872,9 +1944,11 @@ public class OrdenService {
             }
         }
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
+        double montoDescuento = calcularMontoDescuento(subtotalBruto, porcentajeDescuento);
+        double subtotalBrutoConDescuento = aplicarDescuentoAlSubtotalBruto(subtotalBruto, porcentajeDescuento);
         
         // Calcular todos los valores monetarios según la especificación
-        Double[] valores = calcularValoresMonetariosOrden(subtotalBruto, orden.isTieneRetencionFuente(), 
+        Double[] valores = calcularValoresMonetariosOrden(subtotalBrutoConDescuento, orden.isTieneRetencionFuente(), 
                                                           orden.isTieneRetencionIca(), orden.getPorcentajeIca());
         Double subtotalSinIva = valores[0];  // Base imponible sin IVA
         Double iva = valores[1];            // IVA calculado
@@ -1884,6 +1958,8 @@ public class OrdenService {
         
         // Guardar valores en la orden
         orden.setSubtotal(subtotalSinIva);        // Base sin IVA
+        orden.setPorcentajeDescuento(porcentajeDescuento);
+        orden.setMontoDescuento(montoDescuento);
         orden.setIva(iva);                        // IVA
         orden.setRetencionFuente(retencionFuente); // Retención de fuente
         orden.setRetencionIca(retencionIca);      // Retención ICA
