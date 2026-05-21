@@ -30,6 +30,10 @@ public class OrdenDetalleDTO {
     private Double porcentajeIca; // Porcentaje de retención ICA (configurable desde frontend)
     private Double retencionIca; // Valor monetario de la retención ICA
     private Double total; // Total facturado (subtotal facturado, sin restar retención)
+    private Double subtotalBruto; // Suma de totalLinea de items (CON IVA) antes del descuento
+    private Double porcentajeDescuento; // Porcentaje de descuento aplicado (0.0 si no existe)
+    private Double montoDescuento; // Monto monetario del descuento aplicado (0.0 si no existe)
+    private Double totalAPagar; // subtotalBruto - montoDescuento (para uso explícito en impresión)
     private String estado; // Estado de la orden: ACTIVA, ENTREGADA, ANULADA
     private boolean estaEnEntregaDinero; // true si existe relación con una entrega vigente
     private Long entregaDineroId; // Id de la entrega vigente asociada (si aplica)
@@ -366,6 +370,26 @@ public class OrdenDetalleDTO {
                     }
                 }
             }
+            // Calcular subtotalBruto (suma de totalLinea de items)
+            double sb = 0.0;
+            for (ItemDetalleDTO itDto : this.items) {
+                if (itDto.getTotalLinea() != null) sb += itDto.getTotalLinea();
+            }
+            sb = Math.round(sb * 100.0) / 100.0;
+            this.subtotalBruto = sb;
+
+            // Normalizar porcentajeDescuento y montoDescuento
+            double pct = orden.getPorcentajeDescuento() != null ? orden.getPorcentajeDescuento() : 0.0;
+            this.porcentajeDescuento = Math.round(pct * 100.0) / 100.0;
+
+            double montoDesc = orden.getMontoDescuento() != null ? orden.getMontoDescuento() : Math.round((sb * (this.porcentajeDescuento / 100.0)) * 100.0) / 100.0;
+            // Asegurar que montoDesc no exceda subtotalBruto
+            if (montoDesc < 0) montoDesc = 0.0;
+            if (montoDesc > sb) montoDesc = sb;
+            this.montoDescuento = Math.round(montoDesc * 100.0) / 100.0;
+
+            // Total a pagar según items menos descuento
+            this.totalAPagar = Math.round((sb - this.montoDescuento) * 100.0) / 100.0;
             
         } catch (jakarta.persistence.EntityNotFoundException e) {
             // Si ocurre una excepción durante la construcción, inicializar con valores por defecto
