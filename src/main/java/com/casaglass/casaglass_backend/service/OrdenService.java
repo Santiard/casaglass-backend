@@ -609,7 +609,6 @@ public class OrdenService {
         ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
         // Normalizar porcentaje de descuento recibido en el DTO
         Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
-        Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
         
         // 🔗 ACTUALIZAR RELACIONES
@@ -792,6 +791,7 @@ public class OrdenService {
             ordenExistente.getItems().add(item);
         }
         
+        Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         subtotalBruto = Math.round(subtotalBruto * 100.0) / 100.0;
         double montoDescuento = calcularMontoDescuento(subtotalBruto, porcentajeDescuento);
         double subtotalBrutoConDescuento = aplicarDescuentoAlSubtotalBruto(subtotalBruto, porcentajeDescuento);
