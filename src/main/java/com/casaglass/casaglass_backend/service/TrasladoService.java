@@ -667,7 +667,7 @@ public class TrasladoService {
             Inventario inv = inventarioOpt.get();
             double nuevaCantidad = inv.getCantidad() + ajuste;
             
-            if (nuevaCantidad < 0) {
+            if (ajuste < 0 && nuevaCantidad < 0) {
                 throw new RuntimeException("Stock insuficiente en sede " + tipo + ". " +
                     "Disponible: " + inv.getCantidad() + ", ajuste solicitado: " + ajuste);
             }

@@ -11,6 +11,12 @@ import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.TrabajadorRepository;
 import com.casaglass.casaglass_backend.repository.TrasladoDetalleRepository;
 import com.casaglass.casaglass_backend.repository.TrasladoRepository;
+import com.casaglass.casaglass_backend.model.Traslado;
+import com.casaglass.casaglass_backend.model.TrasladoDetalle;
+import com.casaglass.casaglass_backend.model.Producto;
+import com.casaglass.casaglass_backend.model.Inventario;
+import com.casaglass.casaglass_backend.repository.CorteRepository;
+import java.util.ArrayList;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +62,12 @@ class TrasladoServiceCatalogoTest {
 
     @Mock
     private EntityManager entityManager;
+
+    @Mock
+    private CorteRepository corteRepository;
+
+    @Mock
+    private InventarioCorteService inventarioCorteService;
 
     @InjectMocks
     private TrasladoService trasladoService;
@@ -220,5 +232,65 @@ class TrasladoServiceCatalogoTest {
                 return 1400.0;
             }
         };
+    }
+
+    @Test
+    void crearTrasladoConDestinoNegativoNoDebeLanzarExcepcion() {
+        // Arrange
+        Sede sedeOrigen = new Sede();
+        sedeOrigen.setId(2L);
+        sedeOrigen.setNombre("Sede Centro");
+
+        Sede sedeDestino = new Sede();
+        sedeDestino.setId(3L);
+        sedeDestino.setNombre("Sede Patios");
+
+        Producto producto = new Producto();
+        producto.setId(42L);
+        producto.setNombre("Vidrio Templado");
+
+        Traslado traslado = new Traslado();
+        traslado.setSedeOrigen(sedeOrigen);
+        traslado.setSedeDestino(sedeDestino);
+
+        TrasladoDetalle detalle = new TrasladoDetalle();
+        detalle.setProducto(producto);
+        detalle.setCantidad(50.0);
+        
+        List<TrasladoDetalle> detalles = new ArrayList<>();
+        detalles.add(detalle);
+        traslado.setDetalles(detalles);
+
+        when(sedeRepository.findById(2L)).thenReturn(Optional.of(sedeOrigen));
+        when(sedeRepository.findById(3L)).thenReturn(Optional.of(sedeDestino));
+        when(productoRepository.findById(42L)).thenReturn(Optional.of(producto));
+        when(trasladoRepository.save(any(Traslado.class))).thenReturn(traslado);
+        when(corteRepository.existsById(42L)).thenReturn(false);
+
+        // Inventario de origen: 100 unidades (ajuste -50 -> queda en 50, >= 0 ok)
+        Inventario invOrigen = new Inventario();
+        invOrigen.setId(101L);
+        invOrigen.setCantidad(100.0);
+        invOrigen.setProducto(producto);
+        invOrigen.setSede(sedeOrigen);
+
+        // Inventario de destino: -150 unidades (ajuste +50 -> queda en -100, < 0 pero ajuste > 0 ok!)
+        Inventario invDestino = new Inventario();
+        invDestino.setId(102L);
+        invDestino.setCantidad(-150.0);
+        invDestino.setProducto(producto);
+        invDestino.setSede(sedeDestino);
+
+        when(inventarioService.obtenerPorProductoYSede(42L, 2L)).thenReturn(Optional.of(invOrigen));
+        when(inventarioService.obtenerPorProductoYSede(42L, 3L)).thenReturn(Optional.of(invDestino));
+
+        // Act
+        Traslado resultado = trasladoService.crear(traslado);
+
+        // Assert
+        assertEquals(50.0, invOrigen.getCantidad());
+        assertEquals(-100.0, invDestino.getCantidad());
+        verify(inventarioService).actualizar(eq(101L), eq(invOrigen));
+        verify(inventarioService).actualizar(eq(102L), eq(invDestino));
     }
 }
