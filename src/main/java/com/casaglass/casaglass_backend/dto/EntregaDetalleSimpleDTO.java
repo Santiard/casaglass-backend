@@ -30,8 +30,10 @@ public class EntregaDetalleSimpleDTO {
     private Double total; // Total con IVA (antes de retenciones)
     private Double retencionFuente; // Valor de retención en la fuente
     private Double retencionIca; // Valor de retención ICA
+    private Double retencionIva; // Valor de retención de IVA
     private Boolean tieneRetencionFuente;
     private Boolean tieneRetencionIca;
+    private Boolean tieneRetencionIva;
     
     private Boolean ventaCredito;
     private String clienteNombre;
@@ -218,16 +220,20 @@ public class EntregaDetalleSimpleDTO {
                 this.total = detalle.getOrden().getTotal();
                 this.retencionFuente = detalle.getOrden().getRetencionFuente();
                 this.retencionIca = detalle.getOrden().getRetencionIca();
+                this.retencionIva = detalle.getOrden().getRetencionIva();
                 this.tieneRetencionFuente = detalle.getOrden().isTieneRetencionFuente();
                 this.tieneRetencionIca = detalle.getOrden().isTieneRetencionIca();
+                this.tieneRetencionIva = detalle.getOrden().isTieneRetencionIva();
             } else {
                 this.subtotal = null;
                 this.iva = null;
                 this.total = null;
                 this.retencionFuente = null;
                 this.retencionIca = null;
+                this.retencionIva = null;
                 this.tieneRetencionFuente = null;
                 this.tieneRetencionIca = null;
+                this.tieneRetencionIva = null;
             }
             
             this.ventaCredito = detalle.getVentaCredito();
@@ -368,16 +374,20 @@ public class EntregaDetalleSimpleDTO {
                 this.total = detalle.getOrden().getTotal();
                 this.retencionFuente = detalle.getOrden().getRetencionFuente();
                 this.retencionIca = detalle.getOrden().getRetencionIca();
+                this.retencionIva = detalle.getOrden().getRetencionIva();
                 this.tieneRetencionFuente = detalle.getOrden().isTieneRetencionFuente();
                 this.tieneRetencionIca = detalle.getOrden().isTieneRetencionIca();
+                this.tieneRetencionIva = detalle.getOrden().isTieneRetencionIva();
             } else {
                 this.subtotal = null;
                 this.iva = null;
                 this.total = null;
                 this.retencionFuente = null;
                 this.retencionIca = null;
+                this.retencionIva = null;
                 this.tieneRetencionFuente = null;
                 this.tieneRetencionIca = null;
+                this.tieneRetencionIva = null;
             }
             
             this.ventaCredito = detalle.getVentaCredito();

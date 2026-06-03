@@ -5,6 +5,7 @@ import com.casaglass.casaglass_backend.model.Cliente;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.model.Trabajador;
 import com.casaglass.casaglass_backend.service.OrdenService;
+import com.casaglass.casaglass_backend.service.FacturaService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,9 @@ public class OrdenControllerTest {
 
     @MockBean
     private OrdenService ordenService;
+
+    @MockBean
+    private FacturaService facturaService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -78,10 +82,10 @@ public class OrdenControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(ordenRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.numero").value(1001))
-                .andExpect(jsonPath("$.trabajador.id").value(1))
-                .andExpect(jsonPath("$.trabajador.nombre").value("Trabajador Test"));
+                .andExpect(jsonPath("$.orden.id").value(1))
+                .andExpect(jsonPath("$.orden.numero").value(1001))
+                .andExpect(jsonPath("$.orden.trabajador.id").value(1))
+                .andExpect(jsonPath("$.orden.trabajador.nombre").value("Trabajador Test"));
     }
 
     @Test

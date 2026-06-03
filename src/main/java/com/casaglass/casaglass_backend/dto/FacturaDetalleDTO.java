@@ -24,6 +24,7 @@ public class FacturaDetalleDTO {
     private Double iva;
     private Double retencionFuente;
     private Double retencionIca;
+    private Double retencionIva;
     private Double total;
     private String formaPago;
     private String observaciones;
@@ -51,6 +52,7 @@ public class FacturaDetalleDTO {
             this.iva = factura.getIva();
             this.retencionFuente = factura.getRetencionFuente();
             this.retencionIca = factura.getRetencionIca();
+            this.retencionIva = factura.getRetencionIva();
             this.total = factura.getTotal();
             this.formaPago = factura.getFormaPago();
             this.observaciones = factura.getObservaciones();
@@ -106,6 +108,7 @@ public class FacturaDetalleDTO {
         this.iva = factura != null ? factura.getIva() : null;
         this.retencionFuente = factura != null ? factura.getRetencionFuente() : null;
         this.retencionIca = factura != null ? factura.getRetencionIca() : null;
+        this.retencionIva = factura != null ? factura.getRetencionIva() : null;
         this.total = factura != null ? factura.getTotal() : null;
         this.formaPago = factura != null ? factura.getFormaPago() : null;
         this.observaciones = factura != null ? factura.getObservaciones() : null;

@@ -370,7 +370,7 @@ public class CreditoService {
      * @param retencionIca Valor de la retención ICA (se resta del saldo pendiente inicial)
      */
     @Transactional(propagation = Propagation.REQUIRED)
-    public Credito crearCreditoParaOrden(Long ordenId, Long clienteId, Double totalOrden, Double retencionFuente, Double retencionIca) {
+    public Credito crearCreditoParaOrden(Long ordenId, Long clienteId, Double totalOrden, Double retencionFuente, Double retencionIca, Double retencionIva) {
         try {
             // Verificar que no exista ya un crédito para esta orden
             Optional<Credito> existente = creditoRepo.findByOrdenId(ordenId);
@@ -389,10 +389,11 @@ public class CreditoService {
                 throw new IllegalArgumentException("El total de la orden debe ser mayor a 0. Total recibido: " + totalOrden);
             }
 
-            // ✅ CALCULAR SALDO PENDIENTE INICIAL: Total orden - Retención de fuente - Retención ICA
+            // ✅ CALCULAR SALDO PENDIENTE INICIAL: Total orden - Retención de fuente - Retención ICA - Retención IVA
             Double retencionFuenteValor = (retencionFuente != null && retencionFuente > 0) ? retencionFuente : 0.0;
             Double retencionIcaValor = (retencionIca != null && retencionIca > 0) ? retencionIca : 0.0;
-            Double saldoPendienteInicial = totalOrden - retencionFuenteValor - retencionIcaValor;
+            Double retencionIvaValor = (retencionIva != null && retencionIva > 0) ? retencionIva : 0.0;
+            Double saldoPendienteInicial = totalOrden - retencionFuenteValor - retencionIcaValor - retencionIvaValor;
             
             // ✅ VALIDAR QUE saldoPendienteInicial SEA POSITIVO
             if (saldoPendienteInicial <= 0) {
@@ -421,6 +422,14 @@ public class CreditoService {
     }
 
     /**
+     * Overload de crearCreditoParaOrden para compatibilidad hacia atrás
+     */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public Credito crearCreditoParaOrden(Long ordenId, Long clienteId, Double totalOrden, Double retencionFuente, Double retencionIca) {
+        return crearCreditoParaOrden(ordenId, clienteId, totalOrden, retencionFuente, retencionIca, 0.0);
+    }
+
+    /**
      * 🔄 ACTUALIZAR CRÉDITO PARA UNA ORDEN
      * Se ejecuta cuando se actualiza una orden que tiene crédito
      * 
@@ -428,9 +437,10 @@ public class CreditoService {
      * @param nuevoTotalOrden Nuevo total de la orden (total facturado CON IVA, sin restar retención)
      * @param nuevaRetencionFuente Nueva retención de fuente (se resta del saldo pendiente)
      * @param nuevaRetencionIca Nueva retención ICA (se resta del saldo pendiente)
+     * @param nuevaRetencionIva Nueva retención IVA (se resta del saldo pendiente)
      */
     @Transactional(propagation = Propagation.REQUIRED)
-    public Credito actualizarCreditoParaOrden(Long creditoId, Double nuevoTotalOrden, Double nuevaRetencionFuente, Double nuevaRetencionIca) {
+    public Credito actualizarCreditoParaOrden(Long creditoId, Double nuevoTotalOrden, Double nuevaRetencionFuente, Double nuevaRetencionIca, Double nuevaRetencionIva) {
         try {
             Credito credito = creditoRepo.findById(creditoId)
                 .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado con ID: " + creditoId));
@@ -440,10 +450,11 @@ public class CreditoService {
             credito.setTotalCredito(totalNormalizado);
 
             // ✅ RECALCULAR SALDO PENDIENTE CONSIDERANDO LAS RETENCIONES
-            // El saldo pendiente inicial debe ser: totalOrden - retencionFuente - retencionIca
+            // El saldo pendiente inicial debe ser: totalOrden - retencionFuente - retencionIca - retencionIva
             Double retencionFuenteValor = (nuevaRetencionFuente != null && nuevaRetencionFuente > 0) ? nuevaRetencionFuente : 0.0;
             Double retencionIcaValor = (nuevaRetencionIca != null && nuevaRetencionIca > 0) ? nuevaRetencionIca : 0.0;
-            Double saldoPendienteInicial = totalNormalizado - retencionFuenteValor - retencionIcaValor;
+            Double retencionIvaValor = (nuevaRetencionIva != null && nuevaRetencionIva > 0) ? nuevaRetencionIva : 0.0;
+            Double saldoPendienteInicial = totalNormalizado - retencionFuenteValor - retencionIcaValor - retencionIvaValor;
 
             // El saldo pendiente actual = saldo pendiente inicial - total abonado
             Double totalAbonado = credito.getTotalAbonado() != null ? credito.getTotalAbonado() : 0.0;
@@ -469,6 +480,14 @@ public class CreditoService {
         } catch (Exception e) {
             throw new RuntimeException("Error al actualizar crédito: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Overload de actualizarCreditoParaOrden para compatibilidad hacia atrás
+     */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public Credito actualizarCreditoParaOrden(Long creditoId, Double nuevoTotalOrden, Double nuevaRetencionFuente, Double nuevaRetencionIca) {
+        return actualizarCreditoParaOrden(creditoId, nuevoTotalOrden, nuevaRetencionFuente, nuevaRetencionIca, 0.0);
     }
 
     /**
@@ -531,6 +550,7 @@ public class CreditoService {
         }
         double retFuente = 0.0;
         double retIca = 0.0;
+        double retIva = 0.0;
         Orden orden = credito.getOrden();
         if (orden != null) {
             if (orden.isTieneRetencionFuente() && orden.getRetencionFuente() != null) {
@@ -539,9 +559,12 @@ public class CreditoService {
             if (orden.isTieneRetencionIca() && orden.getRetencionIca() != null) {
                 retIca = orden.getRetencionIca();
             }
+            if (orden.isTieneRetencionIva() && orden.getRetencionIva() != null) {
+                retIva = orden.getRetencionIva();
+            }
         }
         double totalCredito = credito.getTotalCredito() != null ? credito.getTotalCredito() : 0.0;
-        double running = normalize(totalCredito - retFuente - retIca);
+        double running = normalize(totalCredito - retFuente - retIca - retIva);
 
         List<Abono> ordenados = new ArrayList<>(credito.getAbonos());
         ordenados.sort(Comparator
@@ -771,7 +794,14 @@ public class CreditoService {
                 retencionFuente = credito.getOrden().getRetencionFuente();
             }
 
-            Double totalAAbonar = credito.getTotalCredito() - retencionFuente;
+            Double retencionIva = 0.0;
+            if (credito.getOrden() != null && 
+                credito.getOrden().isTieneRetencionIva() && 
+                credito.getOrden().getRetencionIva() != null) {
+                retencionIva = credito.getOrden().getRetencionIva();
+            }
+
+            Double totalAAbonar = credito.getTotalCredito() - retencionFuente - retencionIva;
             
             credito.setTotalAbonado(normalize(totalAAbonar));
             credito.setSaldoPendiente(0.0);

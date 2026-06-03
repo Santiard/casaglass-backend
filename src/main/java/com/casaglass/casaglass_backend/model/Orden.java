@@ -162,6 +162,20 @@ public class Orden {
   @Column(name = "retencion_ica", nullable = false)
   private Double retencionIca = 0.0;
 
+  /**
+   * Indica si la orden tiene retención de IVA aplicada
+   */
+  @Column(name = "tiene_retencion_iva", nullable = false)
+  private boolean tieneRetencionIva = false;
+
+  /**
+   * Valor monetario de la retención de IVA
+   * Se calcula automáticamente cuando tieneRetencionIva = true
+   * y la base imponible (subtotal) supera el umbral configurado
+   */
+  @Column(name = "retencion_iva", nullable = false)
+  private Double retencionIva = 0.0;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private EstadoOrden estado = EstadoOrden.ACTIVA;

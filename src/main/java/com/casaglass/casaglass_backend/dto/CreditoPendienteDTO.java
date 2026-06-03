@@ -86,6 +86,14 @@ public class CreditoPendienteDTO {
     /** Porcentaje de retención ICA aplicado (opcional) */
     private Double porcentajeIca;
     
+    // ========== RETENCIÓN IVA ==========
+    
+    /** Indica si la orden tiene retención de IVA */
+    private Boolean tieneRetencionIva;
+    
+    /** Valor de la retención de IVA */
+    private Double retencionIva;
+    
     // ========== DATOS ADICIONALES ==========
     
     /** Fecha del último abono realizado (opcional) */
@@ -155,6 +163,10 @@ public class CreditoPendienteDTO {
             this.tieneRetencionIca = credito.getOrden().isTieneRetencionIca();
             this.retencionIca = credito.getOrden().getRetencionIca();
             this.porcentajeIca = credito.getOrden().getPorcentajeIca();
+            
+            // Retención IVA
+            this.tieneRetencionIva = credito.getOrden().isTieneRetencionIva();
+            this.retencionIva = credito.getOrden().getRetencionIva();
             
             // Sede
             if (credito.getOrden().getSede() != null) {

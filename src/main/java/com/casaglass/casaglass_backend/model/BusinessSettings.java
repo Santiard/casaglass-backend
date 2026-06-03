@@ -51,6 +51,19 @@ public class BusinessSettings {
     @Column(name = "ica_threshold", nullable = false)
     private Long icaThreshold = 1_000_000L;
 
+    /** Retención IVA (%) (0–100), ej: 15.0 */
+    @NotNull
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
+    @Column(name = "reteiva_rate", nullable = false)
+    private Double reteivaRate = 15.0;
+
+    /** Umbral desde el que aplica retención IVA (COP) */
+    @NotNull
+    @Min(0)
+    @Column(name = "reteiva_threshold", nullable = false)
+    private Long reteivaThreshold = 1_000_000L;
+
     /** Marca de tiempo simple (usa LocalDate para seguir tu estilo) */
     @NotNull
     @Column(name = "updated_at", nullable = false)

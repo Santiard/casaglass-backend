@@ -25,6 +25,7 @@ public class OrdenVentaDTO {
     private boolean incluidaEntrega = false; // si incluye entrega
     private boolean tieneRetencionFuente = false; // si la orden tiene retención de fuente
     private boolean tieneRetencionIca = false; // si la orden tiene retención ICA
+    private boolean tieneRetencionIva = false; // si la orden tiene retención de IVA
     private Double porcentajeIca; // Porcentaje de retención ICA (configurable desde frontend)
     private Double porcentajeDescuento = 0.0; // Porcentaje de descuento aplicado sobre el subtotal
     

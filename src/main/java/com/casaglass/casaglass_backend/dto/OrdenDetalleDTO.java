@@ -29,6 +29,8 @@ public class OrdenDetalleDTO {
     private boolean tieneRetencionIca; // Indica si la orden tiene retención ICA
     private Double porcentajeIca; // Porcentaje de retención ICA (configurable desde frontend)
     private Double retencionIca; // Valor monetario de la retención ICA
+    private boolean tieneRetencionIva; // Indica si la orden tiene retención de IVA
+    private Double retencionIva; // Valor monetario de la retención de IVA
     private Double total; // Total facturado (subtotal facturado, sin restar retención)
     private Double subtotalBruto; // Suma de totalLinea de items (CON IVA) antes del descuento
     private Double porcentajeDescuento; // Porcentaje de descuento aplicado (0.0 si no existe)
@@ -338,6 +340,8 @@ public class OrdenDetalleDTO {
             this.tieneRetencionIca = orden.isTieneRetencionIca();
             this.porcentajeIca = orden.getPorcentajeIca();
             this.retencionIca = orden.getRetencionIca();
+            this.tieneRetencionIva = orden.isTieneRetencionIva();
+            this.retencionIva = orden.getRetencionIva();
         this.total = orden.getTotal();
         this.estado = orden.getEstado() != null ? orden.getEstado().name() : "ACTIVA";
             
@@ -419,6 +423,8 @@ public class OrdenDetalleDTO {
         this.tieneRetencionIca = orden != null && orden.isTieneRetencionIca();
         this.porcentajeIca = orden != null ? orden.getPorcentajeIca() : null;
         this.retencionIca = orden != null ? orden.getRetencionIca() : null;
+        this.tieneRetencionIva = orden != null && orden.isTieneRetencionIva();
+        this.retencionIva = orden != null ? orden.getRetencionIva() : null;
         this.total = orden != null ? orden.getTotal() : null;
         this.estado = "ACTIVA";
         this.sede = null;

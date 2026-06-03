@@ -37,6 +37,8 @@ public class BusinessSettingsService {
         defaultSettings.setReteThreshold(1_000_000L);
         defaultSettings.setIcaRate(1.0);
         defaultSettings.setIcaThreshold(1_000_000L);
+        defaultSettings.setReteivaRate(15.0);
+        defaultSettings.setReteivaThreshold(1_000_000L);
         defaultSettings.setUpdatedAt(LocalDate.now());
         return defaultSettings;
     }
@@ -81,6 +83,8 @@ public class BusinessSettingsService {
         existente.setReteThreshold(settings.getReteThreshold());
         existente.setIcaRate(settings.getIcaRate());
         existente.setIcaThreshold(settings.getIcaThreshold());
+        existente.setReteivaRate(settings.getReteivaRate());
+        existente.setReteivaThreshold(settings.getReteivaThreshold());
         existente.setUpdatedAt(LocalDate.now());
         
         return repository.save(existente);
@@ -104,6 +108,8 @@ public class BusinessSettingsService {
             existente.setReteThreshold(settings.getReteThreshold());
             existente.setIcaRate(settings.getIcaRate());
             existente.setIcaThreshold(settings.getIcaThreshold());
+            existente.setReteivaRate(settings.getReteivaRate());
+            existente.setReteivaThreshold(settings.getReteivaThreshold());
             existente.setUpdatedAt(LocalDate.now());
             return repository.save(existente);
         } else {
@@ -132,6 +138,12 @@ public class BusinessSettingsService {
         }
         if (settings.getIcaThreshold() == null || settings.getIcaThreshold() < 0) {
             throw new IllegalArgumentException("El ICA threshold debe ser mayor o igual a 0");
+        }
+        if (settings.getReteivaRate() == null || settings.getReteivaRate() < 0 || settings.getReteivaRate() > 100) {
+            throw new IllegalArgumentException("El ReteIVA rate debe estar entre 0 y 100");
+        }
+        if (settings.getReteivaThreshold() == null || settings.getReteivaThreshold() < 0) {
+            throw new IllegalArgumentException("El ReteIVA threshold debe ser mayor o igual a 0");
         }
     }
 

@@ -89,6 +89,12 @@ public class Factura {
   private Double retencionIca = 0.0;
 
   /**
+   * Retención de IVA
+   */
+  @Column(name = "retencion_iva", nullable = false)
+  private Double retencionIva = 0.0;
+
+  /**
    * Total final de la factura (total facturado CON IVA, sin restar retención)
    * Fórmula: total = subtotal + iva
    * NOTA: El subtotal es SIN IVA, por lo que se suma el IVA para obtener el total facturado
