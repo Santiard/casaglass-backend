@@ -213,8 +213,31 @@ public class EntregaDetalleSimpleDTO {
                 this.montoOrden = detalle.getMontoOrden();
             }
             
-            // ✅ MAPEAR MONTOS DETALLADOS desde la orden
-            if (detalle.getOrden() != null) {
+            // ✅ MAPEAR MONTOS DETALLADOS
+            if (reembolso != null) {
+                double totalReemb = reembolso.getTotalReembolso() != null ? reembolso.getTotalReembolso() : 0.0;
+                double subtotalReemb = reembolso.getSubtotal() != null ? reembolso.getSubtotal() : 0.0;
+                this.total = -Math.abs(totalReemb);
+                this.subtotal = -Math.abs(subtotalReemb);
+                this.iva = 0.0;
+                this.retencionFuente = 0.0;
+                this.retencionIca = 0.0;
+                this.retencionIva = 0.0;
+                this.tieneRetencionFuente = false;
+                this.tieneRetencionIca = false;
+                this.tieneRetencionIva = false;
+            } else if (com.casaglass.casaglass_backend.model.EntregaDetalle.TipoMovimiento.EGRESO.equals(detalle.getTipoMovimiento())) {
+                double raw = detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0;
+                this.total = raw < 0 ? raw : -Math.abs(raw);
+                this.subtotal = raw < 0 ? raw : -Math.abs(raw);
+                this.iva = 0.0;
+                this.retencionFuente = 0.0;
+                this.retencionIca = 0.0;
+                this.retencionIva = 0.0;
+                this.tieneRetencionFuente = false;
+                this.tieneRetencionIca = false;
+                this.tieneRetencionIva = false;
+            } else if (detalle.getOrden() != null) {
                 this.subtotal = detalle.getOrden().getSubtotal();
                 this.iva = detalle.getOrden().getIva();
                 this.total = detalle.getOrden().getTotal();
@@ -241,7 +264,20 @@ public class EntregaDetalleSimpleDTO {
             this.observaciones = detalle.getObservaciones();
 
             // Montos estructurados por medio de pago
-            if (detalle.getVentaCredito() != null && !detalle.getVentaCredito() && detalle.getOrden() != null) {
+            if (reembolso != null) {
+                double rVal = Math.abs(reembolso.getTotalReembolso() != null ? reembolso.getTotalReembolso() : 0.0);
+                this.montoEfectivo = 0.0;
+                this.montoTransferencia = 0.0;
+                this.montoCheque = 0.0;
+                this.montoDeposito = 0.0;
+                if (reembolso.getFormaReembolso() != null) {
+                    if (reembolso.getFormaReembolso() == com.casaglass.casaglass_backend.model.ReembolsoVenta.FormaReembolso.EFECTIVO) {
+                        this.montoEfectivo = rVal;
+                    } else if (reembolso.getFormaReembolso() == com.casaglass.casaglass_backend.model.ReembolsoVenta.FormaReembolso.TRANSFERENCIA) {
+                        this.montoTransferencia = rVal;
+                    }
+                }
+            } else if (detalle.getVentaCredito() != null && !detalle.getVentaCredito() && detalle.getOrden() != null) {
                 this.montoEfectivo = normalizarMonto(detalle.getOrden().getMontoEfectivo());
                 this.montoTransferencia = normalizarMonto(detalle.getOrden().getMontoTransferencia());
                 this.montoCheque = normalizarMonto(detalle.getOrden().getMontoCheque());
@@ -367,8 +403,31 @@ public class EntregaDetalleSimpleDTO {
                 this.montoOrden = detalle.getMontoOrden();
             }
             
-            // ✅ MAPEAR MONTOS DETALLADOS desde la orden
-            if (detalle.getOrden() != null) {
+            // ✅ MAPEAR MONTOS DETALLADOS
+            if (reembolso != null) {
+                double totalReemb = reembolso.getTotalReembolso() != null ? reembolso.getTotalReembolso() : 0.0;
+                double subtotalReemb = reembolso.getSubtotal() != null ? reembolso.getSubtotal() : 0.0;
+                this.total = -Math.abs(totalReemb);
+                this.subtotal = -Math.abs(subtotalReemb);
+                this.iva = 0.0;
+                this.retencionFuente = 0.0;
+                this.retencionIca = 0.0;
+                this.retencionIva = 0.0;
+                this.tieneRetencionFuente = false;
+                this.tieneRetencionIca = false;
+                this.tieneRetencionIva = false;
+            } else if (com.casaglass.casaglass_backend.model.EntregaDetalle.TipoMovimiento.EGRESO.equals(detalle.getTipoMovimiento())) {
+                double raw = detalle.getMontoOrden() != null ? detalle.getMontoOrden() : 0.0;
+                this.total = raw < 0 ? raw : -Math.abs(raw);
+                this.subtotal = raw < 0 ? raw : -Math.abs(raw);
+                this.iva = 0.0;
+                this.retencionFuente = 0.0;
+                this.retencionIca = 0.0;
+                this.retencionIva = 0.0;
+                this.tieneRetencionFuente = false;
+                this.tieneRetencionIca = false;
+                this.tieneRetencionIva = false;
+            } else if (detalle.getOrden() != null) {
                 this.subtotal = detalle.getOrden().getSubtotal();
                 this.iva = detalle.getOrden().getIva();
                 this.total = detalle.getOrden().getTotal();
@@ -393,6 +452,44 @@ public class EntregaDetalleSimpleDTO {
             this.ventaCredito = detalle.getVentaCredito();
             this.clienteNombre = detalle.getClienteNombre();
             this.observaciones = detalle.getObservaciones();
+
+            // Montos estructurados por medio de pago
+            if (reembolso != null) {
+                double rVal = Math.abs(reembolso.getTotalReembolso() != null ? reembolso.getTotalReembolso() : 0.0);
+                this.montoEfectivo = 0.0;
+                this.montoTransferencia = 0.0;
+                this.montoCheque = 0.0;
+                this.montoDeposito = 0.0;
+                if (reembolso.getFormaReembolso() != null) {
+                    if (reembolso.getFormaReembolso() == com.casaglass.casaglass_backend.model.ReembolsoVenta.FormaReembolso.EFECTIVO) {
+                        this.montoEfectivo = rVal;
+                    } else if (reembolso.getFormaReembolso() == com.casaglass.casaglass_backend.model.ReembolsoVenta.FormaReembolso.TRANSFERENCIA) {
+                        this.montoTransferencia = rVal;
+                    }
+                }
+            } else if (detalle.getVentaCredito() != null && !detalle.getVentaCredito() && detalle.getOrden() != null) {
+                this.montoEfectivo = normalizarMonto(detalle.getOrden().getMontoEfectivo());
+                this.montoTransferencia = normalizarMonto(detalle.getOrden().getMontoTransferencia());
+                this.montoCheque = normalizarMonto(detalle.getOrden().getMontoCheque());
+                this.montoDeposito = 0.0;
+            } else if (abono != null) {
+                this.montoEfectivo = normalizarMonto(abono.getMontoEfectivo());
+                this.montoTransferencia = normalizarMonto(abono.getMontoTransferencia());
+                this.montoCheque = normalizarMonto(abono.getMontoCheque());
+                this.montoDeposito = 0.0;
+            } else {
+                this.montoEfectivo = 0.0;
+                this.montoTransferencia = 0.0;
+                this.montoCheque = 0.0;
+                this.montoDeposito = 0.0;
+            }
+
+            this.medioPago = calcularMedioPago(
+                this.montoEfectivo,
+                this.montoTransferencia,
+                this.montoCheque,
+                this.montoDeposito
+            );
             
             // ✅ MAPEAR TIPO DE MOVIMIENTO
             // Si el campo tipoMovimiento está establecido, usarlo

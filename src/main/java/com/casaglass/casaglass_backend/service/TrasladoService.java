@@ -259,7 +259,51 @@ public class TrasladoService {
             if (cambios.getFechaConfirmacion() != null) {
                 t.setFechaConfirmacion(cambios.getFechaConfirmacion());
             }
-            return repo.save(t);
+
+            // 3️⃣ Actualizar los detalles (solo si vienen en el payload, si no se omiten para compatibilidad)
+            if (cambios.getDetalles() != null) {
+                // Revertir todos los movimientos actuales de inventario de este traslado
+                if (t.getDetalles() != null) {
+                    for (TrasladoDetalle d : t.getDetalles()) {
+                        revertirMovimientoLinea(t, d);
+                    }
+                    t.getDetalles().clear();
+                } else {
+                    t.setDetalles(new ArrayList<>());
+                }
+
+                for (TrasladoDetalle d : cambios.getDetalles()) {
+                    if (d.getProducto() == null || d.getProducto().getId() == null)
+                        throw new IllegalArgumentException("Cada detalle requiere producto.id");
+                    if (d.getCantidad() == null || d.getCantidad() < 1)
+                        throw new IllegalArgumentException("Cada detalle requiere cantidad >= 1");
+
+                    Producto producto = productoRepository.findById(d.getProducto().getId())
+                        .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + d.getProducto().getId()));
+
+                    d.setTraslado(t);
+                    d.setProducto(producto);
+                    if (d.getProductoInventarioADescontarSede1() != null
+                            && d.getProductoInventarioADescontarSede1().getId() != null) {
+                        Producto aDescontar = productoRepository.findById(d.getProductoInventarioADescontarSede1().getId())
+                                .orElseThrow(() -> new RuntimeException("Producto a descontar (sede 1) no encontrado"));
+                        d.setProductoInventarioADescontarSede1(aDescontar);
+                    } else {
+                        d.setProductoInventarioADescontarSede1(null);
+                    }
+                    t.getDetalles().add(d);
+                }
+
+                // Guardar los cambios (guarda cabecera y detalles en cascada)
+                Traslado resultado = repo.save(t);
+
+                // Aplicar los nuevos movimientos de inventario
+                actualizarInventarioTraslado(resultado);
+
+                return resultado;
+            } else {
+                return repo.save(t);
+            }
         }).orElseThrow(() -> new RuntimeException("Traslado no encontrado con id " + id));
     }
 
@@ -648,7 +692,10 @@ public class TrasladoService {
                     .obtenerPorCorteYSede(corteId, sedeId)
                     .map(InventarioCorte::getCantidad)
                     .orElse(0.0);
-            if (disponible < aSacar) {
+            
+            boolean esReversion = tipo != null && tipo.contains("revertir");
+            
+            if (disponible < aSacar && !esReversion) {
                 throw new InventarioInsuficienteException(
                         "No hay suficiente stock de corte en sede " + tipo
                                 + ". Disponible: " + disponible + ", requerido: " + aSacar,
@@ -667,7 +714,9 @@ public class TrasladoService {
             Inventario inv = inventarioOpt.get();
             double nuevaCantidad = inv.getCantidad() + ajuste;
             
-            if (ajuste < 0 && nuevaCantidad < 0) {
+            boolean esReversion = tipo != null && tipo.contains("revertir");
+            
+            if (ajuste < 0 && nuevaCantidad < 0 && !esReversion) {
                 throw new RuntimeException("Stock insuficiente en sede " + tipo + ". " +
                     "Disponible: " + inv.getCantidad() + ", ajuste solicitado: " + ajuste);
             }
@@ -684,9 +733,20 @@ public class TrasladoService {
                 nuevoInventario.setCantidad(ajuste);
                 inventarioService.guardar(nuevoInventario);
             } else {
-                throw new InventarioInsuficienteException(
-                    "No existe inventario del producto ID " + productoId + 
-                    " en sede " + tipo + " ID " + sedeId);
+                boolean esReversion = tipo != null && tipo.contains("revertir");
+                if (esReversion) {
+                    Inventario nuevoInventario = new Inventario();
+                    nuevoInventario.setProducto(productoRepository.findById(productoId)
+                        .orElseThrow(() -> new RuntimeException("Producto no encontrado")));
+                    nuevoInventario.setSede(sedeRepository.findById(sedeId)
+                        .orElseThrow(() -> new RuntimeException("Sede no encontrada")));
+                    nuevoInventario.setCantidad(ajuste);
+                    inventarioService.guardar(nuevoInventario);
+                } else {
+                    throw new InventarioInsuficienteException(
+                        "No existe inventario del producto ID " + productoId + 
+                        " en sede " + tipo + " ID " + sedeId);
+                }
             }
         }
     }
