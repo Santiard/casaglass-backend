@@ -30,6 +30,12 @@ public class OrdenActualizarDTO {
     private Double porcentajeIca; // Porcentaje de retención ICA (configurable desde frontend)
     private Double porcentajeDescuento = 0.0; // Porcentaje de descuento aplicado sobre el subtotal
     
+    // MONTOS POR METODO DE PAGO
+    private Double montoEfectivo = 0.0;
+    private Double montoTransferencia = 0.0;
+    private Double montoCheque = 0.0;
+
+    
     // IDs DE ENTIDADES RELACIONADAS (para actualizar referencias)
     private Long clienteId;
     private Long trabajadorId; 

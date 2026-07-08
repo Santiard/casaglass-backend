@@ -280,6 +280,9 @@ public class OrdenService {
         orden.setTieneRetencionFuente(ventaDTO.isTieneRetencionFuente());
         orden.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
         orden.setTieneRetencionIva(ventaDTO.isTieneRetencionIva());
+        orden.setMontoEfectivo(ventaDTO.getMontoEfectivo() != null ? ventaDTO.getMontoEfectivo() : 0.0);
+        orden.setMontoTransferencia(ventaDTO.getMontoTransferencia() != null ? ventaDTO.getMontoTransferencia() : 0.0);
+        orden.setMontoCheque(ventaDTO.getMontoCheque() != null ? ventaDTO.getMontoCheque() : 0.0);
         Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         orden.setEstado(Orden.EstadoOrden.ACTIVA);
         
@@ -622,6 +625,9 @@ public class OrdenService {
         ordenExistente.setVenta(ventaDTO.isVenta());
         ordenExistente.setCredito(ventaDTO.isCredito());
         ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        ordenExistente.setMontoEfectivo(ventaDTO.getMontoEfectivo() != null ? ventaDTO.getMontoEfectivo() : 0.0);
+        ordenExistente.setMontoTransferencia(ventaDTO.getMontoTransferencia() != null ? ventaDTO.getMontoTransferencia() : 0.0);
+        ordenExistente.setMontoCheque(ventaDTO.getMontoCheque() != null ? ventaDTO.getMontoCheque() : 0.0);
         Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         ordenExistente.setTieneRetencionIca(ventaDTO.isTieneRetencionIca());
         
@@ -763,6 +769,9 @@ public class OrdenService {
         ordenExistente.setVenta(ventaDTO.isVenta());
         ordenExistente.setCredito(ventaDTO.isCredito());
         ordenExistente.setIncluidaEntrega(ventaDTO.isIncluidaEntrega());
+        ordenExistente.setMontoEfectivo(ventaDTO.getMontoEfectivo() != null ? ventaDTO.getMontoEfectivo() : 0.0);
+        ordenExistente.setMontoTransferencia(ventaDTO.getMontoTransferencia() != null ? ventaDTO.getMontoTransferencia() : 0.0);
+        ordenExistente.setMontoCheque(ventaDTO.getMontoCheque() != null ? ventaDTO.getMontoCheque() : 0.0);
         Double porcentajeDescuento = normalizarPorcentajeDescuento(ventaDTO.getPorcentajeDescuento());
         
         // 🔗 ACTUALIZAR RELACIONES
@@ -1948,6 +1957,10 @@ public class OrdenService {
         orden.setTieneRetencionIca(dto.isTieneRetencionIca());
         orden.setPorcentajeIca(dto.getPorcentajeIca());
         Double porcentajeDescuento = normalizarPorcentajeDescuento(dto.getPorcentajeDescuento());
+        
+        orden.setMontoEfectivo(dto.getMontoEfectivo() != null ? dto.getMontoEfectivo() : 0.0);
+        orden.setMontoTransferencia(dto.getMontoTransferencia() != null ? dto.getMontoTransferencia() : 0.0);
+        orden.setMontoCheque(dto.getMontoCheque() != null ? dto.getMontoCheque() : 0.0);
 
         if (dto.getPorcentajeDescuento() != null
                 && (dto.getPorcentajeDescuento() < 0 || dto.getPorcentajeDescuento() > 100)) {

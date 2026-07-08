@@ -1,6 +1,8 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.dto.ResumenMesDTO;
+import com.casaglass.casaglass_backend.dto.EntregaDetalleSimpleDTO;
+import com.casaglass.casaglass_backend.dto.TotalesEntregaPorMedioDTO;
 import com.casaglass.casaglass_backend.model.Abono;
 import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.EntregaDinero;
@@ -24,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class EntregaDineroService {
@@ -362,14 +365,17 @@ public class EntregaDineroService {
             );
             entregaGuardada.setMonto(montoCalculado != null ? montoCalculado : 0.0);
             
-            // Actualizar el desglose si el monto fue calculado y no hay desglose
-            if (entregaGuardada.getMontoEfectivo() == 0.0 && 
-                entregaGuardada.getMontoTransferencia() == 0.0 &&
-                entregaGuardada.getMontoCheque() == 0.0 &&
-                entregaGuardada.getMontoDeposito() == 0.0) {
-                // Por defecto, todo en efectivo
-                entregaGuardada.setMontoEfectivo(entregaGuardada.getMonto());
-            }
+            // Calcular desglose real basado en los detalles asociados y actualizar la cabecera
+            List<EntregaDetalle> detallesGuardados = entregaDetalleService.obtenerPorEntrega(entregaGuardada.getId());
+            List<EntregaDetalleSimpleDTO> dtos = detallesGuardados.stream()
+                    .map(EntregaDetalleSimpleDTO::new)
+                    .collect(Collectors.toList());
+            TotalesEntregaPorMedioDTO totales = TotalesEntregaPorMedioDTO.desdeDetalles(dtos);
+            
+            entregaGuardada.setMontoEfectivo(totales.getEfectivo() != null ? totales.getEfectivo() : 0.0);
+            entregaGuardada.setMontoTransferencia(totales.getTransferencia() != null ? totales.getTransferencia() : 0.0);
+            entregaGuardada.setMontoCheque(totales.getCheque() != null ? totales.getCheque() : 0.0);
+            entregaGuardada.setMontoDeposito(totales.getDeposito() != null ? totales.getDeposito() : 0.0);
         }
 
         return entregaDineroRepository.save(entregaGuardada);
