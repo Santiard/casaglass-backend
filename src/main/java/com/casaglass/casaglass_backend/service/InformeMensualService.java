@@ -4,10 +4,12 @@ import com.casaglass.casaglass_backend.dto.*;
 import com.casaglass.casaglass_backend.model.CierreInformeMensualSede;
 import com.casaglass.casaglass_backend.model.EntregaDinero;
 import com.casaglass.casaglass_backend.model.Inventario;
+import com.casaglass.casaglass_backend.model.InventarioCorte;
 import com.casaglass.casaglass_backend.model.Orden;
 import com.casaglass.casaglass_backend.model.Sede;
 import com.casaglass.casaglass_backend.repository.CierreInformeMensualSedeRepository;
 import com.casaglass.casaglass_backend.repository.InventarioRepository;
+import com.casaglass.casaglass_backend.repository.InventarioCorteRepository;
 import com.casaglass.casaglass_backend.repository.OrdenRepository;
 import com.casaglass.casaglass_backend.repository.SedeRepository;
 import com.casaglass.casaglass_backend.repository.AbonoRepository;
@@ -34,6 +36,7 @@ public class InformeMensualService {
     private final SedeRepository sedeRepository;
     private final OrdenRepository ordenRepository;
     private final InventarioRepository inventarioRepository;
+    private final InventarioCorteRepository inventarioCorteRepository;
     private final CierreInformeMensualSedeRepository cierreInformeRepository;
     private final EntregaDineroService entregaDineroService;
     private final AbonoRepository abonoRepository;
@@ -43,6 +46,7 @@ public class InformeMensualService {
             SedeRepository sedeRepository,
             OrdenRepository ordenRepository,
             InventarioRepository inventarioRepository,
+            InventarioCorteRepository inventarioCorteRepository,
             CierreInformeMensualSedeRepository cierreInformeRepository,
             EntregaDineroService entregaDineroService,
             AbonoRepository abonoRepository,
@@ -50,6 +54,7 @@ public class InformeMensualService {
         this.sedeRepository = sedeRepository;
         this.ordenRepository = ordenRepository;
         this.inventarioRepository = inventarioRepository;
+        this.inventarioCorteRepository = inventarioCorteRepository;
         this.cierreInformeRepository = cierreInformeRepository;
         this.entregaDineroService = entregaDineroService;
         this.abonoRepository = abonoRepository;
@@ -107,8 +112,9 @@ public class InformeMensualService {
      * Nota: no incluye cortes en v1.
      */
     private Double valorInventarioPorSede(Long sedeId) {
+        // 1) Valor de productos enteros en inventario normal
         List<Inventario> rows = inventarioRepository.findBySedeId(sedeId);
-        double v = rows.stream()
+        double vNormal = rows.stream()
                 .mapToDouble(inv -> {
                     Double precio = null;
                     if (inv.getProducto() != null) {
@@ -117,7 +123,20 @@ public class InformeMensualService {
                     return nz(inv.getCantidad()) * nz(precio);
                 })
                 .sum();
-        return round2(v);
+
+        // 2) Valor de productos que son cortes en inventario de cortes
+        List<InventarioCorte> rowsCortes = inventarioCorteRepository.findBySedeId(sedeId);
+        double vCortes = rowsCortes.stream()
+                .mapToDouble(inv -> {
+                    Double precio = null;
+                    if (inv.getCorte() != null) {
+                        precio = inv.getCorte().getPrecio1() != null ? inv.getCorte().getPrecio1() : inv.getCorte().getCosto();
+                    }
+                    return nz(inv.getCantidad()) * nz(precio);
+                })
+                .sum();
+
+        return round2(vNormal + vCortes);
     }
 
     private InformeMensualCierreListItemDTO aItemLista(CierreInformeMensualSede c) {

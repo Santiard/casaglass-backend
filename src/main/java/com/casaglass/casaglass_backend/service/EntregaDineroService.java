@@ -495,8 +495,41 @@ public class EntregaDineroService {
     }
     
     /**
+     * Calcula el saldo pendiente de un crédito a una fecha determinada.
+     */
+    private double calcularSaldoCreditoAFecha(Credito c, LocalDate fechaMax) {
+        if (c.getFechaInicio() != null && c.getFechaInicio().isAfter(fechaMax)) {
+            return 0.0;
+        }
+        
+        Double totalCred = c.getTotalCredito() != null ? c.getTotalCredito() : 0.0;
+        
+        // Obtener retenciones de la orden
+        Double retencionFuente = 0.0;
+        if (c.getOrden() != null && c.getOrden().isTieneRetencionFuente() && c.getOrden().getRetencionFuente() != null) {
+            retencionFuente = c.getOrden().getRetencionFuente();
+        }
+        Double retencionIca = 0.0;
+        if (c.getOrden() != null && c.getOrden().isTieneRetencionIca() && c.getOrden().getRetencionIca() != null) {
+            retencionIca = c.getOrden().getRetencionIca();
+        }
+        
+        // Sumar abonos realizados en o antes de la fechaMax
+        double totalAbonadoAFecha = 0.0;
+        if (c.getAbonos() != null) {
+            totalAbonadoAFecha = c.getAbonos().stream()
+                .filter(a -> a.getFecha() != null && !a.getFecha().isAfter(fechaMax))
+                .mapToDouble(a -> a.getTotal() != null ? a.getTotal() : 0.0)
+                .sum();
+        }
+        
+        double saldo = totalCred - totalAbonadoAFecha - retencionFuente - retencionIca;
+        return saldo > 0.0 ? saldo : 0.0;
+    }
+
+    /**
      * Calcula el resumen del mes de una entrega específica
-     * @param fechaEntrega La fecha de la entrega para determinar el mes a analizar
+     * @param entrega La entrega para determinar el mes y la sede a analizar
      * @return ResumenMesDTO con totales de ventas y créditos activos del mes
      */
     @Transactional(readOnly = true)
@@ -527,34 +560,34 @@ public class EntregaDineroService {
                 .sum();
         }
 
-        // 2. Total deudas mensuales (créditos activos iniciados en el mes de la misma sede)
-        //    + total créditos activos histórico (todos los abiertos de la sede, sin filtro de fecha)
+        // 2. Total deudas mensuales (créditos iniciados en el mes, sin importar su estado actual)
+        //    + total créditos activos histórico (unpaid at the end of the month, regardless of current status)
         Double totalDeudasMensuales;
         Double totalCreditosActivosHistorico;
         if (entrega.getSede() != null) {
-            List<Credito> creditosActivosSede = creditoRepository.findByOrdenSedeIdAndEstado(
-                entrega.getSede().getId(),
-                Credito.EstadoCredito.ABIERTO
-            );
-            totalDeudasMensuales = creditosActivosSede.stream()
-                .filter(credito -> credito.getFechaInicio() != null &&
-                    !credito.getFechaInicio().isBefore(inicioMes) &&
-                    !credito.getFechaInicio().isAfter(finMes))
-                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+            // Nuevas deudas generadas en el mes
+            List<Credito> creditosDelMes = creditoRepository.findByOrdenSedeIdAndFechaInicioBetween(
+                entrega.getSede().getId(), inicioMes, finMes);
+            totalDeudasMensuales = creditosDelMes.stream()
+                .mapToDouble(c -> c.getTotalCredito() != null ? c.getTotalCredito() : 0.0)
                 .sum();
-            totalCreditosActivosHistorico = creditosActivosSede.stream()
-                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+
+            // Créditos activos al fin del mes (con saldo pendiente > 0 en esa fecha)
+            List<Credito> todosCreditosSede = creditoRepository.findByOrdenSedeId(entrega.getSede().getId());
+            totalCreditosActivosHistorico = todosCreditosSede.stream()
+                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
                 .sum();
         } else {
-            List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
-            totalDeudasMensuales = creditosActivos.stream()
-                .filter(credito -> credito.getFechaInicio() != null &&
-                    !credito.getFechaInicio().isBefore(inicioMes) &&
-                    !credito.getFechaInicio().isAfter(finMes))
-                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+            // Nuevas deudas generadas en el mes (global)
+            List<Credito> creditosDelMes = creditoRepository.findByFechaInicioBetween(inicioMes, finMes);
+            totalDeudasMensuales = creditosDelMes.stream()
+                .mapToDouble(c -> c.getTotalCredito() != null ? c.getTotalCredito() : 0.0)
                 .sum();
-            totalCreditosActivosHistorico = creditosActivos.stream()
-                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+
+            // Créditos activos al fin del mes (global)
+            List<Credito> todosCreditos = creditoRepository.findAll();
+            totalCreditosActivosHistorico = todosCreditos.stream()
+                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
                 .sum();
         }
 
@@ -583,6 +616,9 @@ public class EntregaDineroService {
         return resumen;
     }
     
+    /**
+     * Indica el resumen del mes para una fecha específica (global, sin sede)
+     */
     public ResumenMesDTO calcularResumenMes(LocalDate fechaEntrega) {
         if (fechaEntrega == null) {
             return null;
@@ -599,16 +635,15 @@ public class EntregaDineroService {
                 .mapToDouble(o -> o.getTotal() != null ? o.getTotal() : 0.0)
                 .sum();
         
-        // 2. Total deudas mensuales + histórico (sin sede en este overload)
-        List<Credito> creditosActivos = creditoRepository.findByEstado(Credito.EstadoCredito.ABIERTO);
-        Double totalDeudasMensuales = creditosActivos.stream()
-            .filter(credito -> credito.getFechaInicio() != null &&
-                !credito.getFechaInicio().isBefore(inicioMes) &&
-                !credito.getFechaInicio().isAfter(finMes))
-                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+        // 2. Total deudas mensuales + histórico (global)
+        List<Credito> creditosDelMes = creditoRepository.findByFechaInicioBetween(inicioMes, finMes);
+        Double totalDeudasMensuales = creditosDelMes.stream()
+                .mapToDouble(c -> c.getTotalCredito() != null ? c.getTotalCredito() : 0.0)
                 .sum();
-        Double totalCreditosActivosHistorico = creditosActivos.stream()
-                .mapToDouble(credito -> credito.getSaldoPendiente() != null ? credito.getSaldoPendiente() : 0.0)
+                
+        List<Credito> todosCreditos = creditoRepository.findAll();
+        Double totalCreditosActivosHistorico = todosCreditos.stream()
+                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
                 .sum();
 
         // 3. Generar nombre del mes en formato ISO "2026-04"

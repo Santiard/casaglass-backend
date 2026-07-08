@@ -4,6 +4,7 @@ import com.casaglass.casaglass_backend.dto.ReembolsoVentaCreateDTO;
 import com.casaglass.casaglass_backend.dto.ReembolsoVentaResponseDTO;
 import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.*;
+import com.casaglass.casaglass_backend.service.InventarioCorteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,8 @@ public class ReembolsoVentaService {
     private final InventarioService inventarioService;
     private final CreditoService creditoService;
     private final CreditoRepository creditoRepository;
+    private final CorteRepository corteRepository;
+    private final InventarioCorteService inventarioCorteService;
 
     @Autowired
     public ReembolsoVentaService(
@@ -40,7 +43,9 @@ public class ReembolsoVentaService {
             ProductoRepository productoRepository,
             InventarioService inventarioService,
             CreditoService creditoService,
-            CreditoRepository creditoRepository) {
+            CreditoRepository creditoRepository,
+            CorteRepository corteRepository,
+            InventarioCorteService inventarioCorteService) {
         this.reembolsoVentaRepository = reembolsoVentaRepository;
         this.reembolsoVentaDetalleRepository = reembolsoVentaDetalleRepository;
         this.ordenRepository = ordenRepository;
@@ -51,6 +56,8 @@ public class ReembolsoVentaService {
         this.inventarioService = inventarioService;
         this.creditoService = creditoService;
         this.creditoRepository = creditoRepository;
+        this.corteRepository = corteRepository;
+        this.inventarioCorteService = inventarioCorteService;
     }
 
     @Transactional(readOnly = true)
@@ -309,21 +316,26 @@ public class ReembolsoVentaService {
             Producto producto = detalle.getProducto();
             Double cantidad = detalle.getCantidad();
 
-            // Sumar al inventario
-            Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(
-                    producto.getId(), sede.getId());
-
-            if (inventarioOpt.isPresent()) {
-                Inventario inventario = inventarioOpt.get();
-                inventario.setCantidad(inventario.getCantidad() + cantidad);
-                inventarioService.actualizar(inventario.getId(), inventario);
+            // Verificar si el producto es un corte para redirigir a inventario_cortes
+            if (producto != null && corteRepository.existsById(producto.getId())) {
+                inventarioCorteService.incrementarStock(producto.getId(), sede.getId(), cantidad);
             } else {
-                // Si no existe inventario, crear uno
-                Inventario nuevoInventario = new Inventario();
-                nuevoInventario.setProducto(producto);
-                nuevoInventario.setSede(sede);
-                nuevoInventario.setCantidad(cantidad);
-                inventarioService.guardar(nuevoInventario);
+                // Sumar al inventario normal
+                Optional<Inventario> inventarioOpt = inventarioService.obtenerPorProductoYSede(
+                        producto.getId(), sede.getId());
+
+                if (inventarioOpt.isPresent()) {
+                    Inventario inventario = inventarioOpt.get();
+                    inventario.setCantidad(inventario.getCantidad() + cantidad);
+                    inventarioService.actualizar(inventario.getId(), inventario);
+                } else {
+                    // Si no existe inventario, crear uno
+                    Inventario nuevoInventario = new Inventario();
+                    nuevoInventario.setProducto(producto);
+                    nuevoInventario.setSede(sede);
+                    nuevoInventario.setCantidad(cantidad);
+                    inventarioService.guardar(nuevoInventario);
+                }
             }
             productosActualizados++;
         }
