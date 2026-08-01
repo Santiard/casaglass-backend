@@ -274,4 +274,22 @@ public class InformeMensualService {
         cierreInformeRepository.save(row);
         return obtenerCierre(req.getSedeId(), req.getYear(), req.getMonth());
     }
+
+    @Transactional
+    public void eliminarCierre(Long sedeId, int anio, int mesVal) {
+        validarMes(anio, mesVal);
+        
+        // Validación: Solo permitir borrar cierres de hasta 2 meses atrás
+        LocalDate fechaCierre = LocalDate.of(anio, mesVal, 1);
+        LocalDate fechaActual = LocalDate.now();
+        LocalDate fechaLimite = fechaActual.minusMonths(2).withDayOfMonth(1);
+        
+        if (fechaCierre.isBefore(fechaLimite)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Por seguridad, no se permite eliminar cierres con más de 2 meses de antigüedad.");
+        }
+
+        CierreInformeMensualSede guardado = cierreInformeRepository.findBySedeIdAndAnioAndMes(sedeId, anio, mesVal)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No hay cierre mensual guardado para esa sede y fecha"));
+        cierreInformeRepository.delete(guardado);
+    }
 }

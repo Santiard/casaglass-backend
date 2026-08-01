@@ -6,6 +6,7 @@ import com.casaglass.casaglass_backend.dto.InformeMensualResponseDTO;
 import com.casaglass.casaglass_backend.service.InformeMensualService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -52,5 +53,14 @@ public class InformeMensualController {
             @RequestParam Long sedeId,
             @RequestParam int year) {
         return ResponseEntity.ok(informeMensualService.listarCierresAnio(sedeId, year));
+    }
+
+    @DeleteMapping("/cierre")
+    public ResponseEntity<Void> eliminarCierre(
+            @RequestParam Long sedeId,
+            @RequestParam int year,
+            @RequestParam int month) {
+        informeMensualService.eliminarCierre(sedeId, year, month);
+        return ResponseEntity.noContent().build();
     }
 }
