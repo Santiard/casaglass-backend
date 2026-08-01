@@ -571,11 +571,11 @@ public class EntregaDineroService {
         Double totalDeudasMensuales;
         Double totalCreditosActivosHistorico;
         if (entrega.getSede() != null) {
-            // Nuevas deudas generadas en el mes
+            // Nuevas deudas generadas en el mes (saldos pendientes de los créditos de este mes)
             List<Credito> creditosDelMes = creditoRepository.findByOrdenSedeIdAndFechaInicioBetween(
                 entrega.getSede().getId(), inicioMes, finMes);
             totalDeudasMensuales = creditosDelMes.stream()
-                .mapToDouble(c -> c.getTotalCredito() != null ? c.getTotalCredito() : 0.0)
+                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
                 .sum();
 
             // Créditos activos al fin del mes (con saldo pendiente > 0 en esa fecha)
@@ -584,10 +584,10 @@ public class EntregaDineroService {
                 .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
                 .sum();
         } else {
-            // Nuevas deudas generadas en el mes (global)
+            // Nuevas deudas generadas en el mes (global, saldos pendientes)
             List<Credito> creditosDelMes = creditoRepository.findByFechaInicioBetween(inicioMes, finMes);
             totalDeudasMensuales = creditosDelMes.stream()
-                .mapToDouble(c -> c.getTotalCredito() != null ? c.getTotalCredito() : 0.0)
+                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
                 .sum();
 
             // Créditos activos al fin del mes (global)
@@ -641,10 +641,10 @@ public class EntregaDineroService {
                 .mapToDouble(o -> o.getTotal() != null ? o.getTotal() : 0.0)
                 .sum();
         
-        // 2. Total deudas mensuales + histórico (global)
+        // 2. Total deudas mensuales + histórico (global, usando saldos pendientes)
         List<Credito> creditosDelMes = creditoRepository.findByFechaInicioBetween(inicioMes, finMes);
         Double totalDeudasMensuales = creditosDelMes.stream()
-                .mapToDouble(c -> c.getTotalCredito() != null ? c.getTotalCredito() : 0.0)
+                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
                 .sum();
                 
         List<Credito> todosCreditos = creditoRepository.findAll();
