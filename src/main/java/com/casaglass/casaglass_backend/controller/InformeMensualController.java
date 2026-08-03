@@ -63,4 +63,10 @@ public class InformeMensualController {
         informeMensualService.eliminarCierre(sedeId, year, month);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/deudas-detalle")
+    public ResponseEntity<List<com.casaglass.casaglass_backend.dto.DeudaDetalleDTO>> obtenerDetalleDeudas(
+            @RequestParam Long sedeId) {
+        return ResponseEntity.ok(informeMensualService.obtenerDetalleDeudasSede(sedeId));
+    }
 }

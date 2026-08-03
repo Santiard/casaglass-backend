@@ -3,6 +3,7 @@ package com.casaglass.casaglass_backend.service;
 import com.casaglass.casaglass_backend.dto.*;
 import com.casaglass.casaglass_backend.model.CierreInformeMensualSede;
 import com.casaglass.casaglass_backend.model.EntregaDinero;
+import com.casaglass.casaglass_backend.model.Credito;
 import com.casaglass.casaglass_backend.model.Inventario;
 import com.casaglass.casaglass_backend.model.InventarioCorte;
 import com.casaglass.casaglass_backend.model.Orden;
@@ -41,6 +42,7 @@ public class InformeMensualService {
     private final EntregaDineroService entregaDineroService;
     private final AbonoRepository abonoRepository;
     private final ReembolsoVentaRepository reembolsoVentaRepository;
+    private final com.casaglass.casaglass_backend.repository.CreditoRepository creditoRepository;
 
     public InformeMensualService(
             SedeRepository sedeRepository,
@@ -50,7 +52,8 @@ public class InformeMensualService {
             CierreInformeMensualSedeRepository cierreInformeRepository,
             EntregaDineroService entregaDineroService,
             AbonoRepository abonoRepository,
-            ReembolsoVentaRepository reembolsoVentaRepository) {
+            ReembolsoVentaRepository reembolsoVentaRepository,
+            com.casaglass.casaglass_backend.repository.CreditoRepository creditoRepository) {
         this.sedeRepository = sedeRepository;
         this.ordenRepository = ordenRepository;
         this.inventarioRepository = inventarioRepository;
@@ -59,6 +62,7 @@ public class InformeMensualService {
         this.entregaDineroService = entregaDineroService;
         this.abonoRepository = abonoRepository;
         this.reembolsoVentaRepository = reembolsoVentaRepository;
+        this.creditoRepository = creditoRepository;
     }
 
     private static void validarMes(int anio, int mesVal) {
@@ -291,5 +295,27 @@ public class InformeMensualService {
         CierreInformeMensualSede guardado = cierreInformeRepository.findBySedeIdAndAnioAndMes(sedeId, anio, mesVal)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No hay cierre mensual guardado para esa sede y fecha"));
         cierreInformeRepository.delete(guardado);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DeudaDetalleDTO> obtenerDetalleDeudasSede(Long sedeId) {
+        List<Credito> creditos = creditoRepository.findByOrdenSedeId(sedeId);
+        
+        return creditos.stream()
+            .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO && c.getSaldoPendiente() != null && c.getSaldoPendiente() > 0)
+            .map(c -> DeudaDetalleDTO.builder()
+                .creditoId(c.getId())
+                .ordenId(c.getOrden() != null ? c.getOrden().getId() : null)
+                .cliente(c.getCliente() != null ? c.getCliente().getNombre() : "N/A")
+                .fechaInicio(c.getFechaInicio())
+                .totalCredito(c.getTotalCredito())
+                .saldoPendiente(c.getSaldoPendiente())
+                .build())
+            .sorted((DeudaDetalleDTO a, DeudaDetalleDTO b) -> {
+                if (a.getFechaInicio() == null) return 1;
+                if (b.getFechaInicio() == null) return -1;
+                return a.getFechaInicio().compareTo(b.getFechaInicio());
+            })
+            .toList();
     }
 }

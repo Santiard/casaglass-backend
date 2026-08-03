@@ -578,22 +578,25 @@ public class EntregaDineroService {
                 .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
                 .sum();
 
-            // Créditos activos al fin del mes (con saldo pendiente > 0 en esa fecha)
+            // Créditos activos al fin del mes (usamos el saldo pendiente al momento de hacer el cierre)
             List<Credito> todosCreditosSede = creditoRepository.findByOrdenSedeId(entrega.getSede().getId());
             totalCreditosActivosHistorico = todosCreditosSede.stream()
-                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                .mapToDouble(c -> c.getSaldoPendiente() != null ? c.getSaldoPendiente() : 0.0)
                 .sum();
         } else {
-            // Nuevas deudas generadas en el mes (global, saldos pendientes)
+            // Nuevas deudas generadas en el mes (global, saldos pendientes actuales)
             List<Credito> creditosDelMes = creditoRepository.findByFechaInicioBetween(inicioMes, finMes);
             totalDeudasMensuales = creditosDelMes.stream()
-                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                .mapToDouble(c -> c.getSaldoPendiente() != null ? c.getSaldoPendiente() : 0.0)
                 .sum();
 
-            // Créditos activos al fin del mes (global)
+            // Créditos activos (global, saldos pendientes actuales)
             List<Credito> todosCreditos = creditoRepository.findAll();
             totalCreditosActivosHistorico = todosCreditos.stream()
-                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                .mapToDouble(c -> c.getSaldoPendiente() != null ? c.getSaldoPendiente() : 0.0)
                 .sum();
         }
 
@@ -644,12 +647,14 @@ public class EntregaDineroService {
         // 2. Total deudas mensuales + histórico (global, usando saldos pendientes)
         List<Credito> creditosDelMes = creditoRepository.findByFechaInicioBetween(inicioMes, finMes);
         Double totalDeudasMensuales = creditosDelMes.stream()
-                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                .mapToDouble(c -> c.getSaldoPendiente() != null ? c.getSaldoPendiente() : 0.0)
                 .sum();
                 
         List<Credito> todosCreditos = creditoRepository.findAll();
         Double totalCreditosActivosHistorico = todosCreditos.stream()
-                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                .mapToDouble(c -> c.getSaldoPendiente() != null ? c.getSaldoPendiente() : 0.0)
                 .sum();
 
         // 3. Generar nombre del mes en formato ISO "2026-04"
