@@ -28,17 +28,20 @@ public class CreditoService {
     private final FacturaRepository facturaRepository;
     private final EntregaClienteEspecialService entregaClienteEspecialService;
     private final SedeRepository sedeRepository;
+    private final com.casaglass.casaglass_backend.repository.ReembolsoVentaRepository reembolsoVentaRepository;
 
     public CreditoService(CreditoRepository creditoRepo,
                           EntityManager entityManager,
                           FacturaRepository facturaRepository,
                           EntregaClienteEspecialService entregaClienteEspecialService,
-                          SedeRepository sedeRepository) {
+                          SedeRepository sedeRepository,
+                          com.casaglass.casaglass_backend.repository.ReembolsoVentaRepository reembolsoVentaRepository) {
         this.creditoRepo = creditoRepo;
         this.entityManager = entityManager;
         this.facturaRepository = facturaRepository;
         this.entregaClienteEspecialService = entregaClienteEspecialService;
         this.sedeRepository = sedeRepository;
+        this.reembolsoVentaRepository = reembolsoVentaRepository;
     }
 
     /* ---------- Helpers de dinero (redondeado a 2 decimales) ---------- */
@@ -445,8 +448,15 @@ public class CreditoService {
             Credito credito = creditoRepo.findById(creditoId)
                 .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado con ID: " + creditoId));
 
+            // Calcular el total reembolsado para no cobrar productos devueltos
+            Double totalReembolsado = reembolsoVentaRepository.findByOrdenOriginalId(credito.getOrden().getId())
+                    .stream()
+                    .filter(r -> r.getProcesado() && r.getEstado() != com.casaglass.casaglass_backend.model.ReembolsoVenta.EstadoReembolso.ANULADO)
+                    .mapToDouble(com.casaglass.casaglass_backend.model.ReembolsoVenta::getTotalReembolso)
+                    .sum();
+
             // Actualizar el total del crédito
-            Double totalNormalizado = normalize(nuevoTotalOrden);
+            Double totalNormalizado = normalize(nuevoTotalOrden - totalReembolsado);
             credito.setTotalCredito(totalNormalizado);
 
             // ✅ RECALCULAR SALDO PENDIENTE CONSIDERANDO LAS RETENCIONES
@@ -527,6 +537,13 @@ public class CreditoService {
     public Credito recalcularTotales(Long creditoId) {
         Credito credito = creditoRepo.findById(creditoId)
                 .orElseThrow(() -> new IllegalArgumentException("Crédito no encontrado"));
+
+        // Si es el cliente especial, NO recalculamos el totalAbonado a partir de la tabla Abono,
+        // ya que sus pagos (cruces de cuentas) se registran directamente sin crear registros de Abono.
+        if (credito.getCliente() != null && credito.getCliente().getId().equals(499L)) {
+            credito.actualizarSaldo();
+            return creditoRepo.save(credito);
+        }
 
         // Recalcular total abonado sumando todos los abonos
         Double totalAbonos = credito.getAbonos().stream()

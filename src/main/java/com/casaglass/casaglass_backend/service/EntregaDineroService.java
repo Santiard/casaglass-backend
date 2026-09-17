@@ -575,7 +575,8 @@ public class EntregaDineroService {
             List<Credito> creditosDelMes = creditoRepository.findByOrdenSedeIdAndFechaInicioBetween(
                 entrega.getSede().getId(), inicioMes, finMes);
             totalDeudasMensuales = creditosDelMes.stream()
-                .mapToDouble(c -> calcularSaldoCreditoAFecha(c, finMes))
+                .filter(c -> c.getEstado() == Credito.EstadoCredito.ABIERTO)
+                .mapToDouble(c -> c.getSaldoPendiente() != null ? c.getSaldoPendiente() : 0.0)
                 .sum();
 
             // Créditos activos al fin del mes (usamos el saldo pendiente al momento de hacer el cierre)
