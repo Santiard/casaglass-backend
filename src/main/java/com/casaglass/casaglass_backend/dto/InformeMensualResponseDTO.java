@@ -23,5 +23,17 @@ public class InformeMensualResponseDTO {
     private Double deudasActivasTotales;
     private Double valorInventario;
 
+    // --- NUEVOS CAMPOS DETALLADOS ---
+    private Double ventasContadoMes;
+    private Double ventasCreditoMes;
+    private Double dineroRecogidoAbonosMes;
+    private Double dineroRecogidoAbonosMesActual;
+    private Double dineroRecogidoAbonosCarteraAntigua;
+    private Double dineroRecogidoReembolsosMes;
+    private Double creditosMesPagados;
+    private Double ventasClienteEspecialMes;
+    private Double pagosClienteEspecialMes;
+    // --------------------------------
+
     private InformeMensualRangoOrdenesDTO ordenesVentasMes;
 }

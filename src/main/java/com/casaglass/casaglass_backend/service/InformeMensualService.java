@@ -43,6 +43,7 @@ public class InformeMensualService {
     private final AbonoRepository abonoRepository;
     private final ReembolsoVentaRepository reembolsoVentaRepository;
     private final com.casaglass.casaglass_backend.repository.CreditoRepository creditoRepository;
+    private final com.casaglass.casaglass_backend.repository.EntregaClienteEspecialRepository entregaClienteEspecialRepository;
 
     public InformeMensualService(
             SedeRepository sedeRepository,
@@ -53,7 +54,8 @@ public class InformeMensualService {
             EntregaDineroService entregaDineroService,
             AbonoRepository abonoRepository,
             ReembolsoVentaRepository reembolsoVentaRepository,
-            com.casaglass.casaglass_backend.repository.CreditoRepository creditoRepository) {
+            com.casaglass.casaglass_backend.repository.CreditoRepository creditoRepository,
+            com.casaglass.casaglass_backend.repository.EntregaClienteEspecialRepository entregaClienteEspecialRepository) {
         this.sedeRepository = sedeRepository;
         this.ordenRepository = ordenRepository;
         this.inventarioRepository = inventarioRepository;
@@ -63,6 +65,7 @@ public class InformeMensualService {
         this.abonoRepository = abonoRepository;
         this.reembolsoVentaRepository = reembolsoVentaRepository;
         this.creditoRepository = creditoRepository;
+        this.entregaClienteEspecialRepository = entregaClienteEspecialRepository;
     }
 
     private static void validarMes(int anio, int mesVal) {
@@ -185,20 +188,76 @@ public class InformeMensualService {
 
         InformeMensualMesPeriodoDTO periodo = crearPeriodoDto(anio, mesVal);
 
-        double dineroRecogido = calcularDineroRecogidoMes(sedeId, inicio, fin);
+        Double ventasContadoMes = ordenRepository.sumTotalVentasContadoPorSedeEnPeriodo(sedeId, inicio, fin);
+        
+        // Desglose de Abonos
+        List<com.casaglass.casaglass_backend.model.Abono> abonosDelMes = abonoRepository.findBySedeIdAndFechaBetween(sedeId, inicio, fin);
+        double abonos = abonosDelMes.stream()
+                .mapToDouble(a -> a.getTotal() != null ? a.getTotal() : 0.0)
+                .sum();
+                
+        double dineroRecogidoAbonosMesActual = abonosDelMes.stream()
+                .filter(a -> a.getCredito() != null && a.getCredito().getFechaInicio() != null && !a.getCredito().getFechaInicio().isBefore(inicio))
+                .mapToDouble(a -> a.getTotal() != null ? a.getTotal() : 0.0)
+                .sum();
+                
+        double dineroRecogidoAbonosCarteraAntigua = abonosDelMes.stream()
+                .filter(a -> a.getCredito() != null && a.getCredito().getFechaInicio() != null && a.getCredito().getFechaInicio().isBefore(inicio))
+                .mapToDouble(a -> a.getTotal() != null ? a.getTotal() : 0.0)
+                .sum();
+
+        Double reembolsos = reembolsoVentaRepository.sumTotalReembolsosPorSedeEnPeriodo(sedeId, inicio, fin);
+        
+        Double ventasMes = resumenMes != null ? resumenMes.getTotalDelMes() : 0.0;
+        Double ventasCreditoMes = nz(ventasMes) - nz(ventasContadoMes);
+        
+        double dineroRecogido = nz(ventasContadoMes) + nz(abonos) - nz(reembolsos);
         Double valorInv = valorInventarioPorSede(sedeId);
         InformeMensualRangoOrdenesDTO rango = calcularRangoOrdenes(sedeId, inicio, fin);
+
+        // Créditos creados este mes: cuánto ya fue pagado
+        List<com.casaglass.casaglass_backend.model.Credito> creditosDelMes = creditoRepository.findByOrdenSedeIdAndFechaInicioBetween(sedeId, inicio, fin);
+        double creditosMesPagados = creditosDelMes.stream()
+                .mapToDouble(c -> c.getTotalAbonado() != null ? c.getTotalAbonado() : 0.0)
+                .sum();
+
+        // Ventas Cliente Especial (ID 499)
+        List<com.casaglass.casaglass_backend.model.Orden> ventasEspeciales = ordenRepository.findBySedeIdAndFechaBetweenAndVentaTrue(sedeId, inicio, fin).stream()
+                .filter(o -> o.getCliente() != null && o.getCliente().getId() == 499L)
+                .collect(java.util.stream.Collectors.toList());
+        double ventasClienteEspecialMes = ventasEspeciales.stream()
+                .mapToDouble(o -> o.getTotal() != null ? o.getTotal() : 0.0)
+                .sum();
+
+        // Pagos Cliente Especial (ID 499) realizados en este mes
+        // Sumamos los montos abonados en las entregas especiales del mes que corresponden a esta sede
+        List<com.casaglass.casaglass_backend.model.EntregaClienteEspecial> entregasEspeciales = entregaClienteEspecialRepository.buscarPorRango(inicio.atStartOfDay(), fin.atTime(23, 59, 59));
+        double pagosClienteEspecialMes = entregasEspeciales.stream()
+                .flatMap(e -> e.getDetalles().stream())
+                .filter(d -> d.getOrden() != null && d.getOrden().getSede() != null && d.getOrden().getSede().getId().equals(sedeId))
+                .mapToDouble(d -> d.getSaldoAnterior() != null ? d.getSaldoAnterior() : 0.0)
+                .sum();
 
         return InformeMensualResponseDTO.builder()
                 .origen("PREVIEW")
                 .sede(new SedeSimpleDTO(sede))
                 .periodo(periodo)
-                .ventasMes(round2Nz(resumenMes != null ? resumenMes.getTotalDelMes() : null))
+                .ventasMes(round2Nz(ventasMes))
                 .dineroRecogidoMes(round2Nz(dineroRecogido))
                 .deudasMes(round2Nz(resumenMes != null ? resumenMes.getTotalDeudasMensuales() : null))
                 .deudasActivasTotales(round2Nz(resumenMes != null ? resumenMes.getTotalCreditosActivosHistorico() : null))
                 .valorInventario(round2Nz(valorInv))
                 .ordenesVentasMes(rango)
+                // Detallados
+                .ventasContadoMes(round2Nz(ventasContadoMes))
+                .ventasCreditoMes(round2Nz(ventasCreditoMes))
+                .dineroRecogidoAbonosMes(round2Nz(abonos))
+                .dineroRecogidoAbonosMesActual(round2Nz(dineroRecogidoAbonosMesActual))
+                .dineroRecogidoAbonosCarteraAntigua(round2Nz(dineroRecogidoAbonosCarteraAntigua))
+                .dineroRecogidoReembolsosMes(round2Nz(reembolsos))
+                .creditosMesPagados(round2Nz(creditosMesPagados))
+                .ventasClienteEspecialMes(round2Nz(ventasClienteEspecialMes))
+                .pagosClienteEspecialMes(round2Nz(pagosClienteEspecialMes))
                 .build();
     }
 
@@ -222,6 +281,16 @@ public class InformeMensualService {
                         guardado.getOrdenNumeroMax(),
                         guardado.getCantidadOrdenesVentasMes(),
                         CRITERIO_RANGO_ORDENES))
+                // Detallados
+                .ventasContadoMes(round2Nz(guardado.getVentasContadoMes()))
+                .ventasCreditoMes(round2Nz(guardado.getVentasCreditoMes()))
+                .dineroRecogidoAbonosMes(round2Nz(guardado.getDineroRecogidoAbonosMes()))
+                .dineroRecogidoAbonosMesActual(round2Nz(guardado.getDineroRecogidoAbonosMesActual()))
+                .dineroRecogidoAbonosCarteraAntigua(round2Nz(guardado.getDineroRecogidoAbonosCarteraAntigua()))
+                .dineroRecogidoReembolsosMes(round2Nz(guardado.getDineroRecogidoReembolsosMes()))
+                .creditosMesPagados(round2Nz(guardado.getCreditosMesPagados()))
+                .ventasClienteEspecialMes(round2Nz(guardado.getVentasClienteEspecialMes()))
+                .pagosClienteEspecialMes(round2Nz(guardado.getPagosClienteEspecialMes()))
                 .build();
     }
 
@@ -268,6 +337,17 @@ public class InformeMensualService {
         row.setDeudasMes(preview.getDeudasMes());
         row.setDeudasActivasTotales(preview.getDeudasActivasTotales());
         row.setValorInventario(preview.getValorInventario());
+
+        // Campos detallados
+        row.setVentasContadoMes(preview.getVentasContadoMes());
+        row.setVentasCreditoMes(preview.getVentasCreditoMes());
+        row.setDineroRecogidoAbonosMes(preview.getDineroRecogidoAbonosMes());
+        row.setDineroRecogidoAbonosMesActual(preview.getDineroRecogidoAbonosMesActual());
+        row.setDineroRecogidoAbonosCarteraAntigua(preview.getDineroRecogidoAbonosCarteraAntigua());
+        row.setDineroRecogidoReembolsosMes(preview.getDineroRecogidoReembolsosMes());
+        row.setCreditosMesPagados(preview.getCreditosMesPagados());
+        row.setVentasClienteEspecialMes(preview.getVentasClienteEspecialMes());
+        row.setPagosClienteEspecialMes(preview.getPagosClienteEspecialMes());
 
         if (preview.getOrdenesVentasMes() != null) {
             row.setOrdenNumeroMin(preview.getOrdenesVentasMes().getNumeroMin());

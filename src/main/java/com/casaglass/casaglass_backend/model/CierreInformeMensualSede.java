@@ -51,6 +51,35 @@ public class CierreInformeMensualSede {
     @Column(name = "valor_inventario")
     private Double valorInventario;
 
+    // --- NUEVOS CAMPOS DETALLADOS ---
+    @Column(name = "ventas_contado_mes")
+    private Double ventasContadoMes;
+
+    @Column(name = "ventas_credito_mes")
+    private Double ventasCreditoMes;
+
+    @Column(name = "dinero_recogido_abonos_mes")
+    private Double dineroRecogidoAbonosMes;
+
+    @Column(name = "dinero_recogido_abonos_mes_actual")
+    private Double dineroRecogidoAbonosMesActual;
+
+    @Column(name = "dinero_recogido_abonos_cartera_antigua")
+    private Double dineroRecogidoAbonosCarteraAntigua;
+
+    @Column(name = "dinero_recogido_reembolsos_mes")
+    private Double dineroRecogidoReembolsosMes;
+
+    @Column(name = "creditos_mes_pagados")
+    private Double creditosMesPagados;
+
+    @Column(name = "ventas_cliente_especial_mes")
+    private Double ventasClienteEspecialMes;
+
+    @Column(name = "pagos_cliente_especial_mes")
+    private Double pagosClienteEspecialMes;
+    // --------------------------------
+
     @Column(name = "orden_numero_min")
     private Long ordenNumeroMin;
 

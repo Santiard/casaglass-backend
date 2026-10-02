@@ -25,6 +25,8 @@ public interface AbonoRepository extends JpaRepository<Abono, Long> {
      * Encuentra todos los abonos en un rango de fechas
      */
     List<Abono> findByFechaBetween(LocalDate fechaDesde, LocalDate fechaHasta);
+
+    List<Abono> findBySedeIdAndFechaBetween(Long sedeId, LocalDate fechaDesde, LocalDate fechaHasta);
     /**
      * Encuentra abonos de una orden específica en un rango de fechas
      * Usado para cálculos de entregas de dinero
