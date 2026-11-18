@@ -89,32 +89,10 @@ public class AbonoController {
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortOrder) {
         
-        // Usar método con filtros
-        Object resultado = service.listarAbonosConFiltros(
+        // Usar método con filtros (ya devuelve AbonoSimpleDTO agrupados o PageResponse<AbonoSimpleDTO>)
+        return service.listarAbonosConFiltros(
             clienteId, creditoId, fechaDesde, fechaHasta, metodoPago, sedeId, page, size, sortBy, sortOrder
         );
-        
-        // Si es lista paginada, convertir los abonos a DTOs
-        if (resultado instanceof com.casaglass.casaglass_backend.dto.PageResponse) {
-            @SuppressWarnings("unchecked")
-            com.casaglass.casaglass_backend.dto.PageResponse<Abono> pageResponse = 
-                (com.casaglass.casaglass_backend.dto.PageResponse<Abono>) resultado;
-            
-            List<AbonoSimpleDTO> contenidoDTO = pageResponse.getContent().stream()
-                    .map(AbonoSimpleDTO::new)
-                    .collect(Collectors.toList());
-            
-            return com.casaglass.casaglass_backend.dto.PageResponse.of(
-                contenidoDTO, pageResponse.getTotalElements(), pageResponse.getPage(), pageResponse.getSize()
-            );
-        }
-        
-        // Si es lista simple, convertir a DTOs
-        @SuppressWarnings("unchecked")
-        List<Abono> abonos = (List<Abono>) resultado;
-        return abonos.stream()
-                .map(AbonoSimpleDTO::new)
-                .collect(Collectors.toList());
     }
 
     @GetMapping("/creditos/{creditoId}/abonos")
@@ -157,9 +135,7 @@ public class AbonoController {
             abonos = service.listarPorCliente(clienteId);
         }
         
-        return abonos.stream()
-                .map(AbonoSimpleDTO::new)
-                .collect(Collectors.toList());
+        return service.agruparAbonos(abonos);
     }
 
     @GetMapping("/abonos/orden/{ordenId}")

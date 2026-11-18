@@ -1,6 +1,7 @@
 package com.casaglass.casaglass_backend.service;
 
 import com.casaglass.casaglass_backend.dto.AbonoDTO;
+import com.casaglass.casaglass_backend.dto.AbonoSimpleDTO;
 import com.casaglass.casaglass_backend.model.*;
 import com.casaglass.casaglass_backend.repository.AbonoRepository;
 import com.casaglass.casaglass_backend.repository.CreditoRepository;
@@ -473,8 +474,9 @@ public class AbonoService {
     }
 
     /**
-     * 🚀 LISTADO DE ABONOS CON FILTROS COMPLETOS
-     * Acepta múltiples filtros opcionales y retorna lista o respuesta paginada
+     * 🚀 LISTADO DE ABONOS CON FILTROS COMPLETOS Y AGRUPACIÓN POR PAGO MÚLTIPLE
+     * Agrupa registros que pertenezcan a un mismo pago (factura, clienteId, fecha)
+     * y retorna lista de AbonoSimpleDTO o PageResponse<AbonoSimpleDTO>.
      */
     @Transactional(readOnly = true)
     public Object listarAbonosConFiltros(
@@ -506,14 +508,17 @@ public class AbonoService {
             sortOrder = "DESC";
         }
         
-        // Buscar abonos con filtros
+        // Buscar abonos con filtros (ya ordenados por fecha DESC, id DESC)
         List<Abono> abonos = abonoRepo.buscarConFiltros(
             clienteId, creditoId, fechaDesde, fechaHasta, metodoPago, sedeId
         );
+
+        // Agrupar abonos que pertenezcan a un mismo pago múltiple
+        List<AbonoSimpleDTO> agrupados = agruparAbonos(abonos);
         
-        // Aplicar ordenamiento adicional si es necesario (el query ya ordena por fecha DESC)
+        // Aplicar ordenamiento adicional sobre los grupos si es necesario
         if (!sortBy.equals("fecha") || !sortOrder.equals("DESC")) {
-            abonos = aplicarOrdenamientoAbonos(abonos, sortBy, sortOrder);
+            agrupados = aplicarOrdenamientoAbonosAgrupados(agrupados, sortBy, sortOrder);
         }
         
         // Si se solicita paginación
@@ -523,38 +528,84 @@ public class AbonoService {
             if (size < 1) size = 50;
             if (size > 200) size = 200; // Límite máximo para abonos
             
-            long totalElements = abonos.size();
+            long totalElements = agrupados.size();
             
             // Calcular índices para paginación
             int fromIndex = (page - 1) * size;
-            int toIndex = Math.min(fromIndex + size, abonos.size());
+            int toIndex = Math.min(fromIndex + size, agrupados.size());
             
-            if (fromIndex >= abonos.size()) {
+            if (fromIndex >= agrupados.size()) {
                 // Página fuera de rango, retornar lista vacía
                 return com.casaglass.casaglass_backend.dto.PageResponse.of(
-                    new java.util.ArrayList<>(), totalElements, page, size
+                    new java.util.ArrayList<AbonoSimpleDTO>(), totalElements, page, size
                 );
             }
             
             // Obtener solo la página solicitada
-            List<Abono> abonosPagina = abonos.subList(fromIndex, toIndex);
+            List<AbonoSimpleDTO> abonosPagina = agrupados.subList(fromIndex, toIndex);
             
             return com.casaglass.casaglass_backend.dto.PageResponse.of(abonosPagina, totalElements, page, size);
         }
         
-        // Sin paginación: retornar lista completa
-        return abonos;
+        // Sin paginación: retornar lista completa agrupada
+        return agrupados;
+    }
+
+    /**
+     * Agrupa los registros de Abono que pertenezcan a un mismo pago múltiple:
+     * Clave de agrupación: (factura, clienteId, fecha) cuando factura no sea nulo ni vacío.
+     * Si un abono antiguo no tiene factura, no se agrupa (queda como grupo de 1 solo elemento).
+     */
+    @Transactional(readOnly = true)
+    public List<AbonoSimpleDTO> agruparAbonos(List<Abono> abonos) {
+        if (abonos == null || abonos.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+
+        java.util.Map<String, List<Abono>> grupos = new java.util.LinkedHashMap<>();
+        long fallbackCounter = 0;
+
+        for (Abono a : abonos) {
+            if (a == null) {
+                continue;
+            }
+            String factura = a.getFactura() != null ? a.getFactura().trim() : "";
+            String clave;
+            if (!factura.isEmpty()) {
+                Long cliId = a.getCliente() != null && a.getCliente().getId() != null
+                        ? a.getCliente().getId()
+                        : (a.getCredito() != null && a.getCredito().getCliente() != null
+                                ? a.getCredito().getCliente().getId()
+                                : 0L);
+                String fechaStr = a.getFecha() != null ? a.getFecha().toString() : "";
+                clave = "GRP|" + factura + "|" + cliId + "|" + fechaStr;
+            } else {
+                String idStr = a.getId() != null ? a.getId().toString() : ("TMP_" + (++fallbackCounter));
+                clave = "SINGLE|" + idStr;
+            }
+
+            grupos.computeIfAbsent(clave, k -> new java.util.ArrayList<>()).add(a);
+        }
+
+        List<AbonoSimpleDTO> resultado = new java.util.ArrayList<>(grupos.size());
+        for (List<Abono> grupo : grupos.values()) {
+            resultado.add(AbonoSimpleDTO.desdeGrupo(grupo));
+        }
+        return resultado;
     }
     
     /**
-     * Aplica ordenamiento a la lista de abonos según sortBy y sortOrder
+     * Aplica ordenamiento a la lista de abonos agrupados según sortBy y sortOrder
      */
-    private List<Abono> aplicarOrdenamientoAbonos(List<Abono> abonos, String sortBy, String sortOrder) {
+    private List<AbonoSimpleDTO> aplicarOrdenamientoAbonosAgrupados(List<AbonoSimpleDTO> abonos, String sortBy, String sortOrder) {
         boolean ascendente = "ASC".equals(sortOrder);
         
         switch (sortBy.toLowerCase()) {
             case "fecha":
                 abonos.sort((a, b) -> {
+                    if (a.getFecha() == null && b.getFecha() == null) return 0;
+                    if (a.getFecha() == null) return 1;
+                    if (b.getFecha() == null) return -1;
                     int cmp = a.getFecha().compareTo(b.getFecha());
                     return ascendente ? cmp : -cmp;
                 });
@@ -567,8 +618,12 @@ public class AbonoService {
                 });
                 break;
             default:
-                // Por defecto ordenar por fecha DESC
-                abonos.sort((a, b) -> b.getFecha().compareTo(a.getFecha()));
+                abonos.sort((a, b) -> {
+                    if (a.getFecha() == null && b.getFecha() == null) return 0;
+                    if (a.getFecha() == null) return 1;
+                    if (b.getFecha() == null) return -1;
+                    return b.getFecha().compareTo(a.getFecha());
+                });
         }
         
         return abonos;
